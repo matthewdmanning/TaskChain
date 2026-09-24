@@ -2,9 +2,9 @@ name: CI
 
 on:
   pull_request:
+  # Every branch, so the secret scan sees a push that never opens a pull
+  # request. The Android job below stays limited to main and pull requests.
   push:
-    branches:
-      - main
 
 permissions:
   contents: read
@@ -13,6 +13,7 @@ jobs:
   android:
     name: Android checks
     runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request' || github.ref == 'refs/heads/main'
 
     steps:
       - name: Check out repository
