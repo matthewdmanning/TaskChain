@@ -9,7 +9,6 @@ local.properties
 .gradle-tmp
 node_modules
 .kotlin
-augmented-ui-generator\src\test\java\dev\augmentedui\generator\component
 
 # Agent and tooling state
 .agents/
