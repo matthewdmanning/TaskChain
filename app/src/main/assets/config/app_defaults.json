@@ -1,0 +1,7 @@
+{
+  "formatVersion": 1,
+  "continueTimerPastZero": true,
+  "defaultTheme": "system",
+  "reminderSound": true,
+  "reminderHaptics": true
+}

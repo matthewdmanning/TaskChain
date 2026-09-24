@@ -1,0 +1,78 @@
+{
+  "schemaVersion": 1,
+  "id": "2026-09-18-codex-gutter-punk-family-4",
+  "origin": "agent",
+  "producer": "codex",
+  "createdOn": "2026-09-18",
+  "description": "Four all-symmetric gutter-punk variants produced during an isolated agent shape iteration.",
+  "shapes": [
+    {
+      "id": "iteration-1-chamfer",
+      "corners": {
+        "topLeft": { "type": "chamfer", "sizeDp": 12 },
+        "topRight": { "type": "chamfer", "sizeDp": 12 },
+        "bottomRight": { "type": "chamfer", "sizeDp": 12 },
+        "bottomLeft": { "type": "chamfer", "sizeDp": 12 }
+      },
+      "edges": {
+        "top": { "type": "center-notch", "widthDp": 40, "depthDp": 8 },
+        "right": { "type": "none" },
+        "bottom": { "type": "center-notch", "widthDp": 40, "depthDp": 8 },
+        "left": { "type": "none" }
+      },
+      "border": { "widthDp": 2.5, "color": "#FF00F0FF" },
+      "inlay": { "insetDp": 12, "color": "#1F00F0FF" }
+    },
+    {
+      "id": "iteration-2-step",
+      "corners": {
+        "topLeft": { "type": "step", "sizeDp": 14 },
+        "topRight": { "type": "step", "sizeDp": 14 },
+        "bottomRight": { "type": "step", "sizeDp": 14 },
+        "bottomLeft": { "type": "step", "sizeDp": 14 }
+      },
+      "edges": {
+        "top": { "type": "center-notch", "widthDp": 48, "depthDp": 8 },
+        "right": { "type": "none" },
+        "bottom": { "type": "center-notch", "widthDp": 48, "depthDp": 8 },
+        "left": { "type": "none" }
+      },
+      "border": { "widthDp": 3, "color": "#FFFF2A6D" },
+      "inlay": { "insetDp": 14, "color": "#1FFF2A6D" }
+    },
+    {
+      "id": "iteration-3-scoop",
+      "corners": {
+        "topLeft": { "type": "scoop", "sizeDp": 16 },
+        "topRight": { "type": "scoop", "sizeDp": 16 },
+        "bottomRight": { "type": "scoop", "sizeDp": 16 },
+        "bottomLeft": { "type": "scoop", "sizeDp": 16 }
+      },
+      "edges": {
+        "top": { "type": "center-notch", "widthDp": 48, "depthDp": 10 },
+        "right": { "type": "none" },
+        "bottom": { "type": "center-notch", "widthDp": 48, "depthDp": 10 },
+        "left": { "type": "none" }
+      },
+      "border": { "widthDp": 3.5, "color": "#FFFCEE0A" },
+      "inlay": { "insetDp": 16, "color": "#29FCEE0A" }
+    },
+    {
+      "id": "iteration-4-rect",
+      "corners": {
+        "topLeft": { "type": "rect", "sizeDp": 20 },
+        "topRight": { "type": "rect", "sizeDp": 20 },
+        "bottomRight": { "type": "rect", "sizeDp": 20 },
+        "bottomLeft": { "type": "rect", "sizeDp": 20 }
+      },
+      "edges": {
+        "top": { "type": "center-notch", "widthDp": 40, "depthDp": 10 },
+        "right": { "type": "none" },
+        "bottom": { "type": "center-notch", "widthDp": 40, "depthDp": 10 },
+        "left": { "type": "none" }
+      },
+      "border": { "widthDp": 4, "color": "#FF05FFA1" },
+      "inlay": { "insetDp": 18, "color": "#2905FFA1" }
+    }
+  ]
+}

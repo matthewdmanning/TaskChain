@@ -1,0 +1,36 @@
+.gradle/
+.codex-tmp/
+.idea/
+build/
+**/build/
+local.properties
+*.iml
+.DS_Store
+.gradle-tmp
+node_modules
+.kotlin
+augmented-ui-generator\src\test\java\dev\augmentedui\generator\component
+
+# Agent and tooling state
+.agents/
+.local/
+.codex/tmp/
+.build-tmp/
+
+# Scratch work, except the tracked issue specs
+.scratch/*
+!.scratch/issues/
+
+# Junk from unexpanded Windows variables
+%SystemDrive%/
+
+# Environment files. Never commit real values.
+# Commit only a .env.example that holds placeholder values.
+.env
+.env.*
+!.env.example
+
+# Signing material
+*.jks
+*.keystore
+keystore.properties

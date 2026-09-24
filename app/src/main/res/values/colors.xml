@@ -1,0 +1,17 @@
+<resources>
+    <color name="seed">#52634F</color>
+    <color name="light_primary">#3A6740</color>
+    <color name="light_on_primary">#FFFFFF</color>
+    <color name="light_background">#F8FAF4</color>
+    <color name="light_on_background">#191D19</color>
+    <color name="light_surface">#F8FAF4</color>
+    <color name="light_on_surface">#191D19</color>
+    <color name="dark_primary">#A0D39F</color>
+    <color name="dark_on_primary">#083912</color>
+    <color name="dark_background">#111411</color>
+    <color name="dark_on_background">#E1E3DD</color>
+    <color name="dark_surface">#111411</color>
+    <color name="dark_on_surface">#E1E3DD</color>
+    <color name="semantic_completed">#3A6740</color>
+    <color name="semantic_warning">#ED6C02</color>
+</resources>

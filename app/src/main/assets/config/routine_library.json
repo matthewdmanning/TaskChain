@@ -1,0 +1,14 @@
+{
+  "formatVersion": 1,
+  "routines": [
+    {
+      "id": "library-morning-reset",
+      "title": "Morning reset",
+      "description": "A short sequence to start the day intentionally.",
+      "steps": [
+        { "id": "water", "title": "Drink water" },
+        { "id": "plan", "title": "Review today", "timerSeconds": 300 }
+      ]
+    }
+  ]
+}

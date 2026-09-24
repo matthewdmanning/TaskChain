@@ -1,0 +1,4 @@
+<resources>
+    <string name="run_history_save_failed">Could not save run history. Your run is still stored locally.</string>
+    <string name="run_retry_history_save">Retry saving history</string>
+</resources>
