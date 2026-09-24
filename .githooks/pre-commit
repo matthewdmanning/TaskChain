@@ -7,7 +7,6 @@
 # This hook fails closed. If the scanner is missing, the commit stops. A
 # security check that silently skips itself gives false confidence.
 #
-# To bypass the hook for one commit, run: git commit --no-verify
 
 set -e
 
