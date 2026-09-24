@@ -1,0 +1,41 @@
+# Secret scanning configuration. Used by the pre-commit hook and by CI.
+# Rules come from the gitleaks default set. The allowlist below removes known
+# false positives in this repository.
+
+[extend]
+useDefault = true
+
+[[rules]]
+id = "android-keystore-password"
+description = "Keystore or signing password in a committed file"
+regex = '''(?i)(store|key)(Password|Pass|Pwd)\s*[=:]\s*["']?[^\s"']{4,}'''
+tags = ["android", "credential"]
+
+[rules.allowlist]
+regexes = [
+    '''(?i)(store|key)(Password|Pass|Pwd)\s*[=:]\s*["']?(YOUR_|CHANGE_?ME|PLACEHOLDER|EXAMPLE|\$\{|%)''',
+]
+
+[allowlist]
+description = "Paths and values that are safe by design"
+
+paths = [
+    # Lockfiles hold upstream URLs and integrity hashes, never our secrets.
+    '''package-lock\.json''',
+    '''.*\.lockb?$''',
+    # Gradle distribution and toolchain URLs are public infrastructure.
+    '''gradle/wrapper/gradle-wrapper\.properties''',
+    '''gradle/gradle-daemon-jvm\.properties''',
+    # The placeholder file is meant to be committed.
+    '''\.env\.example''',
+    # Documentation that discusses secret handling in prose.
+    '''docs/agents/secrets\.md''',
+    '''SECURITY\.md''',
+]
+
+regexes = [
+    # "Design token" and similar prose use the word token with no value.
+    '''(?i)(design|spacing|color|colour|typography|shape|motion)[ -]?tokens?''',
+    # Android namespace URIs.
+    '''http://schemas\.android\.com/''',
+]

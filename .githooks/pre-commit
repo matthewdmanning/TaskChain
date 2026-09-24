@@ -1,0 +1,31 @@
+#!/bin/sh
+# Scans staged changes for secrets before every commit.
+#
+# Enable this hook once per clone:
+#     git config core.hooksPath .githooks
+#
+# This hook fails closed. If the scanner is missing, the commit stops. A
+# security check that silently skips itself gives false confidence.
+#
+# To bypass the hook for one commit, run: git commit --no-verify
+
+set -e
+
+if ! command -v gitleaks >/dev/null 2>&1; then
+    echo "pre-commit: gitleaks is not installed, so staged changes were not scanned." >&2
+    echo "pre-commit: install it from https://github.com/gitleaks/gitleaks" >&2
+    echo "pre-commit: or run 'git commit --no-verify' to skip this check deliberately." >&2
+    exit 1
+fi
+
+echo "pre-commit: scanning staged changes for secrets"
+
+if ! gitleaks protect --staged --redact --config .gitleaks.toml --verbose; then
+    echo "" >&2
+    echo "pre-commit: a possible secret was found in the staged changes." >&2
+    echo "pre-commit: remove the value, move it into .env, and stage again." >&2
+    echo "pre-commit: if the finding is wrong, add a rule to .gitleaks.toml." >&2
+    exit 1
+fi
+
+echo "pre-commit: no secrets found"

@@ -1,0 +1,7 @@
+<resources>
+    <string name="progress_actual_duration">Actual duration: %1$d seconds</string>
+    <string name="progress_step_adherence">Step adherence: %1$d%%</string>
+    <string name="progress_skipped_steps">Skipped steps: %1$d%%</string>
+    <string name="progress_seven_day_trend">Seven-day trend</string>
+    <string name="progress_daily_count">%1$s: %2$d completed</string>
+</resources>

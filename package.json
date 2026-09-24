@@ -1,0 +1,6 @@
+{
+  "dependencies": {
+    "augmented-ui": "^2.0.0",
+    "cybercore-css": "^0.3.0"
+  }
+}
