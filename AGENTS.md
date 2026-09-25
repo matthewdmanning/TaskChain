@@ -42,6 +42,13 @@ Keep defaults in `app/src/main/assets/config/` and UI values in resources or des
 
 Delegate to the read-only `codebase_scanner` agent with `fork_turns = "none"` when answering a bounded question requires searching enough code that the raw results would add mostly non-useful material to the primary agent's context. Give it the exact question, search scope, and desired evidence; use its distilled, file-cited findings instead of repeating the scan in the primary context.
 
+### Subagent command preflight
+
+- On Windows, set `exec_command` to `shell: "cmd.exe"` and `login: false`, then pass a native command directly. Do not nest `cmd.exe /c`, use PowerShell quoting, or invoke Unix text tools through cmd. Use `type AGENTS.md` for a simple read; avoid multi-pattern `findstr /c:` quoting through a shell wrapper.
+- Verify the actual path with `rg.exe --files` before a scoped search. Tested commands from the repository root: `rg.exe --files app\src\main\java\com\taskchain\ui` and `rg.exe -n TaskChainApp app\src\main\java\com\taskchain\ui\TaskChainApp.kt` both exit 0. The UI currently lives in `TaskChainApp.kt` and `FeatureViewModels.kt`, not `ui/home` or `ui/run` directories. `rg` exit 1 with no diagnostic means no matches, so adjust the query or scope instead of retrying the same command.
+- On a genuine tool failure, follow the raw recovery and tool-failure recording instructions from the global PostToolUse hook. Record the attempted command, exit code, and error excerpt. Read-only subagents must send those details to the parent for logging without attempting to write outside their sandbox. Stop after consecutive failures.
+- Before abandoning a stuck subagent, the parent should inspect its exact command, shell, working directory, and scope, then provide one corrected approach with verified paths. Do not repeat the failed command unchanged.
+
 ## Agent skills
 
 ### Issue tracker

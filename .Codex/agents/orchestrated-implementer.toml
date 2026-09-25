@@ -1,7 +1,7 @@
 name = "orchestrated_implementer"
 description = "Luna implementation worker for one pre-planned, non-overlapping code slice with explicit ownership, success criteria, guardrails, and focused verification."
 model = "gpt-5.6-luna"
-model_reasoning_effort = "medium"
+model_reasoning_effort = "high"
 sandbox_mode = "workspace-write"
 
 developer_instructions = """
