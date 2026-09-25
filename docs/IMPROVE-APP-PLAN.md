@@ -19,7 +19,7 @@ Intake answers:
 ## Phase Status
 | Phase | Skill | Status | Artifact | Date |
 |---|---|---|---|---|
-| 1 | jobs-to-be-done | pending | CUSTOMER.md | |
+| 1 | jobs-to-be-done | done | CUSTOMER.md | 2026-09-25 |
 | 2 | ux-heuristics | pending | DESIGN.md, EXPERIMENTS.md | |
 | 3 | design-everyday-things | pending | DESIGN.md, EXPERIMENTS.md | |
 | 4 | refactoring-ui | pending | DESIGN.md, EXPERIMENTS.md | |
@@ -38,7 +38,13 @@ Statuses: pending - in-progress - awaiting-evidence - done - deferred: <reason> 
 | 2026-09-25 | Intake | Run Phases 4 and 5 after 2 and 3 | The user feels visuals and feedback, but no visual change ships without a Phase 1-3 finding behind it. |
 | 2026-09-25 | Intake | Hold Phase 6 at pending | Decide after the Phase 2 audit shows whether copy is a real friction source. |
 | 2026-09-25 | Intake | Target Phase 2 at the routine builder | The user named it as the highest-friction flow. |
+| 2026-09-25 | 1 | Job statement: "When my attention is low but the routine still has to happen, I want to stop choosing what to do next, so I can act without spending willpower on order." | Names the low-attention circumstance and the decision load, not the app. |
+| 2026-09-25 | 1 | Worst underdelivered dimension is functional | The runner cannot pause, the final step always confirms, the resume point after a skipped step is undecided, and starting still demands a choice. |
+| 2026-09-25 | 1 | The leak is a Little Hire failure | The user chose daily-run friction over first-run authoring cost. |
+| 2026-09-25 | 1 | Retarget Phases 2-5 from the builder to the runner | Follows the Little Hire decision. The builder drops to repeated-edit cost, a secondary surface. |
+| 2026-09-25 | 1 | The social dimension is a deliberate non-target | Sharing or accountability would contradict the local-only, account-free constraint. |
 
 ## Next Actions
-- [ ] Enter Phase 1, jobs-to-be-done, on the routine builder and the runner (agent)
+- [ ] Enter Phase 2, ux-heuristics, on the daily run path: open the app, start without choosing, run a step, pause, finish (agent)
 - [ ] Decide whether to add the optional continuous-discovery phase, since no real-user evidence exists (user)
+- [ ] Close the open CONTEXT.md decision: where the run resumes after completing a previously skipped step (user)
