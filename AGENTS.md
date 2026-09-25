@@ -4,7 +4,7 @@
 
 TaskChain is a single-module, offline Android app. Kotlin source is under `app/src/main/java/com/taskchain/`: `domain/model` defines run data, `domain/run` owns transitions and timers, `data` handles local persistence, `reminder` adapts Android alarms, and `ui` contains Compose screens and ViewModels. Keep Material 3 configuration in `ui/designsystem`. Resources and JSON defaults live in `app/src/main/res/` and `app/src/main/assets/config/`; unit tests live in `app/src/test/java/`. Read `architecture.md` and `CONTEXT.md` before changing behavior.
 
-`augmented-ui-generator/` is a separate standalone library. Before working there, read its introduction at `augmented-ui-generator/README.md` and follow its nested `augmented-ui-generator/AGENTS.md`.
+`augmented-ui-generator` is a separate standalone library. It now lives in its own repository beside this one, at `../augmented-ui-generator`. TaskChain does not depend on it. Read that repository's `README.md` and follow its `AGENTS.md` before working there.
 
 ## Build, Test & Development Commands
 

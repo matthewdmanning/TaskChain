@@ -898,26 +898,6 @@ Use this function to verify active and historical completions stop repeats witho
 Inputs: none.
 Dependencies: `CompletionEvent`, `RoutineId`, `RoutineRun`, `RoutineRunId`, `RoutineRunStep`, `RoutineStep`, `RoutineStepId`, `RunStatus`, `RunStepStatus`, `completedSinceCycle`, `step`.
 
-## `SymmetryMode` — augmented-ui-generator/src/main/java/dev/augmentedui/generator/component/GutterPunkFamily.kt
-Declares the one mirror mode that a generated shape uses for geometry acceptance.
-Inputs: Uncertain: declaration source was not available.
-Dependencies: Uncertain: direct project dependencies could not be confirmed from the available source.
-
-## `GutterPunkVariant` — augmented-ui-generator/src/main/java/dev/augmentedui/generator/component/GutterPunkFamily.kt
-Represents one complete, preview-labeled parameter set in the gutter-punk family.
-Inputs: Uncertain: declaration source was not available.
-Dependencies: Uncertain: direct project dependencies could not be confirmed from the available source.
-
-## `GutterPunkFamily4` — augmented-ui-generator/src/main/java/dev/augmentedui/generator/component/GutterPunkFamily.kt
-Provides the four complete all-symmetric parameter sets for gutter-punk family 4.
-Inputs: Uncertain: declaration source was not available.
-Dependencies: Uncertain: direct project dependencies could not be confirmed from the available source.
-
-## `buildVariant` — augmented-ui-generator/src/main/java/dev/augmentedui/generator/component/GutterPunkFamily.kt
-Use this function to assemble one complete paired-notch shape from its family parameters.
-Inputs: Uncertain: declaration source was not available.
-Dependencies: Uncertain: direct project dependencies could not be confirmed from the available source.
-
 ## `ScheduleFrequency` — app/src/main/java/com/taskchain/domain/model/Models.kt
 Names the recurrence modes supported by routine and task schedules.
 Inputs: val frequency: ScheduleFrequency, val localHour: Int, val localMinute: Int, val daysOfWeek: Set<Int> = emptySet(), val oneTimeEpochMillis: Long? = null,
