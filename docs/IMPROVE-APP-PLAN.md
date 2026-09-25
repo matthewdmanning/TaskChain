@@ -20,7 +20,7 @@ Intake answers:
 | Phase | Skill | Status | Artifact | Date |
 |---|---|---|---|---|
 | 1 | jobs-to-be-done | done | CUSTOMER.md | 2026-09-25 |
-| 2 | ux-heuristics | pending | DESIGN.md, EXPERIMENTS.md | |
+| 2 | ux-heuristics | done | DESIGN.md, EXPERIMENTS.md | 2026-09-25 |
 | 3 | design-everyday-things | pending | DESIGN.md, EXPERIMENTS.md | |
 | 4 | refactoring-ui | pending | DESIGN.md, EXPERIMENTS.md | |
 | 5 | microinteractions | pending | DESIGN.md, EXPERIMENTS.md | |
@@ -43,8 +43,12 @@ Statuses: pending - in-progress - awaiting-evidence - done - deferred: <reason> 
 | 2026-09-25 | 1 | The leak is a Little Hire failure | The user chose daily-run friction over first-run authoring cost. |
 | 2026-09-25 | 1 | Retarget Phases 2-5 from the builder to the runner | Follows the Little Hire decision. The builder drops to repeated-edit cost, a secondary surface. |
 | 2026-09-25 | 1 | The social dimension is a deliberate non-target | Sharing or accountability would contradict the local-only, account-free constraint. |
+| 2026-09-25 | 2 | Put active-run clarity and Pause/Resume in the first fix pass | Both severity-3 daily-run issues were selected by the user. |
+| 2026-09-25 | 2 | Order implementation by ease within each severity tier | The user chose option 2 for backlog ordering; task observations will validate frequency. |
+| 2026-09-25 | 2 | Treat the audit as source-based until a device walkthrough | No current rendered walkthrough or non-maintainer user evidence exists. |
 
 ## Next Actions
-- [ ] Enter Phase 2, ux-heuristics, on the daily run path: open the app, start without choosing, run a step, pause, finish (agent)
+- [ ] Run the Phase 2 scripted task checks on a current device build before treating the severity and frequency estimates as observed (agent, maintainer)
+- [ ] Enter Phase 3, design-everyday-things, on the daily run path (user, agent)
 - [ ] Decide whether to add the optional continuous-discovery phase, since no real-user evidence exists (user)
 - [ ] Close the open CONTEXT.md decision: where the run resumes after completing a previously skipped step (user)

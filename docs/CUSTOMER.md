@@ -17,8 +17,9 @@ at a time, and record what was done, skipped, and how long it really took.
 Where the app underdelivers, in daily use:
 - No pause. `RoutineRunEngine` exposes start, complete, skip, select, back, continue,
   confirm, and abort, but no pause. `pausedAtEpochMillis` is set only as a side effect of
-  moving to another step or of opening the finish confirmation. A real interruption mid-step
-  therefore has no honest answer: the user skips, leaves the step, or abandons the run.
+  moving to another step. A confirmation pauses the timer through
+  `confirmationStartedAtEpochMillis`. A real interruption mid-step therefore has no honest
+  answer: the user skips, leaves the step, or abandons the run.
 - The last step of every run costs an extra confirmation. Complete or Skip on the final step
   always requests confirmation, so the most repeated routine carries a dialog every time.
 - Where the run resumes after completing a previously skipped step is undecided. `CONTEXT.md`
