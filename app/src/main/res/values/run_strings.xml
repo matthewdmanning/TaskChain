@@ -6,4 +6,6 @@
     <string name="active_run_in_progress_title">Routine already in progress</string>
     <string name="active_run_in_progress_message">%1$s is still in progress. Resume it before starting another routine.</string>
     <string name="keep_browsing">Keep browsing</string>
+    <string name="pause">Pause</string>
+    <string name="resume">Resume</string>
 </resources>

@@ -1231,6 +1231,19 @@ private fun RoutineRunnerRoute(
                             )
                         }
                         OutlinedButton(
+                            onClick = if (current.pausedAtEpochMillis == null) viewModel::pause else viewModel::resume,
+                            contentPadding = actionButtonPadding,
+                        ) {
+                            Text(
+                                stringResource(
+                                    if (current.pausedAtEpochMillis == null) R.string.pause else R.string.resume
+                                ),
+                                style = MaterialTheme.typography.headlineLarge,
+                                maxLines = 1,
+                                softWrap = false,
+                            )
+                        }
+                        OutlinedButton(
                             onClick = viewModel::skip,
                             contentPadding = actionButtonPadding,
                         ) {

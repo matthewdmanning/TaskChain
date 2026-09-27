@@ -47,6 +47,7 @@ Statuses: pending - in-progress - awaiting-evidence - done - deferred: <reason> 
 | 2026-09-25 | 2 | Order implementation by ease within each severity tier | The user chose option 2 for backlog ordering; task observations will validate frequency. |
 | 2026-09-25 | 2 | Treat the audit as source-based until a device walkthrough | No current rendered walkthrough or non-maintainer user evidence exists. |
 | 2026-09-26 | Implementation | Resolve a conflicting Start action by preserving the active run and offering Resume instead of silently opening it | Keeps the persisted run authoritative, makes system status explicit, and avoids adding speculative multi-run behavior. |
+| 2026-09-26 | Implementation | Model Pause/Resume with the existing persisted per-step pause timestamp | Reuses the timer persistence model, excludes paused wall-clock time, and avoids adding a second run lifecycle state. |
 
 ## Next Actions
 - [ ] Run the Phase 2 scripted task checks on a current device build before treating the severity and frequency estimates as observed (agent, maintainer)
