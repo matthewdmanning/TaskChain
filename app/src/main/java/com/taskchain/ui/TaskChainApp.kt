@@ -199,6 +199,16 @@ private fun HomeShell(
     val routinesViewModel: RoutinesViewModel = viewModel { RoutinesViewModel(container) }
     val progressViewModel: ProgressViewModel = viewModel { ProgressViewModel(container) }
     val settingsViewModel: SettingsViewModel = viewModel { SettingsViewModel(container) }
+    val activeRun by container.activeRun.observeActive().collectAsStateWithLifecycle(null)
+    var blockedRoutine by remember { mutableStateOf<RoutineTemplate?>(null) }
+    val startOrExplain: (RoutineTemplate) -> Unit = { routine ->
+        val currentRun = activeRun?.takeIf { it.status == RunStatus.ACTIVE }
+        if (currentRun != null && currentRun.routineId != routine.id) {
+            blockedRoutine = routine
+        } else {
+            onStart(routine)
+        }
+    }
     Scaffold(
         contentWindowInsets = WindowInsets.safeDrawing,
         topBar = { CenterAlignedTopAppBar(title = { Text(stringResource(selectedTab.label)) }) },
@@ -216,10 +226,51 @@ private fun HomeShell(
         },
     ) { padding ->
         when (selectedTab) {
-            HomeTab.HOME -> TodayRoute(routinesViewModel, padding, todayListState, onCreate, onStart)
-            HomeTab.ROUTINES -> RoutinesRoute(routinesViewModel, padding, routinesListState, onCreate, onEdit, onStart)
+            HomeTab.HOME -> TodayRoute(
+                routinesViewModel,
+                padding,
+                todayListState,
+                onCreate,
+                startOrExplain,
+                activeRun?.takeIf { it.status == RunStatus.ACTIVE },
+                onResume = { run -> onStart(RoutineTemplate(
+                    id = run.routineId,
+                    metadata = com.taskchain.domain.model.EntityMetadata(run.startedAtEpochMillis, run.startedAtEpochMillis),
+                    title = run.routineTitle,
+                    steps = run.steps.map { it.source },
+                )) },
+            )
+            HomeTab.ROUTINES -> RoutinesRoute(routinesViewModel, padding, routinesListState, onCreate, onEdit, startOrExplain)
             HomeTab.PROGRESS -> ProgressRoute(progressViewModel, padding)
             HomeTab.SETTINGS -> SettingsRoute(settingsViewModel, padding)
+        }
+    }
+    blockedRoutine?.let {
+        val run = activeRun?.takeIf { current -> current.status == RunStatus.ACTIVE }
+        if (run != null) {
+            AlertDialog(
+                onDismissRequest = { blockedRoutine = null },
+                title = { Text(stringResource(R.string.active_run_in_progress_title)) },
+                text = { Text(stringResource(R.string.active_run_in_progress_message, run.routineTitle)) },
+                confirmButton = {
+                    Button(onClick = {
+                        blockedRoutine = null
+                        onStart(RoutineTemplate(
+                            id = run.routineId,
+                            metadata = com.taskchain.domain.model.EntityMetadata(run.startedAtEpochMillis, run.startedAtEpochMillis),
+                            title = run.routineTitle,
+                            steps = run.steps.map { step -> step.source },
+                        ))
+                    }) {
+                        Text(stringResource(R.string.resume_routine, run.routineTitle))
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { blockedRoutine = null }) {
+                        Text(stringResource(R.string.keep_browsing))
+                    }
+                },
+            )
         }
     }
 }
@@ -232,6 +283,8 @@ private fun TodayRoute(
     listState: LazyListState,
     onCreate: () -> Unit,
     onStart: (RoutineTemplate) -> Unit,
+    activeRun: com.taskchain.domain.model.RoutineRun?,
+    onResume: (com.taskchain.domain.model.RoutineRun) -> Unit,
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val spacing = TaskChainDesignSystem.spacing()
@@ -242,6 +295,22 @@ private fun TodayRoute(
         contentPadding = PaddingValues(spacing.medium),
         verticalArrangement = Arrangement.spacedBy(spacing.small),
     ) {
+        activeRun?.let { run ->
+            item {
+                Card(modifier = Modifier.fillMaxWidth()) {
+                    Column(
+                        modifier = Modifier.padding(spacing.medium),
+                        verticalArrangement = Arrangement.spacedBy(spacing.small),
+                    ) {
+                        Text(stringResource(R.string.active_run_label), style = MaterialTheme.typography.labelLarge)
+                        Text(run.routineTitle, style = MaterialTheme.typography.titleLarge)
+                        Button(onClick = { onResume(run) }) {
+                            Text(stringResource(R.string.resume_routine, run.routineTitle))
+                        }
+                    }
+                }
+            }
+        }
         if (projection.scheduled.isEmpty() && projection.manual.isEmpty() && projection.completed.isEmpty()) {
             item {
                 Column(verticalArrangement = Arrangement.spacedBy(spacing.small)) {
