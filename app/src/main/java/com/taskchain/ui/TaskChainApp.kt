@@ -148,6 +148,7 @@ fun TaskChainApp(container: AppContainer) {
                         onCreate = { navController.navigate(builderRoute(null)) },
                         onEdit = { navController.navigate(builderRoute(it.id)) },
                         onStart = { navController.navigate(runnerRoute(it.id)) },
+                        onResume = { navController.navigate(runnerRoute(it)) },
                     )
                 }
                 composable(
@@ -193,6 +194,7 @@ private fun HomeShell(
     onCreate: () -> Unit,
     onEdit: (RoutineTemplate) -> Unit,
     onStart: (RoutineTemplate) -> Unit,
+    onResume: (RoutineId) -> Unit,
 ) {
     val todayListState = rememberSaveable(saver = LazyListState.Saver) { LazyListState() }
     val routinesListState = rememberSaveable(saver = LazyListState.Saver) { LazyListState() }
@@ -233,12 +235,7 @@ private fun HomeShell(
                 onCreate,
                 startOrExplain,
                 activeRun?.takeIf { it.status == RunStatus.ACTIVE },
-                onResume = { run -> onStart(RoutineTemplate(
-                    id = run.routineId,
-                    metadata = com.taskchain.domain.model.EntityMetadata(run.startedAtEpochMillis, run.startedAtEpochMillis),
-                    title = run.routineTitle,
-                    steps = run.steps.map { it.source },
-                )) },
+                onResume = { run -> onResume(run.routineId) },
             )
             HomeTab.ROUTINES -> RoutinesRoute(routinesViewModel, padding, routinesListState, onCreate, onEdit, startOrExplain)
             HomeTab.PROGRESS -> ProgressRoute(progressViewModel, padding)
@@ -255,12 +252,7 @@ private fun HomeShell(
                 confirmButton = {
                     Button(onClick = {
                         blockedRoutine = null
-                        onStart(RoutineTemplate(
-                            id = run.routineId,
-                            metadata = com.taskchain.domain.model.EntityMetadata(run.startedAtEpochMillis, run.startedAtEpochMillis),
-                            title = run.routineTitle,
-                            steps = run.steps.map { step -> step.source },
-                        ))
+                        onResume(run.routineId)
                     }) {
                         Text(stringResource(R.string.resume_routine, run.routineTitle))
                     }
