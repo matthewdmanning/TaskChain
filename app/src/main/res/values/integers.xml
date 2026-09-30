@@ -1,0 +1,4 @@
+<resources>
+    <integer name="repeated_path_parallel_count">5</integer>
+    <integer name="repeated_path_radial_count">16</integer>
+</resources>
