@@ -4,4 +4,8 @@
     <dimen name="space_large">24dp</dimen>
     <dimen name="content_max_width">720dp</dimen>
     <dimen name="corner_medium">12dp</dimen>
+    <dimen name="repeated_path_stroke">6dp</dimen>
+    <dimen name="repeated_path_example_extent">48dp</dimen>
+    <dimen name="repeated_path_radial_extent">20dp</dimen>
+    <dimen name="repeated_path_radial_radius">96dp</dimen>
 </resources>
