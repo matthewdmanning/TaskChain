@@ -21,8 +21,8 @@ Intake answers:
 |---|---|---|---|---|
 | 1 | jobs-to-be-done | done | CUSTOMER.md | 2026-09-25 |
 | 2 | ux-heuristics | done | DESIGN.md, EXPERIMENTS.md | 2026-09-25 |
-| 3 | design-everyday-things | pending | DESIGN.md, EXPERIMENTS.md | |
-| 4 | refactoring-ui | pending | DESIGN.md, EXPERIMENTS.md | |
+| 3 | design-everyday-things | done | DESIGN.md, EXPERIMENTS.md | 2026-09-27 |
+| 4 | refactoring-ui | in-progress | DESIGN.md, EXPERIMENTS.md | 2026-09-27 |
 | 5 | microinteractions | pending | DESIGN.md, EXPERIMENTS.md | |
 | 6 | made-to-stick | pending | POSITIONING.md, EXPERIMENTS.md | |
 | 7 | influence-psychology | skipped: local-only app, no paywall or upsell surface | POSITIONING.md, EXPERIMENTS.md | 2026-09-25 |
@@ -48,9 +48,16 @@ Statuses: pending - in-progress - awaiting-evidence - done - deferred: <reason> 
 | 2026-09-25 | 2 | Treat the audit as source-based until a device walkthrough | No current rendered walkthrough or non-maintainer user evidence exists. |
 | 2026-09-26 | Implementation | Resolve a conflicting Start action by preserving the active run and offering Resume instead of silently opening it | Keeps the persisted run authoritative, makes system status explicit, and avoids adding speculative multi-run behavior. |
 | 2026-09-26 | Implementation | Model Pause/Resume with the existing persisted per-step pause timestamp | Reuses the timer persistence model, excludes paused wall-clock time, and avoids adding a second run lifecycle state. |
+| 2026-09-27 | 3 | Keep the existing progress circles; do not add a step-position label | The maintainer reports the current position is effortless to read. |
+| 2026-09-27 | 3 | Finish without confirmation when all steps are completed; retain review when steps remain unfinished | Clean completion needs no extra decision; skipped or pending steps still need review. |
+| 2026-09-27 | 3 | Abort discards the run and returns Home without history or scheduled-completion changes | The run should leave no state change from before it started; preserve Settings changes. |
+| 2026-09-29 | 4 | Use `matthewdmanning/cyberpunkAndroid` as the UI theme and effects library; review layout and hierarchy in grayscale before applying its palette and effects | Reuses the library's existing spacing, color, typography, shape, semantic, and modifier APIs while keeping color from masking hierarchy. |
+| 2026-09-29 | 4 | On each step, show the current-step text large and centered, then shrink and move it slightly up; let the countdown dominate for most of the step | The maintainer's device walkthrough found the Complete button draws attention before the step, while the countdown should own the running state. |
+| 2026-09-29 | 4 | Use distinct `cyberpunkAndroid` icons for completed and skipped states, and keep step-entry size, offset, duration, and easing in app config | The states must remain distinguishable in grayscale, and the transition must be configurable in a file. |
 
 ## Next Actions
 - [ ] Run the Phase 2 scripted task checks on a current device build before treating the severity and frequency estimates as observed (agent, maintainer)
-- [ ] Enter Phase 3, design-everyday-things, on the daily run path (user, agent)
+- [ ] Implement and verify `.scratch/issues/routine-builder-home-and-play-polish/05-run-finish-and-abort-outcomes.md` (agent, maintainer)
 - [ ] Decide whether to add the optional continuous-discovery phase, since no real-user evidence exists (user)
 - [ ] Close the open CONTEXT.md decision: where the run resumes after completing a previously skipped step (user)
+- [ ] Implement the Phase 4 runner hierarchy and configurable step-entry transition; use distinct library icons for completed and skipped states, then repeat the grayscale device walkthrough (agent, maintainer)

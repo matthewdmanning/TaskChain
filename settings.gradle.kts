@@ -16,3 +16,5 @@ dependencyResolutionManagement {
 
 rootProject.name = "TaskChain"
 include(":app")
+include(":cyberpunkandroid")
+project(":cyberpunkandroid").projectDir = file("third_party/cyberpunkAndroid/cyberpunkandroid")

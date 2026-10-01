@@ -78,6 +78,7 @@ dependencies {
     implementation(libs.androidx.datastore.preferences)
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.kotlinx.coroutines.android)
+    implementation(project(":cyberpunkandroid"))
 
     debugImplementation(libs.androidx.compose.ui.tooling)
     testImplementation(libs.junit)

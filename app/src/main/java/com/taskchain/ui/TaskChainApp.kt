@@ -47,6 +47,7 @@ import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.OutlinedButton
@@ -60,25 +61,35 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontStyle
+import androidx.compose.ui.text.font.Font
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CardDefaults
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.zIndex
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.ui.platform.LocalConfiguration
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.colorResource
-import androidx.compose.ui.text.rememberTextMeasurer
+import androidx.compose.ui.res.dimensionResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -100,6 +111,8 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.customActions
+import androidx.compose.ui.semantics.progressBarRangeInfo
+import androidx.compose.ui.semantics.ProgressBarRangeInfo
 import androidx.compose.ui.semantics.semantics
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -118,9 +131,36 @@ import com.taskchain.domain.model.RunStepStatus
 import com.taskchain.domain.model.ScheduleFrequency
 import com.taskchain.domain.model.UserPreferences
 import com.taskchain.ui.designsystem.TaskChainDesignSystem
+import com.taskchain.ui.designsystem.RunnerMotion
 import com.taskchain.ui.designsystem.Spacing
 import com.taskchain.ui.designsystem.TaskChainTheme
 import com.taskchain.ui.designsystem.ThemeCatalog
+import com.example.cyberpunkandroid.components.CyberButton
+import com.example.cyberpunkandroid.components.CyberButtonSize
+import com.example.cyberpunkandroid.components.CyberButtonStyle
+import com.example.cyberpunkandroid.components.CyberCard
+import com.example.cyberpunkandroid.config.CyberPrimitives
+import com.example.cyberpunkandroid.effects.GlowingText
+import com.example.cyberpunkandroid.icons.CyberDialTicks
+import com.example.cyberpunkandroid.icons.CyberIcon
+import com.example.cyberpunkandroid.icons.CyberIcons
+import com.example.cyberpunkandroid.icons.CyberSectorRim
+import com.example.cyberpunkandroid.icons.SemanticIcons
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.runtime.key
+import androidx.compose.ui.unit.Dp
+import com.example.cyberpunkandroid.theme.CyberColors
+import com.example.cyberpunkandroid.theme.CyberTheme
 import kotlin.math.absoluteValue
 
 /** Top-level tab choices retained while deeper builder and runner routes are open. */
@@ -129,6 +169,41 @@ private enum class HomeTab(@param:StringRes val label: Int) {
     ROUTINES(R.string.tab_routines),
     PROGRESS(R.string.tab_progress),
     SETTINGS(R.string.tab_settings),
+}
+
+private val homeAttentionFont = FontFamily(Font(R.font.neusharp_bold, FontWeight.Bold))
+
+@Composable
+private fun CyberAppearance(content: @Composable () -> Unit) {
+    val palette = CyberPrimitives.Colors
+    CyberTheme(
+        colors = CyberColors(
+            primary = palette.Chrome100,
+            secondary = palette.Chrome200,
+            background = palette.Void500,
+            surface = palette.Void100,
+            textPrimary = palette.Chrome100,
+            textSecondary = palette.Chrome300,
+            border = palette.Chrome600,
+        ),
+    ) {
+        MaterialTheme(
+            colorScheme = darkColorScheme(
+                primary = palette.Chrome100,
+                onPrimary = palette.Void500,
+                background = palette.Void500,
+                onBackground = palette.Chrome100,
+                surface = palette.Void100,
+                onSurface = palette.Chrome100,
+                surfaceContainer = palette.Void100,
+                surfaceContainerLow = palette.Void200,
+                surfaceContainerHigh = palette.Void100,
+                secondaryContainer = palette.Chrome600,
+                onSecondaryContainer = palette.Chrome100,
+            ),
+            content = content,
+        )
+    }
 }
 
 /** Use this function as the Compose application entry point. */
@@ -159,26 +234,30 @@ fun TaskChainApp(container: AppContainer) {
                         defaultValue = null
                     }),
                 ) { entry ->
-                    RoutineBuilderRoute(
-                        container = container,
-                        routineId = entry.arguments?.getString(ROUTINE_ID_ARGUMENT)?.let(::RoutineId),
-                        onClose = navController::popBackStack,
-                        onSaved = {
-                            selectedTab = HomeTab.ROUTINES
-                            navController.popBackStack()
-                        },
-                    )
+                    CyberAppearance {
+                        RoutineBuilderRoute(
+                            container = container,
+                            routineId = entry.arguments?.getString(ROUTINE_ID_ARGUMENT)?.let(::RoutineId),
+                            onClose = navController::popBackStack,
+                            onSaved = {
+                                selectedTab = HomeTab.ROUTINES
+                                navController.popBackStack()
+                            },
+                        )
+                    }
                 }
                 composable(
                     route = RUNNER_ROUTE,
                     arguments = listOf(navArgument(ROUTINE_ID_ARGUMENT) { type = NavType.StringType }),
                 ) { entry ->
-                    RoutineRunnerRoute(
-                        container = container,
-                        preferences = preferences,
-                        routineId = RoutineId(requireNotNull(entry.arguments?.getString(ROUTINE_ID_ARGUMENT))),
-                        onFinished = navController::popBackStack,
-                    )
+                    CyberAppearance {
+                        RoutineRunnerRoute(
+                            container = container,
+                            preferences = preferences,
+                            routineId = RoutineId(requireNotNull(entry.arguments?.getString(ROUTINE_ID_ARGUMENT))),
+                            onFinished = navController::popBackStack,
+                        )
+                    }
                 }
             }
         }
@@ -211,60 +290,63 @@ private fun HomeShell(
             onStart(routine)
         }
     }
-    Scaffold(
-        contentWindowInsets = WindowInsets.safeDrawing,
-        topBar = { CenterAlignedTopAppBar(title = { Text(stringResource(selectedTab.label)) }) },
-        bottomBar = {
-            NavigationBar {
-                HomeTab.entries.forEach { tab ->
-                    NavigationBarItem(
-                        selected = selectedTab == tab,
-                        onClick = { onSelectedTabChange(tab) },
-                        icon = {},
-                        label = { Text(stringResource(tab.label)) },
-                    )
+    val screen: @Composable () -> Unit = {
+        Scaffold(
+            contentWindowInsets = WindowInsets.safeDrawing,
+            topBar = { CenterAlignedTopAppBar(title = { Text(stringResource(selectedTab.label)) }) },
+            bottomBar = {
+                NavigationBar {
+                    HomeTab.entries.forEach { tab ->
+                        NavigationBarItem(
+                            selected = selectedTab == tab,
+                            onClick = { onSelectedTabChange(tab) },
+                            icon = {},
+                            label = { Text(stringResource(tab.label)) },
+                        )
+                    }
                 }
+            },
+        ) { padding ->
+            when (selectedTab) {
+                HomeTab.HOME -> TodayRoute(
+                    routinesViewModel,
+                    padding,
+                    todayListState,
+                    onCreate,
+                    startOrExplain,
+                    activeRun?.takeIf { it.status == RunStatus.ACTIVE },
+                    onResume = { run -> onResume(run.routineId) },
+                )
+                HomeTab.ROUTINES -> RoutinesRoute(routinesViewModel, padding, routinesListState, onCreate, onEdit, startOrExplain)
+                HomeTab.PROGRESS -> ProgressRoute(progressViewModel, padding)
+                HomeTab.SETTINGS -> SettingsRoute(settingsViewModel, padding)
             }
-        },
-    ) { padding ->
-        when (selectedTab) {
-            HomeTab.HOME -> TodayRoute(
-                routinesViewModel,
-                padding,
-                todayListState,
-                onCreate,
-                startOrExplain,
-                activeRun?.takeIf { it.status == RunStatus.ACTIVE },
-                onResume = { run -> onResume(run.routineId) },
-            )
-            HomeTab.ROUTINES -> RoutinesRoute(routinesViewModel, padding, routinesListState, onCreate, onEdit, startOrExplain)
-            HomeTab.PROGRESS -> ProgressRoute(progressViewModel, padding)
-            HomeTab.SETTINGS -> SettingsRoute(settingsViewModel, padding)
+        }
+        blockedRoutine?.let {
+            val run = activeRun?.takeIf { current -> current.status == RunStatus.ACTIVE }
+            if (run != null) {
+                AlertDialog(
+                    onDismissRequest = { blockedRoutine = null },
+                    title = { Text(stringResource(R.string.active_run_in_progress_title)) },
+                    text = { Text(stringResource(R.string.active_run_in_progress_message, run.routineTitle)) },
+                    confirmButton = {
+                        Button(onClick = {
+                            blockedRoutine = null
+                            onResume(run.routineId)
+                        }) {
+                            Text(stringResource(R.string.resume_routine, run.routineTitle))
+                        }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { blockedRoutine = null }) {
+                            Text(stringResource(R.string.keep_browsing))
+                        }
+                    },
+                )
+            }
         }
     }
-    blockedRoutine?.let {
-        val run = activeRun?.takeIf { current -> current.status == RunStatus.ACTIVE }
-        if (run != null) {
-            AlertDialog(
-                onDismissRequest = { blockedRoutine = null },
-                title = { Text(stringResource(R.string.active_run_in_progress_title)) },
-                text = { Text(stringResource(R.string.active_run_in_progress_message, run.routineTitle)) },
-                confirmButton = {
-                    Button(onClick = {
-                        blockedRoutine = null
-                        onResume(run.routineId)
-                    }) {
-                        Text(stringResource(R.string.resume_routine, run.routineTitle))
-                    }
-                },
-                dismissButton = {
-                    TextButton(onClick = { blockedRoutine = null }) {
-                        Text(stringResource(R.string.keep_browsing))
-                    }
-                },
-            )
-        }
-    }
+    if (selectedTab == HomeTab.HOME || selectedTab == HomeTab.ROUTINES) CyberAppearance(screen) else screen()
 }
 
 /** Use this function to bind Today UI to the routine-list ViewModel. */
@@ -279,47 +361,83 @@ private fun TodayRoute(
     onResume: (com.taskchain.domain.model.RoutineRun) -> Unit,
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
-    val spacing = TaskChainDesignSystem.spacing()
     val projection = state.todayRoutines
-    LazyColumn(
-        modifier = Modifier.fillMaxSize().padding(padding).consumeWindowInsets(padding),
-        state = listState,
-        contentPadding = PaddingValues(spacing.medium),
-        verticalArrangement = Arrangement.spacedBy(spacing.small),
+    Box(
+        modifier = Modifier.fillMaxSize().padding(padding).consumeWindowInsets(padding)
+            .background(CyberTheme.colors.background),
+        contentAlignment = Alignment.TopCenter,
     ) {
-        activeRun?.let { run ->
-            item {
-                Card(modifier = Modifier.fillMaxWidth()) {
-                    Column(
-                        modifier = Modifier.padding(spacing.medium),
-                        verticalArrangement = Arrangement.spacedBy(spacing.small),
+        LazyColumn(
+            modifier = Modifier.widthIn(max = dimensionResource(R.dimen.content_max_width)).fillMaxWidth(),
+            state = listState,
+            contentPadding = PaddingValues(CyberPrimitives.Spacing.dp16),
+            verticalArrangement = Arrangement.spacedBy(CyberPrimitives.Spacing.dp8),
+        ) {
+            activeRun?.let { run ->
+                item {
+                    CyberCard(
+                        modifier = Modifier.fillMaxWidth(),
+                        header = {
+                            Text(
+                                stringResource(R.string.active_run_label).uppercase(),
+                                style = CyberTheme.typography.terminal,
+                                color = CyberTheme.colors.textSecondary,
+                            )
+                        },
                     ) {
-                        Text(stringResource(R.string.active_run_label), style = MaterialTheme.typography.labelLarge)
-                        Text(run.routineTitle, style = MaterialTheme.typography.titleLarge)
-                        Button(onClick = { onResume(run) }) {
-                            Text(stringResource(R.string.resume_routine, run.routineTitle))
+                        Text(
+                            run.routineTitle,
+                            style = CyberTheme.typography.display.copy(fontFamily = homeAttentionFont),
+                            color = CyberTheme.colors.textPrimary,
+                        )
+                        Spacer(Modifier.height(CyberPrimitives.Spacing.dp16))
+                        CyberButton(onClick = { onResume(run) }, size = CyberButtonSize.Large) {
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(CyberPrimitives.Spacing.dp8),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                CyberIcon(iconRes = CyberIcons.Play, contentDescription = null)
+                                Text(stringResource(R.string.resume_routine, run.routineTitle))
+                            }
                         }
                     }
                 }
             }
-        }
-        if (projection.scheduled.isEmpty() && projection.manual.isEmpty() && projection.completed.isEmpty()) {
-            item {
-                Column(verticalArrangement = Arrangement.spacedBy(spacing.small)) {
-                    Text(stringResource(R.string.today_empty))
-                    Button(onClick = onCreate) { Text(stringResource(R.string.new_routine)) }
+            if (projection.scheduled.isEmpty() && projection.manual.isEmpty() && projection.completed.isEmpty()) {
+                item {
+                    CyberCard(modifier = Modifier.fillMaxWidth()) {
+                        Text(stringResource(R.string.today_empty), style = CyberTheme.typography.body)
+                        Spacer(Modifier.height(CyberPrimitives.Spacing.dp16))
+                        CyberButton(onClick = onCreate) { Text(stringResource(R.string.new_routine)) }
+                    }
                 }
             }
-        }
-        fun section(title: Int, routines: List<RoutineTemplate>, isCompleted: Boolean = false) {
-            item { Text(stringResource(title), style = MaterialTheme.typography.titleLarge) }
-            items(routines, key = { it.id.value }) { routine ->
-                CompactRoutineRow(routine = routine, isCompleted = isCompleted) { onStart(routine) }
+            fun section(title: Int, routines: List<RoutineTemplate>, isCompleted: Boolean = false) {
+                item {
+                    Text(
+                        stringResource(title).uppercase(),
+                        modifier = Modifier.padding(top = CyberPrimitives.Spacing.dp24, bottom = CyberPrimitives.Spacing.dp8),
+                        style = MaterialTheme.typography.titleLarge.copy(fontFamily = homeAttentionFont),
+                        color = CyberTheme.colors.primary,
+                    )
+                }
+                if (routines.isEmpty()) {
+                    item {
+                        Spacer(
+                            Modifier.fillMaxWidth().height(
+                                CyberPrimitives.IconSizes.dp48 + CyberPrimitives.Spacing.dp32,
+                            ),
+                        )
+                    }
+                }
+                items(routines, key = { it.id.value }) { routine ->
+                    CompactRoutineRow(routine = routine, isCompleted = isCompleted) { onStart(routine) }
+                }
             }
+            section(R.string.home_scheduled, projection.scheduled)
+            section(R.string.home_manual, projection.manual)
+            section(R.string.home_completed, projection.completed, isCompleted = true)
         }
-        section(R.string.home_scheduled, projection.scheduled)
-        section(R.string.home_manual, projection.manual)
-        section(R.string.home_completed, projection.completed, isCompleted = true)
     }
 }
 
@@ -330,44 +448,43 @@ private fun CompactRoutineRow(
     isCompleted: Boolean,
     onStart: () -> Unit,
 ) {
-    val spacing = TaskChainDesignSystem.spacing()
-    Card(modifier = Modifier.fillMaxWidth()) {
-        Row(
+    val shape = CyberTheme.shapes.cyberCutCornerShape
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(shape)
+            .background(Brush.horizontalGradient(listOf(CyberPrimitives.Colors.Void200, CyberPrimitives.Colors.Chrome600)))
+            .border(CyberPrimitives.BorderWidths.dp1, CyberTheme.colors.border, shape)
+            .padding(CyberPrimitives.Spacing.dp16)
+            .heightIn(min = CyberPrimitives.IconSizes.dp48),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = routine.title,
+            style = CyberTheme.typography.body,
+            color = CyberTheme.colors.textPrimary,
             modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = spacing.medium, vertical = spacing.small),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text(
-                text = routine.title,
-                style = MaterialTheme.typography.titleMedium,
-                modifier = Modifier
-                    .weight(1f)
-                    .padding(end = spacing.small),
+                .weight(1f)
+                .padding(end = CyberPrimitives.Spacing.dp12),
+        )
+        if (isCompleted) {
+            CyberIcon(
+                iconRes = SemanticIcons.Success,
+                contentDescription = stringResource(R.string.status_completed),
+                tint = CyberTheme.colors.textPrimary,
             )
-            if (isCompleted) {
-                Icon(
-                    painter = painterResource(R.drawable.ic_check),
-                    contentDescription = stringResource(R.string.status_completed),
-                    tint = MaterialTheme.colorScheme.primary,
+        } else {
+            CyberButton(
+                modifier = Modifier.size(CyberPrimitives.IconSizes.dp48),
+                onClick = onStart,
+                style = CyberButtonStyle.Outline,
+                size = CyberButtonSize.Small,
+            ) {
+                CyberIcon(
+                    iconRes = CyberIcons.Play,
+                    contentDescription = stringResource(R.string.start_routine),
                 )
-            } else {
-                Surface(
-                    onClick = onStart,
-                    shape = CircleShape,
-                    color = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(40.dp),
-                ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Icon(
-                            painter = painterResource(R.drawable.ic_play),
-                            contentDescription = stringResource(R.string.start_routine),
-                            tint = MaterialTheme.colorScheme.onPrimary,
-                            modifier = Modifier.size(24.dp),
-                        )
-                    }
-                }
             }
         }
     }
@@ -385,42 +502,54 @@ private fun RoutinesRoute(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val spacing = TaskChainDesignSystem.spacing()
-    LazyColumn(
-        modifier = Modifier.fillMaxSize().padding(padding).consumeWindowInsets(padding),
-        state = listState,
-        contentPadding = PaddingValues(spacing.medium),
-        verticalArrangement = Arrangement.spacedBy(spacing.small),
+    Box(
+        modifier = Modifier.fillMaxSize().padding(padding).consumeWindowInsets(padding)
+            .background(CyberTheme.colors.background),
+        contentAlignment = Alignment.TopCenter,
     ) {
-        items(state.routines, key = { it.id.value }) { routine ->
-            RoutineCard(routine, onEdit = { onEdit(routine) }, onStart = { onStart(routine) })
-        }
-        if (state.builtIns.isNotEmpty()) {
-            items(state.builtIns, key = { it.id.value }) { routine ->
-                RoutineCard(routine, onEdit = { onEdit(routine) }, onStart = { onStart(routine) })
-            }
-        }
-        item {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = spacing.small),
-                horizontalArrangement = Arrangement.Center,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Surface(
+        LazyColumn(
+            modifier = Modifier.widthIn(max = dimensionResource(R.dimen.content_max_width)).fillMaxSize(),
+            state = listState,
+            contentPadding = PaddingValues(spacing.medium),
+            verticalArrangement = Arrangement.spacedBy(spacing.medium),
+        ) {
+            item {
+                CyberButton(
+                    modifier = Modifier.fillMaxWidth().heightIn(min = CyberPrimitives.IconSizes.dp48),
                     onClick = onCreate,
-                    shape = CircleShape,
-                    color = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(48.dp),
+                    size = CyberButtonSize.Large,
                 ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Icon(
-                            painter = painterResource(R.drawable.ic_add),
-                            contentDescription = stringResource(R.string.new_routine),
-                            tint = MaterialTheme.colorScheme.onPrimary,
-                            modifier = Modifier.size(28.dp),
-                        )
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(spacing.small),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        CyberIcon(iconRes = CyberIcons.Plus, contentDescription = null)
+                        Text(stringResource(R.string.new_routine), style = CyberTheme.typography.body)
                     }
+                }
+            }
+            if (state.routines.isNotEmpty()) {
+                item {
+                    Text(
+                        stringResource(R.string.your_routines),
+                        style = MaterialTheme.typography.titleLarge.copy(fontFamily = homeAttentionFont),
+                        color = CyberTheme.colors.textPrimary,
+                    )
+                }
+                items(state.routines, key = { it.id.value }) { routine ->
+                    RoutineCard(routine, onEdit = { onEdit(routine) }, onStart = { onStart(routine) })
+                }
+            }
+            if (state.builtIns.isNotEmpty()) {
+                item {
+                    Text(
+                        stringResource(R.string.starter_routines),
+                        style = MaterialTheme.typography.titleLarge.copy(fontFamily = homeAttentionFont),
+                        color = CyberTheme.colors.textPrimary,
+                    )
+                }
+                items(state.builtIns, key = { it.id.value }) { routine ->
+                    RoutineCard(routine, onEdit = { onEdit(routine) }, onStart = { onStart(routine) })
                 }
             }
         }
@@ -431,71 +560,62 @@ private fun RoutinesRoute(
 @Composable
 private fun RoutineCard(routine: RoutineTemplate, onEdit: (() -> Unit)?, onStart: () -> Unit) {
     val spacing = TaskChainDesignSystem.spacing()
-    Card(modifier = Modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.padding(spacing.medium), verticalArrangement = Arrangement.spacedBy(spacing.small)) {
+    CyberCard(modifier = Modifier.fillMaxWidth()) {
+        Column(verticalArrangement = Arrangement.spacedBy(spacing.medium)) {
+            Text(
+                text = routine.title,
+                style = MaterialTheme.typography.titleLarge.copy(fontFamily = homeAttentionFont),
+                color = CyberTheme.colors.textPrimary,
+            )
+            if (routine.description.isNotBlank()) {
+                Text(
+                    text = routine.description,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = CyberTheme.colors.textSecondary,
+                )
+            }
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text(
-                    text = routine.title,
-                    style = MaterialTheme.typography.titleLarge,
-                    modifier = Modifier.weight(1f, fill = false),
-                )
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(spacing.small),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    onEdit?.let {
-                        IconButton(onClick = it) {
-                            Icon(
-                                painter = painterResource(R.drawable.ic_edit),
-                                contentDescription = stringResource(R.string.edit_routine),
-                            )
-                        }
-                    }
-                    Surface(
-                        onClick = onStart,
-                        shape = CircleShape,
-                        color = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(40.dp),
+                Text(formatRoutineItemCount(routine), color = CyberTheme.colors.textSecondary)
+                formatRoutineTotalTime(routine)?.let { totalTime ->
+                    Text(totalTime, color = CyberTheme.colors.textSecondary)
+                }
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(spacing.small),
+            ) {
+                onEdit?.let {
+                    CyberButton(
+                        modifier = Modifier.weight(1f).heightIn(min = CyberPrimitives.IconSizes.dp48),
+                        onClick = it,
+                        style = CyberButtonStyle.Outline,
+                        size = CyberButtonSize.Small,
                     ) {
-                        Box(contentAlignment = Alignment.Center) {
-                            Icon(
-                                painter = painterResource(R.drawable.ic_play),
-                                contentDescription = stringResource(R.string.start_routine),
-                                tint = MaterialTheme.colorScheme.onPrimary,
-                                modifier = Modifier.size(24.dp),
-                            )
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(spacing.small),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            CyberIcon(iconRes = CyberIcons.Edit, contentDescription = null, size = spacing.medium)
+                            Text(stringResource(R.string.edit_routine))
                         }
                     }
                 }
-            }
-            if (routine.description.isNotBlank()) {
-                Text(
-                    text = "  ${routine.description}",
-                    style = MaterialTheme.typography.bodySmall.copy(fontStyle = FontStyle.Italic),
-                )
-            }
-            val itemCountText = formatRoutineItemCount(routine)
-            val totalTimeText = formatRoutineTotalTime(routine)
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(
-                    text = itemCountText,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                if (totalTimeText != null) {
-                    Text(
-                        text = totalTimeText,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
+                CyberButton(
+                    modifier = Modifier.weight(1f).heightIn(min = CyberPrimitives.IconSizes.dp48),
+                    onClick = onStart,
+                    size = CyberButtonSize.Small,
+                ) {
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(spacing.small),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        CyberIcon(iconRes = CyberIcons.Play, contentDescription = null, size = spacing.medium)
+                        Text(stringResource(R.string.start_routine))
+                    }
                 }
             }
         }
@@ -582,69 +702,94 @@ private fun RoutineBuilderRoute(
             )
         },
     ) { innerPadding ->
+    Box(
+        modifier = Modifier.fillMaxSize().padding(innerPadding).consumeWindowInsets(innerPadding)
+            .imePadding().background(CyberTheme.colors.background),
+        contentAlignment = Alignment.TopCenter,
+    ) {
     LazyColumn(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(innerPadding)
-            .consumeWindowInsets(innerPadding)
-            .imePadding(),
+        modifier = Modifier.widthIn(max = dimensionResource(R.dimen.content_max_width)).fillMaxSize(),
         contentPadding = PaddingValues(
             start = spacing.medium,
             top = spacing.medium,
             end = spacing.medium,
             bottom = spacing.large * 2,
         ),
-        verticalArrangement = Arrangement.spacedBy(spacing.small),
+        verticalArrangement = Arrangement.spacedBy(spacing.medium),
     ) {
         item {
-            OutlinedTextField(
-                value = state.title,
-                onValueChange = viewModel::setTitle,
-                label = { Text(stringResource(R.string.routine_name)) },
-                modifier = Modifier.fillMaxWidth(),
-                isError = BuilderValidationError.ROUTINE_NAME_REQUIRED in state.validationErrors,
-                supportingText = {
-                    if (BuilderValidationError.ROUTINE_NAME_REQUIRED in state.validationErrors) {
-                        Text(stringResource(R.string.validation_routine_name_required))
-                    }
-                },
-            )
-        }
-        item {
-            OutlinedTextField(
-                value = state.description,
-                onValueChange = viewModel::setDescription,
-                label = { Text(stringResource(R.string.routine_description)) },
-                modifier = Modifier.fillMaxWidth(),
-            )
-        }
-        item {
-            Column(verticalArrangement = Arrangement.spacedBy(spacing.small)) {
-                ScheduleEditor(state, viewModel, spacing)
-                LabeledSwitchRow(stringResource(R.string.authoring_sound), state.soundEnabled, viewModel::setSoundEnabled)
-                LabeledSwitchRow(stringResource(R.string.authoring_vibrate), state.vibrateEnabled, viewModel::setVibrateEnabled)
+            CyberCard(modifier = Modifier.fillMaxWidth()) {
+                Column(verticalArrangement = Arrangement.spacedBy(spacing.medium)) {
+                    OutlinedTextField(
+                        value = state.title,
+                        onValueChange = viewModel::setTitle,
+                        label = { Text(stringResource(R.string.routine_name)) },
+                        modifier = Modifier.fillMaxWidth(),
+                        isError = BuilderValidationError.ROUTINE_NAME_REQUIRED in state.validationErrors,
+                        supportingText = {
+                            if (BuilderValidationError.ROUTINE_NAME_REQUIRED in state.validationErrors) {
+                                Text(stringResource(R.string.validation_routine_name_required))
+                            }
+                        },
+                    )
+                    OutlinedTextField(
+                        value = state.description,
+                        onValueChange = viewModel::setDescription,
+                        label = { Text(stringResource(R.string.routine_description)) },
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
             }
         }
         item {
-            Text(stringResource(R.string.authoring_steps), style = MaterialTheme.typography.titleLarge)
+            CyberCard(modifier = Modifier.fillMaxWidth()) {
+                Column(verticalArrangement = Arrangement.spacedBy(spacing.medium)) {
+                    Text(
+                        stringResource(R.string.routine_settings),
+                        style = MaterialTheme.typography.titleLarge.copy(fontFamily = homeAttentionFont),
+                        color = CyberTheme.colors.textPrimary,
+                    )
+                    ScheduleEditor(state, viewModel, spacing)
+                    LabeledSwitchRow(stringResource(R.string.authoring_sound), state.soundEnabled, viewModel::setSoundEnabled)
+                    LabeledSwitchRow(stringResource(R.string.authoring_vibrate), state.vibrateEnabled, viewModel::setVibrateEnabled)
+                }
+            }
+        }
+        item {
+            Text(
+                stringResource(R.string.authoring_steps),
+                style = MaterialTheme.typography.titleLarge.copy(fontFamily = homeAttentionFont),
+                color = CyberTheme.colors.textPrimary,
+            )
             if (BuilderValidationError.STEP_REQUIRED in state.validationErrors) {
                 Text(stringResource(R.string.validation_step_required), color = MaterialTheme.colorScheme.error)
             }
         }
         itemsIndexed(state.steps, key = { _, step -> step.id.value }) { index, step ->
             var dragOffset by remember(step.id) { mutableStateOf(0f) }
-            val isDragging = dragOffset != 0f
+            var isDragging by remember(step.id) { mutableStateOf(false) }
+            val dragScale by animateFloatAsState(
+                if (isDragging) 1.03f else 1f,
+                animationSpec = tween(DRAG_TRANSITION_MILLIS, easing = FastOutSlowInEasing),
+                label = "StepDragScale",
+            )
+            val dragElevation by animateDpAsState(
+                if (isDragging) spacing.small else 0.dp,
+                animationSpec = tween(DRAG_TRANSITION_MILLIS, easing = FastOutSlowInEasing),
+                label = "StepDragElevation",
+            )
             val moveUp = stringResource(R.string.authoring_move_up)
             val moveDown = stringResource(R.string.authoring_move_down)
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .animateItem(placementSpec = tween(DRAG_TRANSITION_MILLIS, easing = FastOutSlowInEasing))
                     .zIndex(if (isDragging) 10f else 0f)
                     .graphicsLayer {
                         translationY = dragOffset
-                        scaleX = if (isDragging) 1.03f else 1f
-                        scaleY = if (isDragging) 1.03f else 1f
-                        shadowElevation = if (isDragging) 8.dp.toPx() else 0f
+                        scaleX = dragScale
+                        scaleY = dragScale
+                        shadowElevation = dragElevation.toPx()
                     }
                     .semantics {
                         customActions = buildList {
@@ -654,8 +799,9 @@ private fun RoutineBuilderRoute(
                     }
                     .pointerInput(step.id, index, state.steps.size) {
                         detectDragGesturesAfterLongPress(
-                            onDragEnd = { dragOffset = 0f },
-                            onDragCancel = { dragOffset = 0f },
+                            onDragStart = { isDragging = true },
+                            onDragEnd = { dragOffset = 0f; isDragging = false },
+                            onDragCancel = { dragOffset = 0f; isDragging = false },
                             onDrag = { change, amount ->
                                 change.consume()
                                 dragOffset += amount.y
@@ -666,19 +812,23 @@ private fun RoutineBuilderRoute(
                             },
                         )
                     },
-                border = if (isDragging) BorderStroke(2.dp, MaterialTheme.colorScheme.primary) else null,
+                shape = CyberTheme.shapes.cyberCutCornerShape,
+                colors = CardDefaults.cardColors(containerColor = CyberTheme.colors.surface),
+                border = BorderStroke(
+                    if (isDragging) CyberPrimitives.BorderWidths.dp2 else CyberPrimitives.BorderWidths.dp1,
+                    if (isDragging) CyberTheme.colors.primary else CyberTheme.colors.border,
+                ),
             ) {
-                Column(modifier = Modifier.fillMaxWidth().padding(spacing.medium), verticalArrangement = Arrangement.spacedBy(spacing.small)) {
+                Column(modifier = Modifier.fillMaxWidth().padding(spacing.large), verticalArrangement = Arrangement.spacedBy(spacing.medium)) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(spacing.small),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        Icon(
-                            painter = painterResource(R.drawable.ic_drag_handle),
+                        CyberIcon(
+                            iconRes = CyberIcons.Drag,
                             contentDescription = stringResource(R.string.authoring_drag_handle),
                             tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.size(24.dp),
                         )
                         Text(
                             text = step.title,
@@ -692,8 +842,8 @@ private fun RoutineBuilderRoute(
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                         IconButton(onClick = { viewModel.editStep(index) }) {
-                            Icon(
-                                painter = painterResource(R.drawable.ic_edit),
+                            CyberIcon(
+                                iconRes = CyberIcons.Edit,
                                 contentDescription = stringResource(R.string.authoring_edit_step),
                             )
                         }
@@ -726,25 +876,18 @@ private fun RoutineBuilderRoute(
             }
         }
         item {
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(vertical = spacing.small),
-                horizontalArrangement = Arrangement.Center,
-                verticalAlignment = Alignment.CenterVertically,
+            CyberButton(
+                modifier = Modifier.fillMaxWidth().heightIn(min = CyberPrimitives.IconSizes.dp48),
+                onClick = { viewModel.addStep(newTaskTitle) },
+                style = CyberButtonStyle.Outline,
+                size = CyberButtonSize.Large,
             ) {
-                Surface(
-                    onClick = { viewModel.addStep(newTaskTitle) },
-                    shape = CircleShape,
-                    color = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(56.dp),
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(spacing.small),
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Icon(
-                            painter = painterResource(R.drawable.ic_add),
-                            contentDescription = addStepDescription,
-                            tint = MaterialTheme.colorScheme.onPrimary,
-                            modifier = Modifier.size(32.dp),
-                        )
-                    }
+                    CyberIcon(iconRes = CyberIcons.Plus, contentDescription = null)
+                    Text(addStepDescription)
                 }
             }
         }
@@ -771,28 +914,31 @@ private fun RoutineBuilderRoute(
             }
             Row(
                 modifier = Modifier.fillMaxWidth().padding(top = spacing.small),
-                horizontalArrangement = Arrangement.spacedBy(spacing.medium),
-                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(spacing.small),
             ) {
-                Button(
+                OutlinedButton(
                     onClick = requestClose,
-                    modifier = Modifier.weight(1f),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = colorResource(R.color.semantic_warning),
-                        contentColor = Color.White,
-                    ),
+                    modifier = Modifier.weight(1f).heightIn(min = CyberPrimitives.IconSizes.dp48),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = colorResource(R.color.semantic_warning)),
                 ) {
                     Text(stringResource(R.string.discard))
                 }
-                Button(
+                CyberButton(
                     onClick = viewModel::save,
                     enabled = !state.isSaving,
-                    modifier = Modifier.weight(1f),
+                    modifier = Modifier.weight(1f).heightIn(min = CyberPrimitives.IconSizes.dp48),
                 ) {
-                    Text(stringResource(if (state.isSaving) R.string.saving else R.string.save))
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(spacing.small),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        CyberIcon(iconRes = CyberIcons.Save, contentDescription = null, size = spacing.medium)
+                        Text(stringResource(if (state.isSaving) R.string.saving else R.string.save))
+                    }
                 }
             }
         }
+    }
     }
     }
     if (showDiscardDialog) {
@@ -1064,8 +1210,11 @@ private fun RoutineRunnerRoute(
     val remaining = container.runEngine.remainingMillis(run, state.nowEpochMillis)
     val configuration = LocalConfiguration.current
     val smallerDimensionDp = minOf(configuration.screenWidthDp, configuration.screenHeightDp).dp
-    val targetTimerWidthDp = smallerDimensionDp / 3
-    val targetTimerWidthPx = with(LocalDensity.current) { targetTimerWidthDp.toPx() }
+    val dialDiameter = minOf(smallerDimensionDp - CyberPrimitives.Spacing.dp32 * 2, 280.dp)
+    val entrance = remember(run.currentStepIndex) { Animatable(0f) }
+    LaunchedEffect(run.currentStepIndex) {
+        entrance.animateTo(1f, tween(RunnerMotion.durationMillis, easing = RunnerMotion.easing))
+    }
 
     val hasTimer = current.source.timerSeconds != null
     val timerString = if (hasTimer) {
@@ -1073,32 +1222,30 @@ private fun RoutineRunnerRoute(
     } else {
         ""
     }
-    val textMeasurer = rememberTextMeasurer()
-    val baseStyle = MaterialTheme.typography.displayLarge.copy(fontSize = 100.sp)
-    val measured = textMeasurer.measure(timerString, baseStyle)
-    val calculatedFontSize = if (measured.size.width > 0) {
-        (100f * (targetTimerWidthPx / measured.size.width)).sp
-    } else {
-        MaterialTheme.typography.displayLarge.fontSize
-    }
-
     Scaffold(
         contentWindowInsets = WindowInsets.safeDrawing,
-        topBar = { CenterAlignedTopAppBar(title = { Text(run.routineTitle, style = MaterialTheme.typography.headlineMedium) }) },
+        topBar = {
+            CenterAlignedTopAppBar(title = {
+                Text(run.routineTitle, style = MaterialTheme.typography.titleLarge.copy(fontFamily = homeAttentionFont))
+            })
+        },
     ) { innerPadding ->
         BoxWithConstraints(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
-                .consumeWindowInsets(innerPadding),
+                .consumeWindowInsets(innerPadding)
+                .background(CyberTheme.colors.background),
+            contentAlignment = Alignment.TopCenter,
         ) {
             val minHeight = maxHeight
             Column(
                 modifier = Modifier
+                    .widthIn(max = dimensionResource(R.dimen.content_max_width))
                     .fillMaxWidth()
                     .heightIn(min = minHeight)
                     .verticalScroll(rememberScrollState())
-                    .padding(horizontal = spacing.medium),
+                    .padding(horizontal = CyberPrimitives.Spacing.dp24),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 Spacer(modifier = Modifier.weight(1f))
@@ -1106,49 +1253,60 @@ private fun RoutineRunnerRoute(
                 Column(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(20.dp),
+                    verticalArrangement = Arrangement.spacedBy(CyberPrimitives.Spacing.dp24),
                 ) {
                     Text(
                         text = current.source.title,
-                        style = MaterialTheme.typography.headlineLarge,
+                        style = CyberTheme.typography.display.copy(
+                            fontFamily = homeAttentionFont,
+                            fontSize = (RunnerMotion.titleStartSize.value +
+                                (RunnerMotion.titleEndSize.value - RunnerMotion.titleStartSize.value) * entrance.value).sp,
+                        ),
+                        color = CyberTheme.colors.textPrimary,
                         textAlign = TextAlign.Center,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = spacing.medium),
+                            .offset(y = RunnerMotion.titleStartOffset +
+                                (RunnerMotion.titleEndOffset - RunnerMotion.titleStartOffset) * entrance.value),
                     )
 
                     if (timerString.isNotEmpty()) {
-                        Text(
-                            text = timerString,
-                            fontSize = calculatedFontSize,
-                            style = MaterialTheme.typography.displayLarge.copy(fontSize = calculatedFontSize),
-                            textAlign = TextAlign.Center,
-                            maxLines = 1,
-                            softWrap = false,
-                        )
+                        key(run.currentStepIndex) {
+                            Box(modifier = Modifier.graphicsLayer { alpha = entrance.value }) {
+                                RunCountdownDial(
+                                    timer = timerString,
+                                    progress = countdownProgress(current.source.timerSeconds, remaining),
+                                    remainingMillis = remaining,
+                                    diameter = dialDiameter,
+                                )
+                            }
+                        }
                     }
 
-                    Button(
+                    CyberButton(
                         onClick = viewModel::complete,
-                        contentPadding = PaddingValues(horizontal = 32.dp, vertical = 12.dp),
+                        size = CyberButtonSize.Large,
+                        style = CyberButtonStyle.Outline,
                     ) {
-                        Text(
-                            stringResource(R.string.complete),
-                            style = MaterialTheme.typography.headlineLarge,
-                            maxLines = 1,
-                            softWrap = false,
-                        )
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(CyberPrimitives.Spacing.dp8),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            CyberIcon(iconRes = SemanticIcons.Success, contentDescription = null)
+                            Text(
+                                stringResource(R.string.complete),
+                                style = CyberTheme.typography.body.copy(fontFamily = homeAttentionFont),
+                            )
+                        }
                     }
 
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
                             .horizontalScroll(rememberScrollState()),
-                        horizontalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterHorizontally),
+                        horizontalArrangement = Arrangement.spacedBy(CyberPrimitives.Spacing.dp12, Alignment.CenterHorizontally),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        val stepIconSize = 64.dp
-                        val stepBorderWidth = 4.dp
                         run.steps.forEachIndexed { index, step ->
                             val isCurrent = index == run.currentStepIndex
                             val stepDescription = stringResource(
@@ -1162,41 +1320,35 @@ private fun RoutineRunnerRoute(
                             )
                             Box(
                                 modifier = Modifier
-                                    .size(76.dp)
-                                    .then(
-                                        if (isCurrent) {
-                                            Modifier
-                                                .border(3.dp, MaterialTheme.colorScheme.primary, CircleShape)
-                                                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f), CircleShape)
-                                        } else {
-                                            Modifier
-                                        }
-                                    ),
+                                    .size(CyberPrimitives.IconSizes.dp48)
+                                    .border(
+                                        if (isCurrent) CyberPrimitives.BorderWidths.dp2 else CyberPrimitives.BorderWidths.dp1,
+                                        if (isCurrent) CyberTheme.colors.primary else CyberTheme.colors.border,
+                                        CircleShape,
+                                    )
+                                    .background(
+                                        if (isCurrent) CyberTheme.colors.primary.copy(alpha = 0.12f) else CyberTheme.colors.surface,
+                                        CircleShape,
+                                    )
+                                    .semantics { contentDescription = stepDescription },
                                 contentAlignment = Alignment.Center,
                             ) {
                                 when (step.status) {
                                     RunStepStatus.PENDING -> {
-                                        Box(
-                                            modifier = Modifier
-                                                .size(stepIconSize)
-                                                .border(stepBorderWidth, MaterialTheme.colorScheme.outline, CircleShape)
-                                                .semantics { contentDescription = stepDescription },
-                                        )
+                                        if (isCurrent) Box(Modifier.size(CyberPrimitives.Spacing.dp8).background(CyberTheme.colors.primary, CircleShape))
                                     }
                                     RunStepStatus.COMPLETED -> {
-                                        Box(
-                                            modifier = Modifier
-                                                .size(stepIconSize)
-                                                .background(colorResource(R.color.semantic_completed), CircleShape)
-                                                .semantics { contentDescription = stepDescription },
+                                        CyberIcon(
+                                            iconRes = SemanticIcons.Success,
+                                            contentDescription = null,
+                                            tint = CyberTheme.colors.textPrimary,
                                         )
                                     }
                                     RunStepStatus.SKIPPED -> {
-                                        Box(
-                                            modifier = Modifier
-                                                .size(stepIconSize)
-                                                .background(colorResource(R.color.semantic_warning), CircleShape)
-                                                .semantics { contentDescription = stepDescription },
+                                        CyberIcon(
+                                            iconRes = CyberIcons.SkipForward,
+                                            contentDescription = null,
+                                            tint = CyberTheme.colors.textPrimary,
                                         )
                                     }
                                 }
@@ -1211,48 +1363,49 @@ private fun RoutineRunnerRoute(
                     Text(stringResource(R.string.run_history_save_failed))
                     Button(onClick = viewModel::retryHistorySave) { Text(stringResource(R.string.run_retry_history_save)) }
                 } else if (run.status == RunStatus.ACTIVE) {
-                    val actionButtonPadding = PaddingValues(horizontal = 24.dp, vertical = 8.dp)
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(bottom = spacing.medium),
-                        horizontalArrangement = Arrangement.SpaceBetween,
+                            .padding(bottom = CyberPrimitives.Spacing.dp16),
+                        horizontalArrangement = Arrangement.spacedBy(CyberPrimitives.Spacing.dp8),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        OutlinedButton(
+                        CyberButton(
+                            modifier = Modifier.weight(1f).heightIn(min = CyberPrimitives.IconSizes.dp48),
                             onClick = viewModel::back,
-                            contentPadding = actionButtonPadding,
+                            style = CyberButtonStyle.Outline,
+                            size = CyberButtonSize.Small,
                         ) {
-                            Text(
-                                stringResource(R.string.back),
-                                style = MaterialTheme.typography.headlineLarge,
-                                maxLines = 1,
-                                softWrap = false,
-                            )
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                CyberIcon(iconRes = CyberIcons.ArrowLeft, contentDescription = null, size = CyberPrimitives.Spacing.dp16)
+                                Text(stringResource(R.string.back))
+                            }
                         }
-                        OutlinedButton(
+                        CyberButton(
+                            modifier = Modifier.weight(1f).heightIn(min = CyberPrimitives.IconSizes.dp48),
                             onClick = if (current.pausedAtEpochMillis == null) viewModel::pause else viewModel::resume,
-                            contentPadding = actionButtonPadding,
+                            style = CyberButtonStyle.Outline,
+                            size = CyberButtonSize.Small,
                         ) {
-                            Text(
-                                stringResource(
-                                    if (current.pausedAtEpochMillis == null) R.string.pause else R.string.resume
-                                ),
-                                style = MaterialTheme.typography.headlineLarge,
-                                maxLines = 1,
-                                softWrap = false,
-                            )
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                CyberIcon(
+                                    iconRes = if (current.pausedAtEpochMillis == null) CyberIcons.Pause else CyberIcons.Play,
+                                    contentDescription = null,
+                                    size = CyberPrimitives.Spacing.dp16,
+                                )
+                                Text(stringResource(if (current.pausedAtEpochMillis == null) R.string.pause else R.string.resume))
+                            }
                         }
-                        OutlinedButton(
+                        CyberButton(
+                            modifier = Modifier.weight(1f).heightIn(min = CyberPrimitives.IconSizes.dp48),
                             onClick = viewModel::skip,
-                            contentPadding = actionButtonPadding,
+                            style = CyberButtonStyle.Outline,
+                            size = CyberButtonSize.Small,
                         ) {
-                            Text(
-                                stringResource(R.string.skip),
-                                style = MaterialTheme.typography.headlineLarge,
-                                maxLines = 1,
-                                softWrap = false,
-                            )
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                CyberIcon(iconRes = CyberIcons.SkipForward, contentDescription = null, size = CyberPrimitives.Spacing.dp16)
+                                Text(stringResource(R.string.skip))
+                            }
                         }
                     }
                 }
@@ -1291,6 +1444,110 @@ private fun RoutineRunnerRoute(
             },
         )
     }
+}
+
+/** Paint elapsed countdown progress clockwise over the library's dial ticks with time-responsive effects and styles. */
+@Composable
+private fun RunCountdownDial(
+    timer: String,
+    progress: Float,
+    remainingMillis: Long?,
+    diameter: Dp,
+) {
+    val painted by animateFloatAsState(progress.coerceIn(0f, 1f), animationSpec = tween(800), label = "CountdownTicks")
+
+    // Determine time-responsive state based on remaining time ratio and overtime status
+    val isOvertime = remainingMillis != null && remainingMillis <= 0L
+    val remainingRatio = (1f - progress).coerceIn(0f, 1f)
+    val isUrgent = isOvertime || remainingRatio <= 0.15f
+    val isWarning = !isUrgent && remainingRatio <= 0.35f
+
+    // Smoothly shift theme accent color responsive to remaining time
+    val targetAccentColor = when {
+        isOvertime || isUrgent -> CyberPrimitives.Colors.Magenta500
+        isWarning -> CyberPrimitives.Colors.Yellow500
+        else -> CyberPrimitives.Colors.Cyan500
+    }
+
+    val animatedAccentColor by animateColorAsState(
+        targetValue = targetAccentColor,
+        animationSpec = tween(600),
+        label = "DialColorAnimation",
+    )
+
+    // Pulse alpha effect for low-time or overtime urgency
+    val infiniteTransition = rememberInfiniteTransition(label = "DialPulseTransition")
+    val pulseAlpha by infiniteTransition.animateFloat(
+        initialValue = if (isUrgent) 0.5f else 1.0f,
+        targetValue = 1.0f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(if (isOvertime) 300 else 600, easing = LinearEasing),
+            repeatMode = RepeatMode.Reverse,
+        ),
+        label = "DialPulseAlpha",
+    )
+
+    val currentGlowColor = if (isUrgent) animatedAccentColor.copy(alpha = pulseAlpha) else animatedAccentColor
+    val glowRadius = if (isUrgent) CyberPrimitives.Spacing.dp16 else CyberPrimitives.Spacing.dp8
+
+    Box(
+        modifier = Modifier
+            .size(diameter)
+            .semantics {
+                progressBarRangeInfo = ProgressBarRangeInfo(progress, 0f..1f)
+            },
+        contentAlignment = Alignment.Center,
+    ) {
+        // Outer decorative sector rim framing the dial
+        CyberSectorRim(
+            size = diameter,
+            color = animatedAccentColor.copy(alpha = if (isUrgent) pulseAlpha * 0.8f else 0.4f),
+            thickness = CyberPrimitives.BorderWidths.dp2,
+            sectorAngles = listOf(80f, 80f, 80f, 80f),
+            gapAngle = 10f,
+        )
+
+        // Background inactive dial ticks
+        CyberDialTicks(
+            size = diameter * 0.92f,
+            color = CyberTheme.colors.border.copy(alpha = 0.35f),
+            tickLength = CyberPrimitives.Spacing.dp12,
+            majorTickLength = CyberPrimitives.Spacing.dp24,
+            strokeWidth = CyberPrimitives.BorderWidths.dp2,
+        )
+
+        // Active countdown dial ticks painted up to current progress
+        CyberDialTicks(
+            modifier = Modifier.drawWithContent {
+                val paintedArea = Path().apply {
+                    moveTo(center.x, center.y)
+                    arcTo(Rect(0f, 0f, size.width, size.height), -90f, 360f * painted, false)
+                    close()
+                }
+                clipPath(paintedArea) { this@drawWithContent.drawContent() }
+            },
+            size = diameter * 0.92f,
+            color = animatedAccentColor.copy(alpha = if (isUrgent) pulseAlpha else 1.0f),
+            tickLength = CyberPrimitives.Spacing.dp12,
+            majorTickLength = CyberPrimitives.Spacing.dp24,
+            strokeWidth = CyberPrimitives.BorderWidths.dp2,
+        )
+
+        // Central timer digits with time-responsive multi-pass glyph bloom
+        GlowingText(
+            text = timer,
+            glowRadius = glowRadius,
+            glowColor = currentGlowColor,
+            textColor = CyberTheme.colors.textPrimary,
+            fontSize = 44.sp,
+        )
+    }
+}
+
+internal fun countdownProgress(timerSeconds: Long?, remainingMillis: Long?): Float {
+    if (timerSeconds == null || timerSeconds <= 0 || remainingMillis == null) return 0f
+    return (1.0 - remainingMillis.toDouble() / (timerSeconds.toDouble() * MILLIS_PER_SECOND))
+        .coerceIn(0.0, 1.0).toFloat()
 }
 
 /** Use this function to format the runner timer digits for countdown, overtime, elapsed, and untimed displays. */
@@ -1376,3 +1633,4 @@ private const val RUNNER_ROUTE = "runner/{$ROUTINE_ID_ARGUMENT}"
 private const val MILLIS_PER_SECOND = 1_000L
 private const val SECONDS_PER_MINUTE = 60L
 private const val DRAG_REORDER_THRESHOLD_PX = 48f
+private const val DRAG_TRANSITION_MILLIS = 250
