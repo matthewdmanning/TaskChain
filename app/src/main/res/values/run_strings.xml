@@ -1,4 +1,11 @@
 <resources>
     <string name="run_history_save_failed">Could not save run history. Your run is still stored locally.</string>
     <string name="run_retry_history_save">Retry saving history</string>
+    <string name="active_run_label">In progress</string>
+    <string name="resume_routine">Resume %1$s</string>
+    <string name="active_run_in_progress_title">Routine already in progress</string>
+    <string name="active_run_in_progress_message">%1$s is still in progress. Resume it before starting another routine.</string>
+    <string name="keep_browsing">Keep browsing</string>
+    <string name="pause">Pause</string>
+    <string name="resume">Resume</string>
 </resources>

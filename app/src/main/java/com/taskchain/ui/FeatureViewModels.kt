@@ -564,6 +564,12 @@ class RoutineRunnerViewModel(
     /** Use this function when Back is pressed inside the runner. */
     fun back() = transition { run, now -> container.runEngine.back(run, now) }
 
+    /** Use this function when Pause is pressed for the displayed task. */
+    fun pause() = transition { run, now -> container.runEngine.pauseCurrent(run, now) }
+
+    /** Use this function when Resume is pressed for the displayed task. */
+    fun resume() = transition { run, now -> container.runEngine.resumeCurrent(run, now) }
+
     /** Use this function when a confirmation dialog should close without ending the run. */
     fun continueRun() = transition { run, now -> container.runEngine.continueRun(run, now) }
 

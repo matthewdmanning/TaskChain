@@ -36,6 +36,36 @@ class RoutineRunEngine {
     fun skipCurrent(run: RoutineRun, nowEpochMillis: Long): RoutineRun =
         finishCurrent(run, nowEpochMillis, RunStepStatus.SKIPPED)
 
+    /** Use this function to pause the current pending step without losing elapsed time. */
+    fun pauseCurrent(run: RoutineRun, nowEpochMillis: Long): RoutineRun {
+        require(run.status == RunStatus.ACTIVE)
+        require(!run.finishConfirmationRequested && !run.abortConfirmationRequested)
+        val index = run.currentStepIndex
+        require(index in run.steps.indices)
+        val current = run.steps[index]
+        if (current.status != RunStepStatus.PENDING || current.pausedAtEpochMillis != null) return run
+        return run.copy(steps = run.steps.replaceAt(index, current.copy(pausedAtEpochMillis = nowEpochMillis)))
+    }
+
+    /** Use this function to resume the current pending step while excluding paused time. */
+    fun resumeCurrent(run: RoutineRun, nowEpochMillis: Long): RoutineRun {
+        require(run.status == RunStatus.ACTIVE)
+        require(!run.finishConfirmationRequested && !run.abortConfirmationRequested)
+        val index = run.currentStepIndex
+        require(index in run.steps.indices)
+        val current = run.steps[index]
+        val pausedAt = current.pausedAtEpochMillis ?: return run
+        if (current.status != RunStepStatus.PENDING) return run
+        val pausedDuration = (nowEpochMillis - pausedAt).coerceAtLeast(0)
+        val startedAt = current.startedAtEpochMillis?.plus(pausedDuration) ?: nowEpochMillis
+        return run.copy(
+            steps = run.steps.replaceAt(
+                index,
+                current.copy(startedAtEpochMillis = startedAt, pausedAtEpochMillis = null),
+            ),
+        )
+    }
+
     fun selectStep(run: RoutineRun, index: Int, nowEpochMillis: Long): RoutineRun {
         require(run.status == RunStatus.ACTIVE)
         require(index in run.steps.indices)

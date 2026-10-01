@@ -92,6 +92,22 @@ class RoutineRunEngineTest {
         assertEquals(3_000L, step.actualDurationMillis)
     }
 
+    /** Use this function to verify explicit pause and resume preserve elapsed timer time. */
+    @Test
+    fun pauseAndResumeExcludePausedTime() {
+        val engine = RoutineRunEngine()
+        val started = engine.start(routine(timerSeconds = 10), RoutineRunId("run"), 1_000)
+
+        val paused = engine.pauseCurrent(started, 4_000)
+        assertEquals(4_000L, paused.steps.first().pausedAtEpochMillis)
+        assertEquals(7_000L, engine.remainingMillis(paused, 9_000))
+
+        val resumed = engine.resumeCurrent(paused, 9_000)
+        assertEquals(null, resumed.steps.first().pausedAtEpochMillis)
+        assertEquals(6_000L, resumed.steps.first().startedAtEpochMillis)
+        assertEquals(6_000L, engine.remainingMillis(resumed, 10_000))
+    }
+
     /** Use this function to verify that zero-time feedback is acknowledged idempotently. */
     @Test
     fun timerFeedbackIsAcknowledgedOnce() {

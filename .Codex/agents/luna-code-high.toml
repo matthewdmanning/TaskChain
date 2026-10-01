@@ -14,7 +14,6 @@ On Windows use cmd.exe and native executables only; never PowerShell or .ps1. Us
 name = "diagnosing-bugs"
 enabled = true
 
-
 [[skills.config]]
 name = "context7-mcp"
 enabled = false
