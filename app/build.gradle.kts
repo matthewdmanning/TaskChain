@@ -21,7 +21,7 @@ val dotenv: Map<String, String> = rootProject.file(".env")
 
 android {
     namespace = "com.taskchain"
-    compileSdk = 36
+    compileSdk = 37
 
     defaultConfig {
         applicationId = "com.taskchain"
