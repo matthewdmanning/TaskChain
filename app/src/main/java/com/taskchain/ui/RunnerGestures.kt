@@ -5,6 +5,8 @@ import android.view.GestureDetector
 import android.view.MotionEvent
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalDensity
@@ -46,8 +48,12 @@ internal fun Modifier.runnerGestureTracking(
     val pauseResumeLabel = stringResource(
         if (paused) R.string.runner_gesture_resume else R.string.runner_gesture_pause,
     )
+    val currentComplete by rememberUpdatedState(onComplete)
+    val currentSkip by rememberUpdatedState(onSkip)
+    val currentPause by rememberUpdatedState(onPause)
+    val currentResume by rememberUpdatedState(onResume)
 
-    DisposableEffect(view, paused, onComplete, onSkip, onPause, onResume, swipeThresholdPx) {
+    DisposableEffect(view, paused, swipeThresholdPx) {
         var consumeUntilRelease = false
 
         // #fallback: cyberpunkAndroid intentionally supplies visual primitives rather than a gesture recognizer.
@@ -73,17 +79,17 @@ internal fun Modifier.runnerGestureTracking(
                         return false
                     }
                     haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                    if (horizontalDistance > 0f) onComplete() else onSkip()
+                    if (horizontalDistance > 0f) currentComplete() else currentSkip()
                     return true
                 }
 
                 override fun onLongPress(event: MotionEvent) {
                     consumeUntilRelease = true
                     haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                    if (paused) onResume() else onPause()
+                    if (paused) currentResume() else currentPause()
 
                     // Cancel the original Compose press so a long-pressed button does not also click on release.
-                    val cancelEvent = MotionEvent.obtain(event).apply { action = MotionEvent.ACTION_CANCEL }
+                    val cancelEvent = MotionEvent.obtain(event).apply { setAction(MotionEvent.ACTION_CANCEL) }
                     view.onTouchEvent(cancelEvent)
                     cancelEvent.recycle()
                 }
@@ -105,15 +111,15 @@ internal fun Modifier.runnerGestureTracking(
     return this.semantics {
         customActions = listOf(
             CustomAccessibilityAction(completeLabel) {
-                onComplete()
+                currentComplete()
                 true
             },
             CustomAccessibilityAction(skipLabel) {
-                onSkip()
+                currentSkip()
                 true
             },
             CustomAccessibilityAction(pauseResumeLabel) {
-                if (paused) onResume() else onPause()
+                if (paused) currentResume() else currentPause()
                 true
             },
         )
