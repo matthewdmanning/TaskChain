@@ -14,6 +14,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.dimensionResource
+import androidx.compose.ui.res.integerResource
 import androidx.compose.ui.res.stringResource
 import com.example.cyberpunkandroid.components.CyberCard
 import com.example.cyberpunkandroid.components.CyberProgress
@@ -31,11 +32,12 @@ internal fun RunnerFeatureOverlay(
     run: RoutineRun,
     modifier: Modifier = Modifier,
 ) {
+    val previewCount = integerResource(R.integer.runner_next_up_preview_count)
     val upcoming = run.steps
         .withIndex()
         .drop(run.currentStepIndex + 1)
         .filter { it.value.status == RunStepStatus.PENDING }
-        .take(MAX_NEXT_UP_ITEMS)
+        .take(previewCount)
     if (upcoming.isEmpty()) return
 
     val completedCount = run.steps.count { it.status != RunStepStatus.PENDING }
@@ -86,5 +88,3 @@ internal fun RunnerFeatureOverlay(
         }
     }
 }
-
-private const val MAX_NEXT_UP_ITEMS = 2
