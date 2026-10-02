@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="runner_substeps_label">Sub-steps (%1$d)</string>
+    <string name="runner_substep_pending">Pending</string>
+    <string name="runner_substep_completed">Completed</string>
+    <string name="runner_substep_skipped">Skipped</string>
+</resources>
