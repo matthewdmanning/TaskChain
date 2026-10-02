@@ -18,7 +18,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.dimensionResource
 import androidx.compose.ui.res.stringResource
 import com.example.cyberpunkandroid.components.CyberCard
@@ -86,7 +85,7 @@ internal fun RunnerFeatureOverlay(
         feedback?.let { event ->
             CyberPixelTransition(
                 targetKey = event,
-                color = Color.Transparent,
+                color = CyberTheme.colors.background.copy(alpha = TRANSPARENT_ALPHA),
                 modifier = Modifier.fillMaxWidth(),
             ) {
                 CyberCard(
@@ -132,3 +131,5 @@ private data class StepFeedback(
     val stepIndex: Int,
     val status: RunStepStatus,
 )
+
+private const val TRANSPARENT_ALPHA = 0f
