@@ -32,8 +32,9 @@ internal fun RunnerFeatureOverlay(
     modifier: Modifier = Modifier,
 ) {
     val upcoming = run.steps
+        .withIndex()
         .drop(run.currentStepIndex + 1)
-        .filter { it.status == RunStepStatus.PENDING }
+        .filter { it.value.status == RunStepStatus.PENDING }
         .take(MAX_NEXT_UP_ITEMS)
     if (upcoming.isEmpty()) return
 
@@ -62,15 +63,19 @@ internal fun RunnerFeatureOverlay(
             },
         ) {
             Column(verticalArrangement = Arrangement.spacedBy(CyberPrimitives.Spacing.dp8)) {
-                upcoming.forEachIndexed { index, step ->
+                upcoming.forEachIndexed { previewIndex, indexedStep ->
                     Text(
                         text = stringResource(
                             R.string.runner_next_up_step,
-                            run.currentStepIndex + index + 2,
-                            step.source.title,
+                            indexedStep.index + 1,
+                            indexedStep.value.source.title,
                         ),
                         style = CyberTheme.typography.body,
-                        color = if (index == 0) CyberTheme.colors.textPrimary else CyberTheme.colors.textSecondary,
+                        color = if (previewIndex == 0) {
+                            CyberTheme.colors.textPrimary
+                        } else {
+                            CyberTheme.colors.textSecondary
+                        },
                     )
                 }
                 CyberProgress(
