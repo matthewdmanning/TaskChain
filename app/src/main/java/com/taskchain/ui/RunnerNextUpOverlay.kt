@@ -27,7 +27,7 @@ import com.taskchain.domain.model.RunStepStatus
 
 /** Shows the next pending steps without changing the authoritative runner or its transitions. */
 @Composable
-internal fun RunnerFeatureOverlay(
+internal fun RunnerNextUpOverlay(
     container: AppContainer,
     run: RoutineRun,
     modifier: Modifier = Modifier,
