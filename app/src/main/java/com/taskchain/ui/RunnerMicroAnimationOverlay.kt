@@ -85,7 +85,7 @@ internal fun RunnerFeatureOverlay(
         feedback?.let { event ->
             CyberPixelTransition(
                 targetKey = event,
-                color = CyberTheme.colors.background.copy(alpha = TRANSPARENT_ALPHA),
+                color = CyberTheme.colors.background,
                 modifier = Modifier.fillMaxWidth(),
             ) {
                 CyberCard(
@@ -131,5 +131,3 @@ private data class StepFeedback(
     val stepIndex: Int,
     val status: RunStepStatus,
 )
-
-private const val TRANSPARENT_ALPHA = 0f
