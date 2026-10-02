@@ -5,7 +5,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.lifecycle.lifecycleScope
-import com.taskchain.ui.TaskChainApp
+import com.taskchain.ui.RunnerFeatureApp
 import kotlinx.coroutines.launch
 
 /** Hosts the single Compose activity and the local application composition root. */
@@ -18,7 +18,7 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         lifecycleScope.launch {
             container.recoverTerminalRun()
-            setContent { TaskChainApp(container) }
+            setContent { RunnerFeatureApp(container) }
         }
     }
 }
