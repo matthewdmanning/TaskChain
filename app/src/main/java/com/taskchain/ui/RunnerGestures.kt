@@ -55,6 +55,9 @@ internal fun Modifier.runnerGestureTracking(
 
     DisposableEffect(view, paused, swipeThresholdPx) {
         var consumeUntilRelease = false
+        var downX = 0f
+        var downY = 0f
+        var trackingTouch = false
 
         /** Cancels a Compose press after this detector has claimed the gesture. */
         fun cancelUnderlyingPress(source: MotionEvent) {
@@ -64,33 +67,11 @@ internal fun Modifier.runnerGestureTracking(
         }
 
         // #fallback: cyberpunkAndroid intentionally supplies visual primitives rather than a gesture recognizer.
-        // Android's standard GestureDetector is used here so taps still reach the existing CyberButton controls.
+        // Android's standard touch and GestureDetector APIs are used so normal taps still reach CyberButton.
         val detector = GestureDetector(
             view.context,
             object : GestureDetector.SimpleOnGestureListener() {
                 override fun onDown(event: MotionEvent): Boolean = true
-
-                override fun onFling(
-                    first: MotionEvent?,
-                    second: MotionEvent,
-                    velocityX: Float,
-                    velocityY: Float,
-                ): Boolean {
-                    val start = first ?: return false
-                    val horizontalDistance = second.x - start.x
-                    val verticalDistance = second.y - start.y
-                    if (
-                        horizontalDistance.absoluteValue < swipeThresholdPx ||
-                        horizontalDistance.absoluteValue <= verticalDistance.absoluteValue
-                    ) {
-                        return false
-                    }
-                    consumeUntilRelease = true
-                    cancelUnderlyingPress(second)
-                    haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                    if (horizontalDistance > 0f) currentComplete() else currentSkip()
-                    return true
-                }
 
                 override fun onLongPress(event: MotionEvent) {
                     consumeUntilRelease = true
@@ -103,6 +84,31 @@ internal fun Modifier.runnerGestureTracking(
 
         view.setOnTouchListener { _, event ->
             detector.onTouchEvent(event)
+            when (event.actionMasked) {
+                MotionEvent.ACTION_DOWN -> {
+                    downX = event.x
+                    downY = event.y
+                    trackingTouch = true
+                }
+                MotionEvent.ACTION_UP -> {
+                    if (!consumeUntilRelease && trackingTouch) {
+                        val horizontalDistance = event.x - downX
+                        val verticalDistance = event.y - downY
+                        if (
+                            horizontalDistance.absoluteValue >= swipeThresholdPx &&
+                            horizontalDistance.absoluteValue > verticalDistance.absoluteValue
+                        ) {
+                            consumeUntilRelease = true
+                            cancelUnderlyingPress(event)
+                            haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                            if (horizontalDistance > 0f) currentComplete() else currentSkip()
+                        }
+                    }
+                    trackingTouch = false
+                }
+                MotionEvent.ACTION_CANCEL -> trackingTouch = false
+            }
+
             val consume = consumeUntilRelease
             if (event.actionMasked == MotionEvent.ACTION_UP || event.actionMasked == MotionEvent.ACTION_CANCEL) {
                 consumeUntilRelease = false
