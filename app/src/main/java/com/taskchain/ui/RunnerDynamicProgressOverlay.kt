@@ -49,14 +49,15 @@ internal fun RunnerFeatureOverlay(
     }
 
     val remainingMillis = container.runEngine.remainingMillis(run, nowEpochMillis)
-    val targetProgress = countdownProgress(timerSeconds, remainingMillis)
+    val elapsedProgress = countdownProgress(timerSeconds, remainingMillis)
+    val remainingProgress = (PROGRESS_END - elapsedProgress).coerceIn(PROGRESS_START, PROGRESS_END)
     val paintedProgress by animateFloatAsState(
-        targetValue = targetProgress,
+        targetValue = remainingProgress,
         animationSpec = tween(
             durationMillis = CyberPrimitives.Durations.ms300,
             easing = CyberConfig.Easings.CyberEasing,
         ),
-        label = "RunnerProgressHalo",
+        label = "RunnerRemainingTimeHalo",
     )
 
     BoxWithConstraints(
@@ -89,7 +90,7 @@ internal fun RunnerFeatureOverlay(
             )
 
             // #fallback: cyberpunkAndroid provides CyberDialTicks but no progress-aware mask;
-            // Compose draw clipping is used only to reveal the library component by elapsed fraction.
+            // Compose draw clipping is used only to reveal the library component by remaining-time fraction.
             CyberDialTicks(
                 modifier = Modifier.drawWithContent {
                     val paintedArea = Path().apply {
@@ -114,6 +115,8 @@ internal fun RunnerFeatureOverlay(
     }
 }
 
-private val PROGRESS_RANGE = 0f..1f
+private const val PROGRESS_START = 0f
+private const val PROGRESS_END = 1f
+private val PROGRESS_RANGE = PROGRESS_START..PROGRESS_END
 private const val TOP_START_ANGLE_DEGREES = -90f
 private const val FULL_CIRCLE_DEGREES = 360f
