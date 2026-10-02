@@ -56,6 +56,13 @@ internal fun Modifier.runnerGestureTracking(
     DisposableEffect(view, paused, swipeThresholdPx) {
         var consumeUntilRelease = false
 
+        /** Cancels a Compose press after this detector has claimed the gesture. */
+        fun cancelUnderlyingPress(source: MotionEvent) {
+            val cancelEvent = MotionEvent.obtain(source).apply { setAction(MotionEvent.ACTION_CANCEL) }
+            view.onTouchEvent(cancelEvent)
+            cancelEvent.recycle()
+        }
+
         // #fallback: cyberpunkAndroid intentionally supplies visual primitives rather than a gesture recognizer.
         // Android's standard GestureDetector is used here so taps still reach the existing CyberButton controls.
         val detector = GestureDetector(
@@ -78,6 +85,8 @@ internal fun Modifier.runnerGestureTracking(
                     ) {
                         return false
                     }
+                    consumeUntilRelease = true
+                    cancelUnderlyingPress(second)
                     haptics.performHapticFeedback(HapticFeedbackType.LongPress)
                     if (horizontalDistance > 0f) currentComplete() else currentSkip()
                     return true
@@ -85,13 +94,9 @@ internal fun Modifier.runnerGestureTracking(
 
                 override fun onLongPress(event: MotionEvent) {
                     consumeUntilRelease = true
+                    cancelUnderlyingPress(event)
                     haptics.performHapticFeedback(HapticFeedbackType.LongPress)
                     if (paused) currentResume() else currentPause()
-
-                    // Cancel the original Compose press so a long-pressed button does not also click on release.
-                    val cancelEvent = MotionEvent.obtain(event).apply { setAction(MotionEvent.ACTION_CANCEL) }
-                    view.onTouchEvent(cancelEvent)
-                    cancelEvent.recycle()
                 }
             },
         )
