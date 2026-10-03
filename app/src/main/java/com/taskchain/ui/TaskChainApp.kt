@@ -1235,7 +1235,14 @@ private fun RoutineRunnerRoute(
                 .fillMaxSize()
                 .padding(innerPadding)
                 .consumeWindowInsets(innerPadding)
-                .background(CyberTheme.colors.background),
+                .background(CyberTheme.colors.background)
+                .runnerGestureTracking(
+                    paused = current.pausedAtEpochMillis != null,
+                    onComplete = viewModel::complete,
+                    onSkip = viewModel::skip,
+                    onPause = viewModel::pause,
+                    onResume = viewModel::resume,
+                ),
             contentAlignment = Alignment.TopCenter,
         ) {
             val minHeight = maxHeight
