@@ -11,10 +11,12 @@ dependencyResolutionManagement {
     repositories {
         google()
         mavenCentral()
+        maven {
+            url = uri("https://jitpack.io")
+            content { includeGroup("com.github.matthewdmanning.cyberpunkAndroid") }
+        }
     }
 }
 
 rootProject.name = "TaskChain"
 include(":app")
-include(":cyberpunkandroid")
-project(":cyberpunkandroid").projectDir = file("third_party/cyberpunkAndroid/cyberpunkandroid")
