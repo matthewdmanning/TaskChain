@@ -8,6 +8,7 @@ import com.taskchain.domain.model.EntityMetadata
 import com.taskchain.domain.model.RoutineId
 import com.taskchain.domain.model.RoutineRun
 import com.taskchain.domain.model.RoutineStep
+import com.taskchain.domain.model.RoutineStepRole
 import com.taskchain.domain.model.RoutineTemplate
 import com.taskchain.domain.model.RunStatus
 import com.taskchain.domain.model.ScheduleFrequency
@@ -126,7 +127,7 @@ internal fun validateBuilderState(
 ): Set<BuilderValidationError> {
     val errors = mutableSetOf<BuilderValidationError>()
     if (state.title.isBlank()) errors += BuilderValidationError.ROUTINE_NAME_REQUIRED
-    if (state.steps.isEmpty()) errors += BuilderValidationError.STEP_REQUIRED
+    if (state.steps.none { it.role == RoutineStepRole.MAIN }) errors += BuilderValidationError.STEP_REQUIRED
 
     state.editingStepIndex?.takeIf { it in state.steps.indices }?.let {
         if (state.pendingStepTitle.isBlank()) errors += BuilderValidationError.STEP_NAME_REQUIRED
@@ -298,6 +299,54 @@ class RoutineBuilderViewModel(
         }
     }
 
+    /** Add one secondary timer step immediately after its parent's existing substeps. */
+    fun addSubstep(parentIndex: Int, title: String, timerSeconds: String) {
+        val draft = state.value
+        val parent = draft.steps.getOrNull(parentIndex)?.takeIf { it.role == RoutineStepRole.MAIN } ?: return
+        val trimmedTitle = title.trim()
+        if (trimmedTitle.isBlank()) return
+        val seconds = timerSeconds.trim().toLongOrNull()?.takeIf { it > 0 }
+        if (timerSeconds.isNotBlank() && seconds == null) return
+        val insertIndex = draft.steps.indexOfLast { it.parentStepId == parent.id }.takeIf { it >= 0 }?.plus(1)
+            ?: (parentIndex + 1)
+        val substep = RoutineStep(
+            id = container.newStepId(),
+            title = trimmedTitle,
+            timerSeconds = seconds,
+            role = RoutineStepRole.SECONDARY,
+            parentStepId = parent.id,
+        )
+        mutateDraft { current ->
+            current.copy(steps = current.steps.toMutableList().apply { add(insertIndex, substep) })
+        }
+    }
+
+    /** Update a persisted secondary step title without changing its parent or order. */
+    fun setSubstepTitle(index: Int, value: String) {
+        if (value.isBlank()) return
+        mutateDraft { draft ->
+            val step = draft.steps.getOrNull(index)?.takeIf { it.role == RoutineStepRole.SECONDARY } ?: return@mutateDraft draft
+            draft.copy(steps = draft.steps.toMutableList().apply { set(index, step.copy(title = value)) })
+        }
+    }
+
+    /** Update a secondary step duration using the same positive-seconds rule as main steps. */
+    fun setSubstepTimerSeconds(index: Int, value: String) {
+        val seconds = value.trim().toLongOrNull()?.takeIf { it > 0 }
+        if (value.isNotBlank() && seconds == null) return
+        mutateDraft { draft ->
+            val step = draft.steps.getOrNull(index)?.takeIf { it.role == RoutineStepRole.SECONDARY } ?: return@mutateDraft draft
+            draft.copy(steps = draft.steps.toMutableList().apply { set(index, step.copy(timerSeconds = seconds)) })
+        }
+    }
+
+    /** Remove one secondary step without changing its parent main step. */
+    fun removeSubstep(index: Int) {
+        val draft = state.value
+        val step = draft.steps.getOrNull(index)?.takeIf { it.role == RoutineStepRole.SECONDARY } ?: return
+        mutateDraft { current -> current.copy(steps = current.steps.filterNot { it.id == step.id }) }
+    }
+
     /** Use this function when a routine deadline is selected. */
     fun setDeadline(value: Long?) {
         mutateDraft { draft ->
@@ -340,7 +389,7 @@ class RoutineBuilderViewModel(
     /** Use this function when an existing draft step should be edited in place. */
     fun editStep(index: Int) {
         val draft = state.value
-        val step = draft.steps.getOrNull(index) ?: return
+        val step = draft.steps.getOrNull(index)?.takeIf { it.role == RoutineStepRole.MAIN } ?: return
         if (draft.editingStepIndex == index) return
         if (draft.editingStepIndex != null && draft.pendingTimerSeconds.isNotBlank() &&
             draft.pendingTimerSeconds.trim().toLongOrNull()?.let { it > 0 } != true
@@ -358,7 +407,7 @@ class RoutineBuilderViewModel(
         if (draft.editingStepIndex != null && draft.pendingTimerSeconds.isNotBlank() &&
             draft.pendingTimerSeconds.trim().toLongOrNull()?.let { it > 0 } != true
         ) return
-        val steps = draft.steps + RoutineStep(container.newStepId(), defaultTitle)
+        val steps = draft.steps + RoutineStep(container.newStepId(), defaultTitle, role = RoutineStepRole.MAIN)
         val candidate = draft.copy(
             steps = steps,
             editingStepIndex = steps.lastIndex,
@@ -373,15 +422,20 @@ class RoutineBuilderViewModel(
         )
     }
 
-    /** Use this function when an ordered draft step moves by a list offset. */
+    /** Move one main step and its contiguous substeps as a single ordered group. */
     fun moveStep(index: Int, offset: Int) {
-        val target = index + offset
-        val steps = state.value.steps
-        if (index !in steps.indices || target !in steps.indices) return
-        val reordered = steps.toMutableList().apply { add(target, removeAt(index)) }
-        val editingId = state.value.editingStepIndex?.let { steps.getOrNull(it)?.id }
-        if (reordered == steps) return
-        val candidate = state.value.copy(
+        val draft = state.value
+        val steps = draft.steps
+        if (steps.getOrNull(index)?.role != RoutineStepRole.MAIN) return
+        val groups = steps.filter { it.role == RoutineStepRole.MAIN }.map { main ->
+            listOf(main) + steps.filter { it.role == RoutineStepRole.SECONDARY && it.parentStepId == main.id }
+        }
+        val position = groups.indexOfFirst { it.firstOrNull()?.id == steps[index].id }
+        val target = position + offset
+        if (position !in groups.indices || target !in groups.indices) return
+        val editingId = draft.editingStepIndex?.let { steps.getOrNull(it)?.id }
+        val reordered = groups.toMutableList().apply { add(target, removeAt(position)) }.flatten()
+        val candidate = draft.copy(
             steps = reordered,
             editingStepIndex = editingId?.let { id -> reordered.indexOfFirst { it.id == id }.takeIf { it >= 0 } },
             hasUnsavedChanges = true,
@@ -421,21 +475,22 @@ class RoutineBuilderViewModel(
         mutateDraft { it.clearLegacyRoutineSettings().copy(scheduleOneTimeEpochMillis = value) }
     }
 
-    /** Use this function when removing one step from the current draft. */
+    /** Remove a main step together with every secondary step linked to it. */
     fun removeStep(index: Int) {
         val draft = state.value
-        if (index !in draft.steps.indices) return
-        val editingIndex = draft.editingStepIndex
-        val removedEditingStep = editingIndex == index
+        val removed = draft.steps.getOrNull(index)?.takeIf { it.role == RoutineStepRole.MAIN } ?: return
+        val editingId = draft.editingStepIndex?.let { draft.steps.getOrNull(it)?.id }
+        val removedIds = buildSet {
+            add(removed.id)
+            draft.steps.filter { it.parentStepId == removed.id }.forEach { add(it.id) }
+        }
+        val remaining = draft.steps.filterNot { it.id in removedIds }
         val candidate = draft.copy(
-            steps = draft.steps.filterIndexed { itemIndex, _ -> itemIndex != index },
-            editingStepIndex = when {
-                removedEditingStep -> null
-                editingIndex != null && editingIndex > index -> editingIndex - 1
-                else -> editingIndex
-            },
-            pendingStepTitle = if (removedEditingStep) "" else draft.pendingStepTitle,
-            pendingTimerSeconds = if (removedEditingStep) "" else draft.pendingTimerSeconds,
+            steps = remaining,
+            editingStepIndex = editingId?.takeUnless { it in removedIds }
+                ?.let { id -> remaining.indexOfFirst { it.id == id }.takeIf { it >= 0 } },
+            pendingStepTitle = if (editingId in removedIds) "" else draft.pendingStepTitle,
+            pendingTimerSeconds = if (editingId in removedIds) "" else draft.pendingTimerSeconds,
             hasUnsavedChanges = true,
         )
         state.value = candidate.copy(
@@ -472,9 +527,9 @@ class RoutineBuilderViewModel(
                     description = draft.description.trim(),
                     steps = draft.steps.map { step ->
                         step.copy(
-                        title = step.title.trim(),
-                        deadlineEpochMillis = null,
-                        reminderAtEpochMillis = null,
+                            title = step.title.trim(),
+                            deadlineEpochMillis = null,
+                            reminderAtEpochMillis = null,
                             schedule = null,
                             remindEveryMinutes = null,
                         )
@@ -604,7 +659,12 @@ class RoutineRunnerViewModel(
         val run = state.value.run
         state.value = state.value.copy(nowEpochMillis = now)
         if (run != null && run.status == RunStatus.ACTIVE && container.runEngine.needsTimerFeedback(run, now)) {
-            container.timerFeedback.fire(run.steps[run.currentStepIndex].source.soundEnabled, run.steps[run.currentStepIndex].source.vibrateEnabled)
+            val source = run.steps[run.currentStepIndex].source
+            if (source.role == RoutineStepRole.SECONDARY) {
+                container.timerFeedback.fireSecondary(source.soundEnabled, source.vibrateEnabled)
+            } else {
+                container.timerFeedback.fire(source.soundEnabled, source.vibrateEnabled)
+            }
             val acknowledged = container.runEngine.acknowledgeTimerFeedback(run, now)
             container.activeRun.saveActive(acknowledged)
             state.value = state.value.copy(run = acknowledged)
