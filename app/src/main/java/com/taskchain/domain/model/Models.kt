@@ -30,6 +30,10 @@ data class EntityMetadata(
 @Serializable
 enum class ScheduleFrequency { ONCE, DAILY, WEEKDAYS, SELECTED_DAYS }
 
+/** Identifies whether a routine step is a primary step or a secondary substep. */
+@Serializable
+enum class RoutineStepRole { MAIN, SECONDARY }
+
 /** A local schedule definition that stays independent from Android alarms. */
 @Serializable
 data class ScheduleRule(
@@ -40,12 +44,14 @@ data class ScheduleRule(
     val oneTimeEpochMillis: Long? = null,
 )
 
-/** A reusable task within a routine. */
+/** A reusable task within a routine. Secondary steps are linked to their primary parent. */
 @Serializable
 data class RoutineStep(
     val id: RoutineStepId,
     val title: String,
     val timerSeconds: Long? = null,
+    val role: RoutineStepRole = RoutineStepRole.MAIN,
+    val parentStepId: RoutineStepId? = null,
     val stackingAnchorStepId: RoutineStepId? = null,
     val deadlineEpochMillis: Long? = null,
     val reminderAtEpochMillis: Long? = null,
@@ -74,11 +80,22 @@ data class RoutineTemplate(
     fun requireRunnable(): RoutineTemplate = apply {
         require(id.value.isNotBlank())
         require(title.isNotBlank())
-        require(steps.isNotEmpty())
+        require(steps.any { it.role == RoutineStepRole.MAIN })
         require(steps.all { it.title.isNotBlank() })
         require(steps.all { it.id.value.isNotBlank() })
         require(steps.map { it.id }.distinct().size == steps.size)
         require(steps.all { it.timerSeconds == null || it.timerSeconds > 0 })
+        val mainStepIds = steps.filter { it.role == RoutineStepRole.MAIN }.map { it.id }.toSet()
+        require(steps.all { step ->
+            when (step.role) {
+                RoutineStepRole.MAIN -> step.parentStepId == null
+                RoutineStepRole.SECONDARY -> step.parentStepId in mainStepIds
+            }
+        })
+        require(steps.withIndex().all { (index, step) ->
+            step.role != RoutineStepRole.SECONDARY ||
+                steps.indexOfFirst { it.id == step.parentStepId } in 0 until index
+        })
         require(deadlineEpochMillis == null || deadlineEpochMillis >= 0)
         require(reminderAtEpochMillis == null || reminderAtEpochMillis >= 0)
         require(listOfNotNull(schedule, deadlineEpochMillis, reminderAtEpochMillis).size <= 1)
