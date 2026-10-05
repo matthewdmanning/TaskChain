@@ -1350,15 +1350,21 @@ private fun RoutineRunnerRoute(
                         }
                     }
 
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .horizontalScroll(rememberScrollState()),
-                        horizontalArrangement = Arrangement.spacedBy(CyberPrimitives.Spacing.dp12, Alignment.CenterHorizontally),
-                        verticalAlignment = Alignment.CenterVertically,
+                    val mainSteps = run.steps.filter { it.source.role == RoutineStepRole.MAIN }
+                    val semanticColors = CyberTheme.semantics.colors
+                    FlowRow(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(spacing.small, Alignment.CenterHorizontally),
+                        verticalArrangement = Arrangement.spacedBy(spacing.small),
                     ) {
-                        run.steps.filter { it.source.role == RoutineStepRole.MAIN }.forEachIndexed { index, step ->
+                        mainSteps.forEachIndexed { index, step ->
                             val isCurrent = step.source.id == mainSource.id
+                            val indicatorColor = when {
+                                isCurrent -> semanticColors.info
+                                step.status == RunStepStatus.COMPLETED -> semanticColors.success
+                                step.status == RunStepStatus.SKIPPED -> semanticColors.warning
+                                else -> semanticColors.info.copy(alpha = 0.45f)
+                            }
                             val stepDescription = stringResource(
                                 when (step.status) {
                                     RunStepStatus.PENDING -> R.string.runner_step_status_pending
@@ -1370,35 +1376,38 @@ private fun RoutineRunnerRoute(
                             )
                             Box(
                                 modifier = Modifier
-                                    .size(CyberPrimitives.IconSizes.dp48)
+                                    .size(CyberPrimitives.IconSizes.dp32)
                                     .border(
                                         if (isCurrent) CyberPrimitives.BorderWidths.dp2 else CyberPrimitives.BorderWidths.dp1,
-                                        if (isCurrent) CyberTheme.colors.primary else CyberTheme.colors.border,
+                                        indicatorColor,
                                         CircleShape,
                                     )
-                                    .background(
-                                        if (isCurrent) CyberTheme.colors.primary.copy(alpha = 0.12f) else CyberTheme.colors.surface,
-                                        CircleShape,
-                                    )
+                                    .background(indicatorColor.copy(alpha = if (isCurrent) 0.18f else 0.08f), CircleShape)
                                     .semantics { contentDescription = stepDescription },
                                 contentAlignment = Alignment.Center,
                             ) {
                                 when (step.status) {
                                     RunStepStatus.PENDING -> {
-                                        if (isCurrent) Box(Modifier.size(CyberPrimitives.Spacing.dp8).background(CyberTheme.colors.primary, CircleShape))
+                                        Box(
+                                            Modifier
+                                                .size(CyberPrimitives.Spacing.dp8)
+                                                .background(indicatorColor, CircleShape),
+                                        )
                                     }
                                     RunStepStatus.COMPLETED -> {
                                         CyberIcon(
                                             iconRes = SemanticIcons.Success,
                                             contentDescription = null,
-                                            tint = CyberTheme.colors.textPrimary,
+                                            size = CyberPrimitives.IconSizes.dp16,
+                                            tint = semanticColors.success,
                                         )
                                     }
                                     RunStepStatus.SKIPPED -> {
                                         CyberIcon(
                                             iconRes = CyberIcons.SkipForward,
                                             contentDescription = null,
-                                            tint = CyberTheme.colors.textPrimary,
+                                            size = CyberPrimitives.IconSizes.dp16,
+                                            tint = semanticColors.warning,
                                         )
                                     }
                                 }
@@ -1506,13 +1515,11 @@ private fun RunCountdownDial(
 ) {
     val painted by animateFloatAsState(progress.coerceIn(0f, 1f), animationSpec = tween(800), label = "CountdownTicks")
 
-    // Determine time-responsive state based on remaining time ratio and overtime status
     val isOvertime = remainingMillis != null && remainingMillis <= 0L
     val remainingRatio = (1f - progress).coerceIn(0f, 1f)
     val isUrgent = isOvertime || remainingRatio <= 0.15f
     val isWarning = !isUrgent && remainingRatio <= 0.35f
 
-    // Smoothly shift theme accent color responsive to remaining time
     val targetAccentColor = when {
         isOvertime || isUrgent -> CyberPrimitives.Colors.Magenta500
         isWarning -> CyberPrimitives.Colors.Yellow500
@@ -1525,7 +1532,6 @@ private fun RunCountdownDial(
         label = "DialColorAnimation",
     )
 
-    // Pulse alpha effect for low-time or overtime urgency
     val infiniteTransition = rememberInfiniteTransition(label = "DialPulseTransition")
     val pulseAlpha by infiniteTransition.animateFloat(
         initialValue = if (isUrgent) 0.5f else 1.0f,
@@ -1660,7 +1666,7 @@ private fun SettingsRoute(viewModel: SettingsViewModel, padding: PaddingValues) 
             LabeledSwitchRow(
                 label = stringResource(R.string.continue_past_zero),
                 checked = state.continueTimerPastZero,
-                onCheckedChange = viewModel::setContinuePastZero,
+                onCheckedChange = viewModel::setContinueTimerPastZero,
             )
         }
     }
