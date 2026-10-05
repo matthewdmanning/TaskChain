@@ -1515,11 +1515,13 @@ private fun RunCountdownDial(
 ) {
     val painted by animateFloatAsState(progress.coerceIn(0f, 1f), animationSpec = tween(800), label = "CountdownTicks")
 
+    // Determine time-responsive state based on remaining time ratio and overtime status
     val isOvertime = remainingMillis != null && remainingMillis <= 0L
     val remainingRatio = (1f - progress).coerceIn(0f, 1f)
     val isUrgent = isOvertime || remainingRatio <= 0.15f
     val isWarning = !isUrgent && remainingRatio <= 0.35f
 
+    // Smoothly shift theme accent color responsive to remaining time
     val targetAccentColor = when {
         isOvertime || isUrgent -> CyberPrimitives.Colors.Magenta500
         isWarning -> CyberPrimitives.Colors.Yellow500
@@ -1532,6 +1534,7 @@ private fun RunCountdownDial(
         label = "DialColorAnimation",
     )
 
+    // Pulse alpha effect for low-time or overtime urgency
     val infiniteTransition = rememberInfiniteTransition(label = "DialPulseTransition")
     val pulseAlpha by infiniteTransition.animateFloat(
         initialValue = if (isUrgent) 0.5f else 1.0f,
@@ -1666,7 +1669,7 @@ private fun SettingsRoute(viewModel: SettingsViewModel, padding: PaddingValues) 
             LabeledSwitchRow(
                 label = stringResource(R.string.continue_past_zero),
                 checked = state.continueTimerPastZero,
-                onCheckedChange = viewModel::setContinueTimerPastZero,
+                onCheckedChange = viewModel::setContinuePastZero,
             )
         }
     }
