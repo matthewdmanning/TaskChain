@@ -125,6 +125,7 @@ import androidx.navigation.navArgument
 import com.taskchain.AppContainer
 import com.taskchain.R
 import com.taskchain.domain.model.RoutineId
+import com.taskchain.domain.model.RoutineStepRole
 import com.taskchain.domain.model.RoutineTemplate
 import com.taskchain.domain.model.RunStatus
 import com.taskchain.domain.model.RunStepStatus
@@ -638,9 +639,10 @@ internal fun formatRoutineTotalTime(routine: RoutineTemplate): String? {
     }
 }
 
-/** Use this function to format the item count of a routine template. */
+/** Use this function to format the primary item count of a routine template. */
 internal fun formatRoutineItemCount(routine: RoutineTemplate): String {
-    return "${routine.steps.size} ${if (routine.steps.size == 1) "Item" else "Items"}"
+    val count = routine.steps.count { it.role == RoutineStepRole.MAIN }
+    return "$count ${if (count == 1) "Item" else "Items"}"
 }
 
 /** Use this function to render a titled routine list with an empty state. */
@@ -765,7 +767,14 @@ private fun RoutineBuilderRoute(
                 Text(stringResource(R.string.validation_step_required), color = MaterialTheme.colorScheme.error)
             }
         }
-        itemsIndexed(state.steps, key = { _, step -> step.id.value }) { index, step ->
+        items(
+            items = state.steps.mapIndexedNotNull { index, step ->
+                (index to step).takeIf { step.role == RoutineStepRole.MAIN }
+            },
+            key = { it.second.id.value },
+        ) { indexedStep ->
+            val index = indexedStep.first
+            val step = indexedStep.second
             var dragOffset by remember(step.id) { mutableStateOf(0f) }
             var isDragging by remember(step.id) { mutableStateOf(false) }
             val dragScale by animateFloatAsState(
@@ -793,8 +802,12 @@ private fun RoutineBuilderRoute(
                     }
                     .semantics {
                         customActions = buildList {
-                            if (index > 0) add(CustomAccessibilityAction(moveUp) { viewModel.moveStep(index, -1); true })
-                            if (index < state.steps.lastIndex) add(CustomAccessibilityAction(moveDown) { viewModel.moveStep(index, 1); true })
+                            if (state.steps.take(index).any { it.role == RoutineStepRole.MAIN }) {
+                                add(CustomAccessibilityAction(moveUp) { viewModel.moveStep(index, -1); true })
+                            }
+                            if (state.steps.drop(index + 1).any { it.role == RoutineStepRole.MAIN }) {
+                                add(CustomAccessibilityAction(moveDown) { viewModel.moveStep(index, 1); true })
+                            }
                         }
                     }
                     .pointerInput(step.id, index, state.steps.size) {
@@ -870,6 +883,15 @@ private fun RoutineBuilderRoute(
                         if (BuilderValidationError.STEP_TIMER_MUST_BE_POSITIVE in state.validationErrors) {
                             Text(stringResource(R.string.validation_timer_positive), color = MaterialTheme.colorScheme.error)
                         }
+                        SubstepEditor(
+                            parentIndex = index,
+                            parent = step,
+                            steps = state.steps,
+                            viewModel = viewModel,
+                            onPickDuration = { currentSeconds, onSelected ->
+                                showDurationPicker(context, currentSeconds, onSelected)
+                            },
+                        )
                         TextButton(onClick = { viewModel.removeStep(index) }) { Text(stringResource(R.string.remove_step)) }
                     }
                 }
@@ -1207,6 +1229,14 @@ private fun RoutineRunnerRoute(
 
     val spacing = TaskChainDesignSystem.spacing()
     val current = run.steps[run.currentStepIndex]
+    val mainSource = if (current.source.role == RoutineStepRole.SECONDARY) {
+        current.source.parentStepId?.let { parentId ->
+            run.steps.firstOrNull { it.source.id == parentId }?.source
+        } ?: current.source
+    } else {
+        current.source
+    }
+    val secondaryTitle = current.source.title.takeIf { current.source.role == RoutineStepRole.SECONDARY }
     val remaining = container.runEngine.remainingMillis(run, state.nowEpochMillis)
     val configuration = LocalConfiguration.current
     val smallerDimensionDp = minOf(configuration.screenWidthDp, configuration.screenHeightDp).dp
@@ -1255,20 +1285,40 @@ private fun RoutineRunnerRoute(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(CyberPrimitives.Spacing.dp24),
                 ) {
-                    Text(
-                        text = current.source.title,
-                        style = CyberTheme.typography.display.copy(
-                            fontFamily = homeAttentionFont,
-                            fontSize = (RunnerMotion.titleStartSize.value +
-                                (RunnerMotion.titleEndSize.value - RunnerMotion.titleStartSize.value) * entrance.value).sp,
-                        ),
-                        color = CyberTheme.colors.textPrimary,
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .offset(y = RunnerMotion.titleStartOffset +
-                                (RunnerMotion.titleEndOffset - RunnerMotion.titleStartOffset) * entrance.value),
-                    )
+                    Box(
+                        modifier = Modifier.fillMaxWidth(),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Text(
+                            text = mainSource.title,
+                            style = CyberTheme.typography.display.copy(
+                                fontFamily = homeAttentionFont,
+                                fontSize = (RunnerMotion.titleStartSize.value +
+                                    (RunnerMotion.titleEndSize.value - RunnerMotion.titleStartSize.value) * entrance.value).sp,
+                            ),
+                            color = CyberTheme.colors.textPrimary,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .offset(
+                                    y = RunnerMotion.titleStartOffset +
+                                        (RunnerMotion.titleEndOffset - RunnerMotion.titleStartOffset) * entrance.value +
+                                        if (secondaryTitle != null) -CyberPrimitives.Spacing.dp8 else 0.dp,
+                                ),
+                        )
+                        secondaryTitle?.let { title ->
+                            Text(
+                                text = title,
+                                style = MaterialTheme.typography.titleMedium,
+                                color = CyberTheme.colors.primary,
+                                textAlign = TextAlign.Center,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .align(Alignment.BottomCenter)
+                                    .offset(y = CyberPrimitives.Spacing.dp16),
+                            )
+                        }
+                    }
 
                     if (timerString.isNotEmpty()) {
                         key(run.currentStepIndex) {
@@ -1307,8 +1357,8 @@ private fun RoutineRunnerRoute(
                         horizontalArrangement = Arrangement.spacedBy(CyberPrimitives.Spacing.dp12, Alignment.CenterHorizontally),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        run.steps.forEachIndexed { index, step ->
-                            val isCurrent = index == run.currentStepIndex
+                        run.steps.filter { it.source.role == RoutineStepRole.MAIN }.forEachIndexed { index, step ->
+                            val isCurrent = step.source.id == mainSource.id
                             val stepDescription = stringResource(
                                 when (step.status) {
                                     RunStepStatus.PENDING -> R.string.runner_step_status_pending
@@ -1498,7 +1548,6 @@ private fun RunCountdownDial(
             },
         contentAlignment = Alignment.Center,
     ) {
-        // Outer decorative sector rim framing the dial
         CyberSectorRim(
             size = diameter,
             color = animatedAccentColor.copy(alpha = if (isUrgent) pulseAlpha * 0.8f else 0.4f),
@@ -1507,7 +1556,6 @@ private fun RunCountdownDial(
             gapAngle = 10f,
         )
 
-        // Background inactive dial ticks
         CyberDialTicks(
             size = diameter * 0.92f,
             color = CyberTheme.colors.border.copy(alpha = 0.35f),
@@ -1516,7 +1564,6 @@ private fun RunCountdownDial(
             strokeWidth = CyberPrimitives.BorderWidths.dp2,
         )
 
-        // Active countdown dial ticks painted up to current progress
         CyberDialTicks(
             modifier = Modifier.drawWithContent {
                 val paintedArea = Path().apply {
@@ -1533,7 +1580,6 @@ private fun RunCountdownDial(
             strokeWidth = CyberPrimitives.BorderWidths.dp2,
         )
 
-        // Central timer digits with time-responsive multi-pass glyph bloom
         GlowingText(
             text = timer,
             glowRadius = glowRadius,
