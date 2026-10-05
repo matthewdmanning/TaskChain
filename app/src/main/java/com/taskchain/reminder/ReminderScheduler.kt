@@ -349,9 +349,19 @@ class ReminderRescheduleReceiver : BroadcastReceiver() {
 class TimerFeedback(private val context: Context) {
     private val tone = ToneGenerator(AudioManager.STREAM_ALARM, ToneGenerator.MAX_VOLUME)
 
-    /** Use this function exactly once when the domain reports an unacknowledged timer expiry. */
+    /** Use this function exactly once when the domain reports an unacknowledged main timer expiry. */
     fun fire(soundEnabled: Boolean = true, vibrateEnabled: Boolean = true) {
-        if (soundEnabled) tone.startTone(ToneGenerator.TONE_PROP_BEEP, TONE_DURATION_MILLIS)
+        fireTone(ToneGenerator.TONE_PROP_BEEP, soundEnabled, vibrateEnabled)
+    }
+
+    /** Hook used exactly once for a secondary/substep timer expiry. */
+    fun fireSecondary(soundEnabled: Boolean = true, vibrateEnabled: Boolean = true) {
+        fireTone(ToneGenerator.TONE_PROP_ACK, soundEnabled, vibrateEnabled)
+    }
+
+    /** Apply the shared timer feedback mechanics while allowing main and secondary sounds to differ. */
+    private fun fireTone(toneType: Int, soundEnabled: Boolean, vibrateEnabled: Boolean) {
+        if (soundEnabled) tone.startTone(toneType, TONE_DURATION_MILLIS)
         if (!vibrateEnabled) return
         val vibrator = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             context.getSystemService(VibratorManager::class.java).defaultVibrator
