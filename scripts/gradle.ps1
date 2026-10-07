@@ -5,14 +5,17 @@ if (-not $env:GRADLE_USER_HOME -and (Test-Path -LiteralPath "$env:USERPROFILE\.g
 }
 
 $javaHome = $env:JAVA_HOME
-if (-not (Test-Path -LiteralPath "$javaHome\bin\jlink.exe" -PathType Leaf)) {
-    $javaHome = "$env:USERPROFILE\.gradle\jdks\eclipse_adoptium-21-amd64-windows.2"
+if (-not $javaHome) {
+    throw "Set JAVA_HOME to a complete JDK 17. Only JDK 17 is supported."
 }
-if (-not (Test-Path -LiteralPath "$javaHome\bin\jlink.exe" -PathType Leaf)) {
-    $javaHome = "C:\Program Files\Android\Android Studio\jbr"
+foreach ($tool in @("java", "javac", "jlink")) {
+    if (-not (Test-Path -LiteralPath "$javaHome\bin\$tool.exe" -PathType Leaf)) {
+        throw "Set JAVA_HOME to a complete JDK 17 containing java, javac, and jlink."
+    }
 }
-if (-not (Test-Path -LiteralPath "$javaHome\bin\jlink.exe" -PathType Leaf)) {
-    throw "A complete JDK 21 was not found. Set JAVA_HOME to a JDK containing java, javac, and jlink."
+$release = Get-Content -LiteralPath "$javaHome\release" -Raw
+if ($release -notmatch '(?m)^JAVA_VERSION="17\.') {
+    throw "Only JDK 17 is supported. Correct JAVA_HOME before running Gradle."
 }
 
 $env:JAVA_HOME = $javaHome

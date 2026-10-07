@@ -2,15 +2,17 @@
 setlocal
 
 if not defined GRADLE_USER_HOME if exist "%USERPROFILE%\.gradle" set "GRADLE_USER_HOME=%USERPROFILE%\.gradle"
-if defined JAVA_HOME if exist "%JAVA_HOME%\bin\jlink.exe" goto run
-set "JAVA_HOME=%USERPROFILE%\.gradle\jdks\eclipse_adoptium-21-amd64-windows.2"
-if exist "%JAVA_HOME%\bin\jlink.exe" goto run
-set "JAVA_HOME=C:\Program Files\Android\Android Studio\jbr"
-if not exist "%JAVA_HOME%\bin\jlink.exe" (
-    >&2 echo A complete JDK 21 was not found. Set JAVA_HOME to a JDK containing java, javac, and jlink.
-    exit /b 1
-)
+if not defined JAVA_HOME goto invalidJdk
+for %%T in (java javac jlink) do if not exist "%JAVA_HOME%\bin\%%T.exe" goto invalidJdk
+if not exist "%JAVA_HOME%\release" goto invalidJdk
+set "JDK_VERSION="
+for /f "usebackq tokens=1,2 delims==" %%A in ("%JAVA_HOME%\release") do if "%%A"=="JAVA_VERSION" set "JDK_VERSION=%%~B"
+if not "%JDK_VERSION:~0,3%"=="17." goto invalidJdk
 
 :run
 call "%~dp0..\gradlew.bat" %*
 exit /b %ERRORLEVEL%
+
+:invalidJdk
+>&2 echo Set JAVA_HOME to a complete JDK 17 containing java, javac, and jlink. Only JDK 17 is supported.
+exit /b 1
