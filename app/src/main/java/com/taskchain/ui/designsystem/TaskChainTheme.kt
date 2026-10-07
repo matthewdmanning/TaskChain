@@ -2,14 +2,12 @@ package com.taskchain.ui.designsystem
 
 import androidx.annotation.StringRes
 import androidx.compose.foundation.isSystemInDarkTheme
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.darkColorScheme
-import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
-import androidx.compose.ui.res.colorResource
-import androidx.compose.ui.res.dimensionResource
 import androidx.compose.ui.platform.LocalContext
+import com.example.cyberpunkandroid.config.CyberPrimitives
+import com.example.cyberpunkandroid.theme.CyberColors
+import com.example.cyberpunkandroid.theme.CyberTheme
 import com.taskchain.R
 
 /** Theme choices exposed to settings without assuming every theme has every variant. */
@@ -44,7 +42,7 @@ object ThemeCatalog {
     }
 }
 
-/** Semantic spacing tokens loaded from Android resources rather than feature literals. */
+/** Semantic spacing tokens backed directly by cyberpunkAndroid primitives. */
 data class Spacing(
     val small: androidx.compose.ui.unit.Dp,
     val medium: androidx.compose.ui.unit.Dp,
@@ -53,16 +51,22 @@ data class Spacing(
 
 /** Provides configured spacing to feature UI through the design-system boundary. */
 object TaskChainDesignSystem {
-    /** Use this function when feature UI needs resource-backed semantic spacing. */
+    /** Use this function when feature UI needs semantic spacing from cyberpunkAndroid. */
     @Composable
     fun spacing(): Spacing = Spacing(
-        small = dimensionResource(R.dimen.space_small),
-        medium = dimensionResource(R.dimen.space_medium),
-        large = dimensionResource(R.dimen.space_large),
+        small = CyberPrimitives.Spacing.dp8,
+        medium = CyberPrimitives.Spacing.dp16,
+        large = CyberPrimitives.Spacing.dp24,
     )
 }
 
-/** Use this function at the app boundary so feature UI never configures Material directly. */
+/**
+ * Use this function at the app boundary so all colors, typography, fonts, shapes, and Material mappings originate
+ * from cyberpunkAndroid while retaining the user's System/Light/Dark preference.
+ *
+ * @param selectedTheme Persisted theme option ID from [ThemeCatalog].
+ * @param content Application content rendered inside [CyberTheme].
+ */
 @Composable
 fun TaskChainTheme(selectedTheme: String, content: @Composable () -> Unit) {
     val context = LocalContext.current
@@ -75,24 +79,35 @@ fun TaskChainTheme(selectedTheme: String, content: @Composable () -> Unit) {
         ThemeMode.LIGHT in modes && ThemeMode.DARK !in modes -> false
         else -> isSystemInDarkTheme()
     }
+    val palette = CyberPrimitives.Colors
     val colors = if (dark) {
-        darkColorScheme(
-            primary = colorResource(R.color.dark_primary),
-            onPrimary = colorResource(R.color.dark_on_primary),
-            background = colorResource(R.color.dark_background),
-            onBackground = colorResource(R.color.dark_on_background),
-            surface = colorResource(R.color.dark_surface),
-            onSurface = colorResource(R.color.dark_on_surface),
+        CyberColors(
+            primary = palette.Cyan500,
+            secondary = palette.Magenta500,
+            background = palette.Void500,
+            surface = palette.Void100,
+            surfacePrimary = palette.Void500,
+            surfaceSecondary = palette.Void200,
+            surfaceTertiary = palette.Void100,
+            surfaceElevated = palette.Void200,
+            textPrimary = palette.Chrome100,
+            textSecondary = palette.Chrome300,
+            border = palette.Chrome600,
         )
     } else {
-        lightColorScheme(
-            primary = colorResource(R.color.light_primary),
-            onPrimary = colorResource(R.color.light_on_primary),
-            background = colorResource(R.color.light_background),
-            onBackground = colorResource(R.color.light_on_background),
-            surface = colorResource(R.color.light_surface),
-            onSurface = colorResource(R.color.light_on_surface),
+        CyberColors(
+            primary = palette.Cyan500,
+            secondary = palette.Magenta500,
+            background = palette.Chrome100,
+            surface = palette.Chrome200,
+            surfacePrimary = palette.Chrome100,
+            surfaceSecondary = palette.Chrome200,
+            surfaceTertiary = palette.Chrome300,
+            surfaceElevated = palette.Chrome100,
+            textPrimary = palette.Void500,
+            textSecondary = palette.Chrome600,
+            border = palette.Chrome600,
         )
     }
-    MaterialTheme(colorScheme = colors, content = content)
+    CyberTheme(colors = colors, content = content)
 }

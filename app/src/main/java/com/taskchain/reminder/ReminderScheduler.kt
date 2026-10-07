@@ -9,8 +9,6 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
-import android.media.AudioManager
-import android.media.ToneGenerator
 import android.os.Build
 import android.os.VibrationEffect
 import android.os.Vibrator
@@ -29,6 +27,9 @@ import com.taskchain.domain.model.RoutineRun
 import com.taskchain.domain.model.RoutineTemplate
 import com.taskchain.domain.model.RunStatus
 import com.taskchain.domain.model.RunStepStatus
+import com.taskchain.domain.model.SoundSettings
+import com.taskchain.domain.model.SoundToken
+import com.taskchain.domain.model.defaultSoundSettings
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
@@ -231,6 +232,7 @@ class ReminderReceiver : BroadcastReceiver() {
         TimerFeedback(context).fire(
             intent.getBooleanExtra(AndroidReminderScheduler.EXTRA_SOUND_ENABLED, true),
             intent.getBooleanExtra(AndroidReminderScheduler.EXTRA_VIBRATE_ENABLED, true),
+            defaultSoundSettings(),
         )
         } finally {
             pendingResult.finish()
@@ -346,29 +348,37 @@ class ReminderRescheduleReceiver : BroadcastReceiver() {
 }
 
 /** Provides one-shot audio and haptic feedback when a task timer reaches zero. */
-class TimerFeedback(private val context: Context) {
-    private val tone = ToneGenerator(AudioManager.STREAM_ALARM, ToneGenerator.MAX_VOLUME)
+class TimerFeedback(
+    private val context: Context,
+    private val soundPlayer: SoundPlayer = AndroidAssetSoundPlayer(context),
+) {
 
     /** Use this function exactly once when the domain reports an unacknowledged timer expiry. */
-    fun fire(soundEnabled: Boolean = true, vibrateEnabled: Boolean = true) {
-        if (soundEnabled) tone.startTone(ToneGenerator.TONE_PROP_BEEP, TONE_DURATION_MILLIS)
+    fun fire(
+        soundEnabled: Boolean = true,
+        vibrateEnabled: Boolean = true,
+        soundSettings: SoundSettings = defaultSoundSettings(),
+    ) {
+        val setting = soundSettings[SoundToken.TimerExpired]
+        if (soundEnabled && setting.enabled) runCatching { soundPlayer.play(SoundToken.TimerExpired, setting) }
         if (!vibrateEnabled) return
-        val vibrator = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            context.getSystemService(VibratorManager::class.java).defaultVibrator
-        } else {
-            @Suppress("DEPRECATION")
-            context.getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
-        }
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            vibrator.vibrate(VibrationEffect.createOneShot(VIBRATION_DURATION_MILLIS, VibrationEffect.DEFAULT_AMPLITUDE))
-        } else {
-            @Suppress("DEPRECATION")
-            vibrator.vibrate(VIBRATION_DURATION_MILLIS)
+        runCatching {
+            val vibrator = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                context.getSystemService(VibratorManager::class.java).defaultVibrator
+            } else {
+                @Suppress("DEPRECATION")
+                context.getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
+            }
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                vibrator.vibrate(VibrationEffect.createOneShot(VIBRATION_DURATION_MILLIS, VibrationEffect.DEFAULT_AMPLITUDE))
+            } else {
+                @Suppress("DEPRECATION")
+                vibrator.vibrate(VIBRATION_DURATION_MILLIS)
+            }
         }
     }
 
     private companion object {
-        const val TONE_DURATION_MILLIS = 300
         const val VIBRATION_DURATION_MILLIS = 300L
     }
 }

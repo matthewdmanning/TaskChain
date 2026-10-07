@@ -25,6 +25,9 @@ class RoutineRunEngine {
             },
             currentStepIndex = 0,
             startedAtEpochMillis = nowEpochMillis,
+            routineSoundEnabled = routine.soundEnabled,
+            soundSettings = routine.soundSettings,
+            routineVibrateEnabled = routine.vibrateEnabled,
         )
     }
 
@@ -130,7 +133,9 @@ class RoutineRunEngine {
         val pauseDuration = run.confirmationStartedAtEpochMillis
             ?.let { (nowEpochMillis - it).coerceAtLeast(0) }
             ?: 0
-        val resumed = if (prior.status == RunStepStatus.PENDING && prior.startedAtEpochMillis != null) {
+        val resumed = if (prior.status == RunStepStatus.PENDING && prior.startedAtEpochMillis != null &&
+            prior.pausedAtEpochMillis == null
+        ) {
             prior.copy(startedAtEpochMillis = prior.startedAtEpochMillis + pauseDuration)
         } else {
             prior
@@ -184,8 +189,8 @@ class RoutineRunEngine {
         val seconds = step.source.timerSeconds ?: return null
         val startedAt = step.startedAtEpochMillis ?: return seconds * MILLIS_PER_SECOND
         if (step.status != RunStepStatus.PENDING) return step.actualDurationMillis?.let { seconds * MILLIS_PER_SECOND - it }
-        val effectiveNow = run.confirmationStartedAtEpochMillis
-            ?: step.pausedAtEpochMillis
+        val effectiveNow = step.pausedAtEpochMillis
+            ?: run.confirmationStartedAtEpochMillis
             ?: nowEpochMillis
         return seconds * MILLIS_PER_SECOND - (effectiveNow - startedAt)
     }
@@ -201,7 +206,7 @@ class RoutineRunEngine {
             remainingMillis(run, nowEpochMillis)?.let { it <= 0 } == true
     }
 
-    /** Use this function immediately after platform timer feedback succeeds. */
+    /** Use this function before dispatching timer feedback so the persisted acknowledgement prevents duplicate delivery. */
     fun acknowledgeTimerFeedback(run: RoutineRun, nowEpochMillis: Long): RoutineRun {
         require(run.status == RunStatus.ACTIVE)
         require(run.currentStepIndex in run.steps.indices)
@@ -248,6 +253,16 @@ class RoutineRunEngine {
         )
         val updated = run.copy(steps = run.steps.replaceAt(index, finished))
         if (index == run.steps.lastIndex) {
+            if (unfinishedStepIndexes(updated).isEmpty()) {
+                return updated.copy(
+                    status = RunStatus.COMPLETED,
+                    endedAtEpochMillis = nowEpochMillis,
+                    finishConfirmationRequested = false,
+                    abortConfirmationRequested = false,
+                    confirmationStartedAtEpochMillis = null,
+                    stepBeforeFinishConfirmation = null,
+                )
+            }
             return updated.copy(
                 finishConfirmationRequested = true,
                 abortConfirmationRequested = false,

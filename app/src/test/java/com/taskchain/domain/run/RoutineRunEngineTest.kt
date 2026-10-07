@@ -8,6 +8,10 @@ import com.taskchain.domain.model.RoutineStepId
 import com.taskchain.domain.model.RoutineTemplate
 import com.taskchain.domain.model.RunStatus
 import com.taskchain.domain.model.RunStepStatus
+import com.taskchain.domain.model.SoundSetting
+import com.taskchain.domain.model.SoundSettings
+import com.taskchain.domain.model.SoundToken
+import com.taskchain.domain.model.defaultSoundSettings
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -25,6 +29,21 @@ class RoutineRunEngineTest {
             RoutineStep(RoutineStepId("two"), "Two"),
         ),
     )
+
+    /** Use this function to verify a confirmation inside an explicit pause is excluded exactly once. */
+    @Test
+    fun confirmationInsidePauseDoesNotDoubleCountPausedTime() {
+        val engine = RoutineRunEngine()
+        val started = engine.start(routine(timerSeconds = 120), RoutineRunId("run"), 1_000)
+        val paused = engine.pauseCurrent(started, 21_000)
+        val confirming = engine.back(paused, 32_000)
+        assertEquals(100_000L, engine.remainingMillis(confirming, 42_000))
+        val continued = engine.continueRun(confirming, 42_000)
+        val resumed = engine.resumeCurrent(continued, 61_000)
+
+        assertEquals(41_000L, resumed.steps.first().startedAtEpochMillis)
+        assertEquals(100_000L, engine.remainingMillis(resumed, 61_000))
+    }
 
     /** Use this function to verify skipped state, final confirmation, and timer restoration together. */
     @Test
@@ -120,6 +139,23 @@ class RoutineRunEngineTest {
 
         assertFalse(engine.needsTimerFeedback(repeated, 3_000))
         assertEquals(2_000L, repeated.steps.first().timerFeedbackAtEpochMillis)
+    }
+
+    /** Use this function to verify active runs retain sound policy after the reusable routine is edited. */
+    @Test
+    fun snapshotsRoutineSoundPolicyAtStart() {
+        val settings = SoundSettings(
+            entries = mapOf(SoundToken.TaskRunning to SoundSetting(enabled = true, assetPath = "custom/running.ogg")),
+        )
+        val source = routine().copy(soundEnabled = false, vibrateEnabled = false, soundSettings = settings)
+        val started = RoutineRunEngine().start(source, RoutineRunId("run"), 1_000)
+        val edited = source.copy(soundEnabled = true, soundSettings = defaultSoundSettings())
+
+        assertFalse(started.routineSoundEnabled)
+        assertFalse(started.routineVibrateEnabled)
+        assertEquals(settings, started.soundSettings)
+        assertTrue(edited.soundEnabled)
+        assertEquals(settings, started.soundSettings)
     }
 
     /** Use this function to verify that abort confirmation is explicit and mutually exclusive. */
@@ -224,6 +260,20 @@ class RoutineRunEngineTest {
         assertEquals(listOf(0, 1), engine.unfinishedStepIndexes(requested))
         assertEquals(RunStepStatus.PENDING, requested.steps.first().status)
         assertEquals(RunStepStatus.SKIPPED, requested.steps.last().status)
+    }
+
+    /** Use this function to verify final completion keeps its timestamp without a confirmation or animation delay. */
+    @Test
+    fun completingFinalTaskWithoutUnfinishedTasksEndsImmediately() {
+        val engine = RoutineRunEngine()
+        val started = engine.start(routine(), RoutineRunId("run"), 1_000)
+        val next = engine.completeCurrent(started, 2_000)
+        val completed = engine.completeCurrent(next, 3_000)
+
+        assertEquals(RunStatus.COMPLETED, completed.status)
+        assertFalse(completed.finishConfirmationRequested)
+        assertEquals(3_000L, completed.endedAtEpochMillis)
+        assertEquals(3_000L, engine.toCompletionEvent(completed).endedAtEpochMillis)
     }
 
     /** Use this function to verify confirmation flags and terminal event timestamps. */

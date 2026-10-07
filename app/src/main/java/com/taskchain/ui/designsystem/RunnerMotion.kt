@@ -8,8 +8,11 @@ import androidx.compose.ui.unit.sp
 object RunnerMotion {
     val titleStartSize = 40.sp
     val titleEndSize = 28.sp
+    /** Two 32dp spacing increments above the original 280dp dial cap. */
+    val dialDiameter = 344.dp
     val titleStartOffset = 0.dp
     val titleEndOffset = (-8).dp
     const val durationMillis = 650
+    const val completionDurationMillis = 350
     val easing = FastOutSlowInEasing
 }

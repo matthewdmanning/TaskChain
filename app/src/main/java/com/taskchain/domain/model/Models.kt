@@ -69,6 +69,7 @@ data class RoutineTemplate(
     val remindEveryMinutes: Int? = null,
     val soundEnabled: Boolean = true,
     val vibrateEnabled: Boolean = true,
+    val soundSettings: SoundSettings = defaultSoundSettings(),
 ) {
     /** Use this function before starting or saving a routine that must be executable. */
     fun requireRunnable(): RoutineTemplate = apply {
@@ -114,6 +115,7 @@ data class RoutineRunStep(
     val actualDurationMillis: Long? = null,
     val timerFeedbackAtEpochMillis: Long? = null,
     val pausedAtEpochMillis: Long? = null,
+    val taskNudgeCount: Long = 0,
 )
 
 /** Immutable snapshot of an active or completed routine execution. */
@@ -131,6 +133,9 @@ data class RoutineRun(
     val abortConfirmationRequested: Boolean = false,
     val confirmationStartedAtEpochMillis: Long? = null,
     val stepBeforeFinishConfirmation: RoutineRunStep? = null,
+    val routineSoundEnabled: Boolean = true,
+    val soundSettings: SoundSettings = defaultSoundSettings(),
+    val routineVibrateEnabled: Boolean = true,
 )
 
 /** Append-only history record used to derive progress without mutable counters. */

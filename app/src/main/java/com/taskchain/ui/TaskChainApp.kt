@@ -7,11 +7,12 @@ package com.taskchain.ui
 
 import android.app.DatePickerDialog
 import android.app.TimePickerDialog
+import android.animation.ValueAnimator
 import android.widget.NumberPicker
-import android.widget.LinearLayout
 import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Build
+import android.provider.Settings
 import android.text.format.DateFormat
 import java.util.Calendar
 import java.util.Date
@@ -47,23 +48,15 @@ import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontStyle
-import androidx.compose.ui.text.font.Font
-import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -71,7 +64,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CardDefaults
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.geometry.Rect
@@ -88,13 +80,12 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.ui.platform.LocalConfiguration
-import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.res.dimensionResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -115,6 +106,9 @@ import androidx.compose.ui.semantics.progressBarRangeInfo
 import androidx.compose.ui.semantics.ProgressBarRangeInfo
 import androidx.compose.ui.semantics.semantics
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.core.content.ContextCompat
 import androidx.navigation.NavType
@@ -140,11 +134,15 @@ import com.example.cyberpunkandroid.components.CyberButtonSize
 import com.example.cyberpunkandroid.components.CyberButtonStyle
 import com.example.cyberpunkandroid.components.CyberCard
 import com.example.cyberpunkandroid.config.CyberPrimitives
-import com.example.cyberpunkandroid.effects.GlowingText
-import com.example.cyberpunkandroid.icons.CyberDialTicks
+import com.example.cyberpunkandroid.effects.cyberRadarSweep
+import com.example.cyberpunkandroid.effects.cyberRadialPulse
+import com.example.cyberpunkandroid.effects.rememberCyberRadarSweep
+import com.example.cyberpunkandroid.effects.rememberCyberRadialPulse
+import com.example.cyberpunkandroid.components.GlowingText
+import com.example.cyberpunkandroid.components.CyberDialTicks
 import com.example.cyberpunkandroid.icons.CyberIcon
 import com.example.cyberpunkandroid.icons.CyberIcons
-import com.example.cyberpunkandroid.icons.CyberSectorRim
+import com.example.cyberpunkandroid.components.CyberSectorRim
 import com.example.cyberpunkandroid.icons.SemanticIcons
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
@@ -156,10 +154,10 @@ import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.tween
 import androidx.compose.runtime.key
 import androidx.compose.ui.unit.Dp
-import com.example.cyberpunkandroid.theme.CyberColors
 import com.example.cyberpunkandroid.theme.CyberTheme
 import kotlin.math.absoluteValue
 
@@ -171,40 +169,9 @@ private enum class HomeTab(@param:StringRes val label: Int) {
     SETTINGS(R.string.tab_settings),
 }
 
-private val homeAttentionFont = FontFamily(Font(R.font.neusharp_bold, FontWeight.Bold))
-
+/** Retains the current Cyberpunk Android theme supplied by [TaskChainTheme]. */
 @Composable
-private fun CyberAppearance(content: @Composable () -> Unit) {
-    val palette = CyberPrimitives.Colors
-    CyberTheme(
-        colors = CyberColors(
-            primary = palette.Chrome100,
-            secondary = palette.Chrome200,
-            background = palette.Void500,
-            surface = palette.Void100,
-            textPrimary = palette.Chrome100,
-            textSecondary = palette.Chrome300,
-            border = palette.Chrome600,
-        ),
-    ) {
-        MaterialTheme(
-            colorScheme = darkColorScheme(
-                primary = palette.Chrome100,
-                onPrimary = palette.Void500,
-                background = palette.Void500,
-                onBackground = palette.Chrome100,
-                surface = palette.Void100,
-                onSurface = palette.Chrome100,
-                surfaceContainer = palette.Void100,
-                surfaceContainerLow = palette.Void200,
-                surfaceContainerHigh = palette.Void100,
-                secondaryContainer = palette.Chrome600,
-                onSecondaryContainer = palette.Chrome100,
-            ),
-            content = content,
-        )
-    }
-}
+private fun CyberAppearance(content: @Composable () -> Unit) = content()
 
 /** Use this function as the Compose application entry point. */
 @Composable
@@ -387,7 +354,7 @@ private fun TodayRoute(
                     ) {
                         Text(
                             run.routineTitle,
-                            style = CyberTheme.typography.display.copy(fontFamily = homeAttentionFont),
+                            style = CyberTheme.typography.display,
                             color = CyberTheme.colors.textPrimary,
                         )
                         Spacer(Modifier.height(CyberPrimitives.Spacing.dp16))
@@ -417,7 +384,7 @@ private fun TodayRoute(
                     Text(
                         stringResource(title).uppercase(),
                         modifier = Modifier.padding(top = CyberPrimitives.Spacing.dp24, bottom = CyberPrimitives.Spacing.dp8),
-                        style = MaterialTheme.typography.titleLarge.copy(fontFamily = homeAttentionFont),
+                        style = CyberTheme.typography.display,
                         color = CyberTheme.colors.primary,
                     )
                 }
@@ -532,7 +499,7 @@ private fun RoutinesRoute(
                 item {
                     Text(
                         stringResource(R.string.your_routines),
-                        style = MaterialTheme.typography.titleLarge.copy(fontFamily = homeAttentionFont),
+                        style = CyberTheme.typography.display,
                         color = CyberTheme.colors.textPrimary,
                     )
                 }
@@ -544,7 +511,7 @@ private fun RoutinesRoute(
                 item {
                     Text(
                         stringResource(R.string.starter_routines),
-                        style = MaterialTheme.typography.titleLarge.copy(fontFamily = homeAttentionFont),
+                        style = CyberTheme.typography.display,
                         color = CyberTheme.colors.textPrimary,
                     )
                 }
@@ -564,13 +531,13 @@ private fun RoutineCard(routine: RoutineTemplate, onEdit: (() -> Unit)?, onStart
         Column(verticalArrangement = Arrangement.spacedBy(spacing.medium)) {
             Text(
                 text = routine.title,
-                style = MaterialTheme.typography.titleLarge.copy(fontFamily = homeAttentionFont),
+                style = CyberTheme.typography.display,
                 color = CyberTheme.colors.textPrimary,
             )
             if (routine.description.isNotBlank()) {
                 Text(
                     text = routine.description,
-                    style = MaterialTheme.typography.bodyMedium,
+                    style = CyberTheme.typography.body,
                     color = CyberTheme.colors.textSecondary,
                 )
             }
@@ -686,9 +653,12 @@ private fun RoutineBuilderRoute(
     val state by viewModel.state.collectAsStateWithLifecycle()
     val spacing = TaskChainDesignSystem.spacing()
     val context = LocalContext.current
-    val newTaskTitle = stringResource(R.string.authoring_new_task_default)
     val addStepDescription = stringResource(R.string.add_step)
     var showDiscardDialog by rememberSaveable { mutableStateOf(false) }
+    var expandedStepId by rememberSaveable { mutableStateOf<String?>(null) }
+    var durationStepId by rememberSaveable { mutableStateOf<String?>(null) }
+    var durationMinutes by rememberSaveable { mutableStateOf("") }
+    var durationSeconds by rememberSaveable { mutableStateOf("") }
     LaunchedEffect(state.savedRoutineId) { if (state.savedRoutineId != null) onSaved() }
     val requestClose = {
         if (state.hasUnsavedChanges) showDiscardDialog = true else onClose()
@@ -698,7 +668,7 @@ private fun RoutineBuilderRoute(
         contentWindowInsets = WindowInsets.safeDrawing,
         topBar = {
             CenterAlignedTopAppBar(
-                title = { Text(stringResource(R.string.builder_title)) },
+                title = { Text(stringResource(R.string.builder_title), style = CyberTheme.typography.display) },
             )
         },
     ) { innerPadding ->
@@ -720,24 +690,28 @@ private fun RoutineBuilderRoute(
         item {
             CyberCard(modifier = Modifier.fillMaxWidth()) {
                 Column(verticalArrangement = Arrangement.spacedBy(spacing.medium)) {
-                    OutlinedTextField(
-                        value = state.title,
-                        onValueChange = viewModel::setTitle,
-                        label = { Text(stringResource(R.string.routine_name)) },
-                        modifier = Modifier.fillMaxWidth(),
-                        isError = BuilderValidationError.ROUTINE_NAME_REQUIRED in state.validationErrors,
-                        supportingText = {
-                            if (BuilderValidationError.ROUTINE_NAME_REQUIRED in state.validationErrors) {
-                                Text(stringResource(R.string.validation_routine_name_required))
-                            }
-                        },
-                    )
-                    OutlinedTextField(
-                        value = state.description,
-                        onValueChange = viewModel::setDescription,
-                        label = { Text(stringResource(R.string.routine_description)) },
-                        modifier = Modifier.fillMaxWidth(),
-                    )
+                    com.example.cyberpunkandroid.components.CyberField(
+                        label = stringResource(R.string.routine_name),
+                        errorText = if (BuilderValidationError.ROUTINE_NAME_REQUIRED in state.validationErrors) {
+                            stringResource(R.string.validation_routine_name_required)
+                        } else null,
+                        isRequired = true,
+                    ) { isError ->
+                        com.example.cyberpunkandroid.components.CyberTextField(
+                            value = state.title,
+                            onValueChange = viewModel::setTitle,
+                            isError = isError,
+                        )
+                    }
+                    com.example.cyberpunkandroid.components.CyberField(
+                        label = stringResource(R.string.routine_description),
+                    ) { isError ->
+                        com.example.cyberpunkandroid.components.CyberTextArea(
+                            value = state.description,
+                            onValueChange = viewModel::setDescription,
+                            isError = isError,
+                        )
+                    }
                 }
             }
         }
@@ -746,7 +720,7 @@ private fun RoutineBuilderRoute(
                 Column(verticalArrangement = Arrangement.spacedBy(spacing.medium)) {
                     Text(
                         stringResource(R.string.routine_settings),
-                        style = MaterialTheme.typography.titleLarge.copy(fontFamily = homeAttentionFont),
+                        style = CyberTheme.typography.display,
                         color = CyberTheme.colors.textPrimary,
                     )
                     ScheduleEditor(state, viewModel, spacing)
@@ -758,16 +732,17 @@ private fun RoutineBuilderRoute(
         item {
             Text(
                 stringResource(R.string.authoring_steps),
-                style = MaterialTheme.typography.titleLarge.copy(fontFamily = homeAttentionFont),
+                style = CyberTheme.typography.display,
                 color = CyberTheme.colors.textPrimary,
             )
             if (BuilderValidationError.STEP_REQUIRED in state.validationErrors) {
-                Text(stringResource(R.string.validation_step_required), color = MaterialTheme.colorScheme.error)
+                Text(stringResource(R.string.validation_step_required), color = CyberTheme.semantics.colors.danger)
             }
         }
         itemsIndexed(state.steps, key = { _, step -> step.id.value }) { index, step ->
             var dragOffset by remember(step.id) { mutableStateOf(0f) }
             var isDragging by remember(step.id) { mutableStateOf(false) }
+            val expanded = expandedStepId == step.id.value
             val dragScale by animateFloatAsState(
                 if (isDragging) 1.03f else 1f,
                 animationSpec = tween(DRAG_TRANSITION_MILLIS, easing = FastOutSlowInEasing),
@@ -780,7 +755,9 @@ private fun RoutineBuilderRoute(
             )
             val moveUp = stringResource(R.string.authoring_move_up)
             val moveDown = stringResource(R.string.authoring_move_down)
-            Card(
+            com.example.cyberpunkandroid.components.CyberAccordion(
+                title = step.title.ifBlank { stringResource(R.string.step_name) },
+                expanded = expanded,
                 modifier = Modifier
                     .fillMaxWidth()
                     .animateItem(placementSpec = tween(DRAG_TRANSITION_MILLIS, easing = FastOutSlowInEasing))
@@ -812,14 +789,41 @@ private fun RoutineBuilderRoute(
                             },
                         )
                     },
-                shape = CyberTheme.shapes.cyberCutCornerShape,
-                colors = CardDefaults.cardColors(containerColor = CyberTheme.colors.surface),
-                border = BorderStroke(
-                    if (isDragging) CyberPrimitives.BorderWidths.dp2 else CyberPrimitives.BorderWidths.dp1,
-                    if (isDragging) CyberTheme.colors.primary else CyberTheme.colors.border,
-                ),
+                borderColor = if (isDragging) CyberTheme.colors.primary else CyberTheme.colors.border,
+                headerContent = { isExpanded ->
+                    if (isExpanded) {
+                        com.example.cyberpunkandroid.components.CyberTextField(
+                            value = state.pendingStepTitle,
+                            placeholder = stringResource(R.string.step_name),
+                            isError = BuilderValidationError.STEP_NAME_REQUIRED in state.validationErrors,
+                            onValueChange = viewModel::setPendingStepTitle,
+                        )
+                    } else {
+                        Text(
+                            text = step.title.ifBlank { stringResource(R.string.step_name) },
+                            style = CyberTheme.typography.body,
+                            color = if (step.title.isBlank()) CyberTheme.colors.textSecondary else CyberTheme.colors.textPrimary,
+                        )
+                    }
+                },
+                onExpandedChange = { shouldExpand ->
+                    if (shouldExpand) {
+                        viewModel.editStep(index)
+                        if (viewModel.state.value.editingStepIndex == index) {
+                            expandedStepId = step.id.value
+                        }
+                    } else if (expandedStepId == step.id.value) {
+                        expandedStepId = null
+                    }
+                },
             ) {
-                Column(modifier = Modifier.fillMaxWidth().padding(spacing.large), verticalArrangement = Arrangement.spacedBy(spacing.medium)) {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(spacing.medium),
+                ) {
+                    if (BuilderValidationError.STEP_NAME_REQUIRED in state.validationErrors && state.editingStepIndex == index) {
+                        Text(stringResource(R.string.validation_step_name_required), color = CyberTheme.semantics.colors.danger)
+                    }
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(spacing.small),
@@ -828,49 +832,35 @@ private fun RoutineBuilderRoute(
                         CyberIcon(
                             iconRes = CyberIcons.Drag,
                             contentDescription = stringResource(R.string.authoring_drag_handle),
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                        Text(
-                            text = step.title,
-                            style = MaterialTheme.typography.bodyLarge,
-                            modifier = Modifier.weight(1f),
+                            tint = CyberTheme.colors.textSecondary,
                         )
                         val seconds = step.timerSeconds ?: 0L
-                        Text(
-                            text = stringResource(R.string.authoring_step_duration, seconds / SECONDS_PER_MINUTE, seconds % SECONDS_PER_MINUTE),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                        IconButton(onClick = { viewModel.editStep(index) }) {
-                            CyberIcon(
-                                iconRes = CyberIcons.Edit,
-                                contentDescription = stringResource(R.string.authoring_edit_step),
-                            )
-                        }
-                    }
-                    if (state.editingStepIndex == index) {
-                        OutlinedTextField(
-                            state.pendingStepTitle,
-                            viewModel::setPendingStepTitle,
-                            label = { Text(stringResource(R.string.step_name)) },
-                            modifier = Modifier.fillMaxWidth(),
-                            isError = BuilderValidationError.STEP_NAME_REQUIRED in state.validationErrors,
-                            supportingText = {
-                                if (BuilderValidationError.STEP_NAME_REQUIRED in state.validationErrors) {
-                                    Text(stringResource(R.string.validation_step_name_required))
-                                }
+                        CyberButton(
+                            modifier = Modifier.weight(1f).heightIn(min = CyberPrimitives.IconSizes.dp48),
+                            onClick = {
+                                durationStepId = step.id.value
+                                durationMinutes = (seconds / SECONDS_PER_MINUTE).toString()
+                                durationSeconds = (seconds % SECONDS_PER_MINUTE).toString()
                             },
-                        )
-                        OutlinedButton(onClick = {
-                            showDurationPicker(context, state.pendingTimerSeconds.toLongOrNull(), viewModel::setPendingTimerSeconds)
-                        }) {
-                            val seconds = state.pendingTimerSeconds.toLongOrNull() ?: 0L
+                            style = CyberButtonStyle.Outline,
+                            size = CyberButtonSize.Small,
+                        ) {
                             Text(stringResource(R.string.authoring_duration_value, seconds / SECONDS_PER_MINUTE, seconds % SECONDS_PER_MINUTE))
                         }
-                        if (BuilderValidationError.STEP_TIMER_MUST_BE_POSITIVE in state.validationErrors) {
-                            Text(stringResource(R.string.validation_timer_positive), color = MaterialTheme.colorScheme.error)
-                        }
-                        TextButton(onClick = { viewModel.removeStep(index) }) { Text(stringResource(R.string.remove_step)) }
+                    }
+                    if (BuilderValidationError.STEP_TIMER_MUST_BE_POSITIVE in state.validationErrors && state.editingStepIndex == index) {
+                        Text(stringResource(R.string.validation_timer_positive), color = CyberTheme.semantics.colors.danger)
+                    }
+                    CyberButton(
+                        modifier = Modifier.fillMaxWidth().heightIn(min = CyberPrimitives.IconSizes.dp48),
+                        onClick = {
+                            viewModel.removeStep(index)
+                            if (expandedStepId == step.id.value) expandedStepId = null
+                        },
+                        style = CyberButtonStyle.Outline,
+                        size = CyberButtonSize.Small,
+                    ) {
+                        Text(stringResource(R.string.remove_step))
                     }
                 }
             }
@@ -878,7 +868,10 @@ private fun RoutineBuilderRoute(
         item {
             CyberButton(
                 modifier = Modifier.fillMaxWidth().heightIn(min = CyberPrimitives.IconSizes.dp48),
-                onClick = { viewModel.addStep(newTaskTitle) },
+                onClick = {
+                    viewModel.addStep("")
+                    expandedStepId = viewModel.state.value.steps.lastOrNull()?.id?.value
+                },
                 style = CyberButtonStyle.Outline,
                 size = CyberButtonSize.Large,
             ) {
@@ -901,16 +894,16 @@ private fun RoutineBuilderRoute(
                 )
             }
             if (missingHighlighted) {
-                Text(stringResource(R.string.validation_fix_fields), color = MaterialTheme.colorScheme.error)
+                Text(stringResource(R.string.validation_fix_fields), color = CyberTheme.semantics.colors.danger)
             }
             if (BuilderValidationError.SCHEDULE_REMINDER_EXCLUSIVE in state.validationErrors) {
-                Text(stringResource(R.string.validation_routine_setting_exclusive), color = MaterialTheme.colorScheme.error)
+                Text(stringResource(R.string.validation_routine_setting_exclusive), color = CyberTheme.semantics.colors.danger)
             }
             if (BuilderValidationError.LEGACY_SETTINGS_CONFLICT in state.validationErrors) {
-                Text(stringResource(R.string.validation_legacy_settings_conflict), color = MaterialTheme.colorScheme.error)
+                Text(stringResource(R.string.validation_legacy_settings_conflict), color = CyberTheme.semantics.colors.danger)
             }
             if (BuilderValidationError.SAVE_FAILED in state.validationErrors) {
-                Text(stringResource(R.string.validation_save_failed), color = MaterialTheme.colorScheme.error)
+                Text(stringResource(R.string.validation_save_failed), color = CyberTheme.semantics.colors.danger)
             }
             Row(
                 modifier = Modifier.fillMaxWidth().padding(top = spacing.small),
@@ -919,7 +912,7 @@ private fun RoutineBuilderRoute(
                 OutlinedButton(
                     onClick = requestClose,
                     modifier = Modifier.weight(1f).heightIn(min = CyberPrimitives.IconSizes.dp48),
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = colorResource(R.color.semantic_warning)),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = CyberTheme.semantics.colors.warning),
                 ) {
                     Text(stringResource(R.string.discard))
                 }
@@ -941,6 +934,76 @@ private fun RoutineBuilderRoute(
     }
     }
     }
+
+    durationStepId?.let { stepId ->
+        val minutesValue = durationMinutes.trim().toLongOrNull()
+        val secondsValue = durationSeconds.trim().toLongOrNull()
+        val minutesValid = durationMinutes.isBlank() || minutesValue?.let { it >= 0L } == true
+        val secondsValid = durationSeconds.isBlank() || secondsValue?.let { it in 0 until SECONDS_PER_MINUTE } == true
+        androidx.compose.ui.window.Dialog(onDismissRequest = { durationStepId = null }) {
+            CyberCard(modifier = Modifier.fillMaxWidth()) {
+                Column(verticalArrangement = Arrangement.spacedBy(spacing.medium)) {
+                    Text(
+                        stringResource(R.string.authoring_duration),
+                        style = CyberTheme.typography.display,
+                        color = CyberTheme.colors.textPrimary,
+                    )
+                    com.example.cyberpunkandroid.components.CyberField(
+                        label = stringResource(R.string.authoring_duration_minutes),
+                        errorText = if (!minutesValid) stringResource(R.string.validation_timer_positive) else null,
+                    ) { isError ->
+                        com.example.cyberpunkandroid.components.CyberTextField(
+                            value = durationMinutes,
+                            isError = isError,
+                            onValueChange = { value -> durationMinutes = value.filter(Char::isDigit) },
+                        )
+                    }
+                    com.example.cyberpunkandroid.components.CyberField(
+                        label = stringResource(R.string.authoring_duration_seconds),
+                        errorText = if (!secondsValid) stringResource(R.string.validation_timer_positive) else null,
+                    ) { isError ->
+                        com.example.cyberpunkandroid.components.CyberTextField(
+                            value = durationSeconds,
+                            isError = isError,
+                            onValueChange = { value -> durationSeconds = value.filter(Char::isDigit) },
+                        )
+                    }
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(spacing.small),
+                    ) {
+                        CyberButton(
+                            modifier = Modifier.weight(1f),
+                            onClick = { durationStepId = null },
+                            style = CyberButtonStyle.Outline,
+                            size = CyberButtonSize.Small,
+                        ) {
+                            Text(stringResource(android.R.string.cancel))
+                        }
+                        CyberButton(
+                            modifier = Modifier.weight(1f),
+                            enabled = minutesValid && secondsValid,
+                            onClick = {
+                                val totalSeconds = (minutesValue ?: 0L) * SECONDS_PER_MINUTE + (secondsValue ?: 0L)
+                                val currentIndex = viewModel.state.value.steps.indexOfFirst { it.id.value == stepId }
+                                if (currentIndex >= 0) {
+                                    viewModel.editStep(currentIndex)
+                                    if (viewModel.state.value.editingStepIndex == currentIndex) {
+                                        viewModel.setPendingTimerSeconds(if (totalSeconds == 0L) "" else totalSeconds.toString())
+                                    }
+                                }
+                                durationStepId = null
+                            },
+                            size = CyberButtonSize.Small,
+                        ) {
+                            Text(stringResource(android.R.string.ok))
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     if (showDiscardDialog) {
         AlertDialog(
             onDismissRequest = { showDiscardDialog = false },
@@ -950,8 +1013,8 @@ private fun RoutineBuilderRoute(
                 Button(
                     onClick = { showDiscardDialog = false; onClose() },
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = colorResource(R.color.semantic_warning),
-                        contentColor = Color.White,
+                        containerColor = CyberTheme.semantics.colors.warning,
+                        contentColor = CyberTheme.colors.background,
                     ),
                 ) {
                     Text(stringResource(R.string.discard_changes))
@@ -998,7 +1061,7 @@ private fun ScheduleEditor(state: BuilderState, viewModel: RoutineBuilderViewMod
                     },
                 )
                 if (BuilderValidationError.SELECTED_DAY_REQUIRED in state.validationErrors) {
-                    Text(stringResource(R.string.validation_selected_day_required), color = MaterialTheme.colorScheme.error)
+                    Text(stringResource(R.string.validation_selected_day_required), color = CyberTheme.semantics.colors.danger)
                 }
             }
             Row(
@@ -1008,7 +1071,7 @@ private fun ScheduleEditor(state: BuilderState, viewModel: RoutineBuilderViewMod
                 TextButton(onClick = { showTimePicker(context, state.scheduleHour, state.scheduleMinute, viewModel::setScheduleTime) }) {
                     Text(
                         text = formatScheduleTime(context, state.scheduleHour, state.scheduleMinute),
-                        style = MaterialTheme.typography.titleLarge,
+                        style = CyberTheme.typography.display,
                     )
                 }
             }
@@ -1037,42 +1100,6 @@ private fun ScheduleEditor(state: BuilderState, viewModel: RoutineBuilderViewMod
             }
         }
     }
-}
-
-/** Use this function to select elapsed minutes and seconds without presenting a time-of-day clock. */
-private fun showDurationPicker(
-    context: android.content.Context,
-    currentSeconds: Long?,
-    onSelected: (String) -> Unit,
-) {
-    val total = currentSeconds?.coerceAtLeast(0) ?: 0
-    val minutes = NumberPicker(context).apply {
-        minValue = 0
-        maxValue = 1440
-        value = (total / SECONDS_PER_MINUTE).coerceAtMost(1440).toInt()
-        contentDescription = context.getString(R.string.authoring_duration_minutes)
-    }
-    val seconds = NumberPicker(context).apply {
-        minValue = 0
-        maxValue = 59
-        value = (total % SECONDS_PER_MINUTE).toInt()
-        contentDescription = context.getString(R.string.authoring_duration_seconds)
-    }
-    val pickers = LinearLayout(context).apply {
-        orientation = LinearLayout.HORIZONTAL
-        gravity = android.view.Gravity.CENTER
-        addView(minutes)
-        addView(seconds)
-    }
-    android.app.AlertDialog.Builder(context)
-        .setTitle(R.string.authoring_duration)
-        .setView(pickers)
-        .setPositiveButton(android.R.string.ok) { _, _ ->
-            val selected = minutes.value * SECONDS_PER_MINUTE + seconds.value
-            onSelected(if (selected == 0L) "" else selected.toString())
-        }
-        .setNegativeButton(android.R.string.cancel, null)
-        .show()
 }
 
 /** Use this function when a labeled setting should expose one accessible switch target for its whole row. */
@@ -1184,8 +1211,40 @@ private fun RoutineRunnerRoute(
         RoutineRunnerViewModel(container, routineId)
     }
     val state by viewModel.state.collectAsStateWithLifecycle()
-    LaunchedEffect(state.finished) { if (state.finished) onFinished() }
-    val run = state.run
+    val lifecycleOwner = LocalLifecycleOwner.current
+    var foreground by remember { mutableStateOf(lifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) }
+    DisposableEffect(lifecycleOwner, viewModel) {
+        val observer = LifecycleEventObserver { _, event ->
+            when (event) {
+                Lifecycle.Event.ON_RESUME -> {
+                    foreground = true
+                    viewModel.setForeground(true)
+                }
+                Lifecycle.Event.ON_PAUSE,
+                Lifecycle.Event.ON_STOP -> {
+                    foreground = false
+                    viewModel.setForeground(false)
+                }
+                else -> Unit
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        viewModel.setForeground(foreground)
+        onDispose {
+            foreground = false
+            viewModel.setForeground(false)
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
+    val presentation = rememberRunnerPresentation(
+        run = state.run,
+        animationsEnabled = runnerAnimationsEnabled(LocalContext.current),
+        foreground = foreground,
+    )
+    LaunchedEffect(state.finished, presentation.holdingCompletion) {
+        if (state.finished && !presentation.holdingCompletion) onFinished()
+    }
+    val run = presentation.run
     if (run == null) {
         Scaffold(
             contentWindowInsets = WindowInsets.safeDrawing,
@@ -1197,11 +1256,13 @@ private fun RoutineRunnerRoute(
         }
         return
     }
-    BackHandler(enabled = run.status == RunStatus.ACTIVE) {
-        if (run.abortConfirmationRequested || run.finishConfirmationRequested) {
-            viewModel.continueRun()
-        } else {
-            viewModel.back()
+    BackHandler(enabled = run.status == RunStatus.ACTIVE || presentation.holdingCompletion) {
+        if (!presentation.holdingCompletion) {
+            if (run.abortConfirmationRequested || run.finishConfirmationRequested) {
+                viewModel.continueRun()
+            } else {
+                viewModel.back()
+            }
         }
     }
 
@@ -1209,11 +1270,18 @@ private fun RoutineRunnerRoute(
     val current = run.steps[run.currentStepIndex]
     val remaining = container.runEngine.remainingMillis(run, state.nowEpochMillis)
     val configuration = LocalConfiguration.current
+    val animationsEnabled = runnerAnimationsEnabled(LocalContext.current)
     val smallerDimensionDp = minOf(configuration.screenWidthDp, configuration.screenHeightDp).dp
-    val dialDiameter = minOf(smallerDimensionDp - CyberPrimitives.Spacing.dp32 * 2, 280.dp)
+    val dialDiameter = (smallerDimensionDp - CyberPrimitives.Spacing.dp32 * 2)
+        .coerceAtLeast(CyberPrimitives.IconSizes.dp48)
+        .coerceAtMost(RunnerMotion.dialDiameter)
     val entrance = remember(run.currentStepIndex) { Animatable(0f) }
-    LaunchedEffect(run.currentStepIndex) {
-        entrance.animateTo(1f, tween(RunnerMotion.durationMillis, easing = RunnerMotion.easing))
+    LaunchedEffect(run.currentStepIndex, animationsEnabled) {
+        if (animationsEnabled) {
+            entrance.animateTo(1f, tween(RunnerMotion.durationMillis, easing = RunnerMotion.easing))
+        } else {
+            entrance.snapTo(1f)
+        }
     }
 
     val hasTimer = current.source.timerSeconds != null
@@ -1226,7 +1294,7 @@ private fun RoutineRunnerRoute(
         contentWindowInsets = WindowInsets.safeDrawing,
         topBar = {
             CenterAlignedTopAppBar(title = {
-                Text(run.routineTitle, style = MaterialTheme.typography.titleLarge.copy(fontFamily = homeAttentionFont))
+                Text(run.routineTitle, style = CyberTheme.typography.display)
             })
         },
     ) { innerPadding ->
@@ -1235,7 +1303,14 @@ private fun RoutineRunnerRoute(
                 .fillMaxSize()
                 .padding(innerPadding)
                 .consumeWindowInsets(innerPadding)
-                .background(CyberTheme.colors.background),
+                .background(CyberTheme.colors.background)
+                .runnerGestureTracking(
+                    paused = current.pausedAtEpochMillis != null,
+                    onComplete = viewModel::complete,
+                    onSkip = viewModel::skip,
+                    onPause = viewModel::pause,
+                    onResume = viewModel::resume,
+                ),
             contentAlignment = Alignment.TopCenter,
         ) {
             val minHeight = maxHeight
@@ -1257,12 +1332,8 @@ private fun RoutineRunnerRoute(
                 ) {
                     Text(
                         text = current.source.title,
-                        style = CyberTheme.typography.display.copy(
-                            fontFamily = homeAttentionFont,
-                            fontSize = (RunnerMotion.titleStartSize.value +
-                                (RunnerMotion.titleEndSize.value - RunnerMotion.titleStartSize.value) * entrance.value).sp,
-                        ),
-                        color = CyberTheme.colors.textPrimary,
+                        style = MaterialTheme.typography.displayMedium,
+                        color = CyberTheme.colors.secondary,
                         textAlign = TextAlign.Center,
                         modifier = Modifier
                             .fillMaxWidth()
@@ -1270,42 +1341,52 @@ private fun RoutineRunnerRoute(
                                 (RunnerMotion.titleEndOffset - RunnerMotion.titleStartOffset) * entrance.value),
                     )
 
-                    if (timerString.isNotEmpty()) {
-                        key(run.currentStepIndex) {
-                            Box(modifier = Modifier.graphicsLayer { alpha = entrance.value }) {
-                                RunCountdownDial(
-                                    timer = timerString,
-                                    progress = countdownProgress(current.source.timerSeconds, remaining),
-                                    remainingMillis = remaining,
-                                    diameter = dialDiameter,
-                                )
-                            }
-                        }
-                    }
-
-                    CyberButton(
-                        onClick = viewModel::complete,
-                        size = CyberButtonSize.Large,
-                        style = CyberButtonStyle.Outline,
-                    ) {
-                        Row(
-                            horizontalArrangement = Arrangement.spacedBy(CyberPrimitives.Spacing.dp8),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            CyberIcon(iconRes = SemanticIcons.Success, contentDescription = null)
-                            Text(
-                                stringResource(R.string.complete),
-                                style = CyberTheme.typography.body.copy(fontFamily = homeAttentionFont),
+                    key(run.currentStepIndex, presentation.holdingCompletion) {
+                        Box(modifier = Modifier.graphicsLayer { alpha = entrance.value }) {
+                            RunCountdownDial(
+                                timer = timerString,
+                                progress = countdownProgress(current.source.timerSeconds, remaining),
+                                remainingMillis = remaining,
+                                diameter = dialDiameter,
+                                status = current.status,
+                                paused = current.pausedAtEpochMillis != null,
+                                completedPulse = presentation.holdingCompletion,
+                                foreground = foreground,
+                                animationsEnabled = animationsEnabled,
                             )
                         }
                     }
 
-                    Row(
+                    CyberButton(
+                        modifier = Modifier.fillMaxWidth().heightIn(min = CyberPrimitives.IconSizes.dp64),
+                        enabled = !presentation.holdingCompletion,
+                        onClick = { if (!presentation.holdingCompletion) viewModel.complete() },
+                        size = CyberButtonSize.Large,
+                        style = CyberButtonStyle.Outline,
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = CyberPrimitives.Spacing.dp16, vertical = CyberPrimitives.Spacing.dp12),
+                            horizontalArrangement = Arrangement.spacedBy(CyberPrimitives.Spacing.dp16),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            CyberIcon(
+                                iconRes = SemanticIcons.Success,
+                                contentDescription = null,
+                                size = CyberPrimitives.IconSizes.dp48,
+                                tint = CyberTheme.semantics.colors.success,
+                            )
+                            Text(
+                                stringResource(R.string.complete),
+                                style = MaterialTheme.typography.headlineSmall,
+                            )
+                        }
+                    }
+
+                    FlowRow(
                         modifier = Modifier
-                            .fillMaxWidth()
-                            .horizontalScroll(rememberScrollState()),
+                            .fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(CyberPrimitives.Spacing.dp12, Alignment.CenterHorizontally),
-                        verticalAlignment = Alignment.CenterVertically,
+                        verticalArrangement = Arrangement.spacedBy(CyberPrimitives.Spacing.dp12),
                     ) {
                         run.steps.forEachIndexed { index, step ->
                             val isCurrent = index == run.currentStepIndex
@@ -1323,11 +1404,11 @@ private fun RoutineRunnerRoute(
                                     .size(CyberPrimitives.IconSizes.dp48)
                                     .border(
                                         if (isCurrent) CyberPrimitives.BorderWidths.dp2 else CyberPrimitives.BorderWidths.dp1,
-                                        if (isCurrent) CyberTheme.colors.primary else CyberTheme.colors.border,
+                                        statusColor(step.status),
                                         CircleShape,
                                     )
                                     .background(
-                                        if (isCurrent) CyberTheme.colors.primary.copy(alpha = 0.12f) else CyberTheme.colors.surface,
+                                        statusColor(step.status).copy(alpha = if (isCurrent) 0.16f else 0.06f),
                                         CircleShape,
                                     )
                                     .semantics { contentDescription = stepDescription },
@@ -1335,20 +1416,25 @@ private fun RoutineRunnerRoute(
                             ) {
                                 when (step.status) {
                                     RunStepStatus.PENDING -> {
-                                        if (isCurrent) Box(Modifier.size(CyberPrimitives.Spacing.dp8).background(CyberTheme.colors.primary, CircleShape))
+                                        CyberIcon(
+                                            iconRes = CyberIcons.Play,
+                                            contentDescription = null,
+                                            size = if (isCurrent) CyberPrimitives.IconSizes.dp24 else CyberPrimitives.IconSizes.dp16,
+                                            tint = CyberTheme.semantics.colors.info,
+                                        )
                                     }
                                     RunStepStatus.COMPLETED -> {
                                         CyberIcon(
                                             iconRes = SemanticIcons.Success,
                                             contentDescription = null,
-                                            tint = CyberTheme.colors.textPrimary,
+                                            tint = CyberTheme.semantics.colors.success,
                                         )
                                     }
                                     RunStepStatus.SKIPPED -> {
                                         CyberIcon(
-                                            iconRes = CyberIcons.SkipForward,
+                                            iconRes = SemanticIcons.Warning,
                                             contentDescription = null,
-                                            tint = CyberTheme.colors.textPrimary,
+                                            tint = CyberTheme.semantics.colors.warning,
                                         )
                                     }
                                 }
@@ -1372,7 +1458,8 @@ private fun RoutineRunnerRoute(
                     ) {
                         CyberButton(
                             modifier = Modifier.weight(1f).heightIn(min = CyberPrimitives.IconSizes.dp48),
-                            onClick = viewModel::back,
+                            enabled = !presentation.holdingCompletion,
+                            onClick = { if (!presentation.holdingCompletion) viewModel.back() },
                             style = CyberButtonStyle.Outline,
                             size = CyberButtonSize.Small,
                         ) {
@@ -1383,7 +1470,12 @@ private fun RoutineRunnerRoute(
                         }
                         CyberButton(
                             modifier = Modifier.weight(1f).heightIn(min = CyberPrimitives.IconSizes.dp48),
-                            onClick = if (current.pausedAtEpochMillis == null) viewModel::pause else viewModel::resume,
+                            enabled = !presentation.holdingCompletion,
+                            onClick = {
+                                if (!presentation.holdingCompletion) {
+                                    if (current.pausedAtEpochMillis == null) viewModel.pause() else viewModel.resume()
+                                }
+                            },
                             style = CyberButtonStyle.Outline,
                             size = CyberButtonSize.Small,
                         ) {
@@ -1398,12 +1490,18 @@ private fun RoutineRunnerRoute(
                         }
                         CyberButton(
                             modifier = Modifier.weight(1f).heightIn(min = CyberPrimitives.IconSizes.dp48),
-                            onClick = viewModel::skip,
+                            enabled = !presentation.holdingCompletion,
+                            onClick = { if (!presentation.holdingCompletion) viewModel.skip() },
                             style = CyberButtonStyle.Outline,
                             size = CyberButtonSize.Small,
                         ) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                CyberIcon(iconRes = CyberIcons.SkipForward, contentDescription = null, size = CyberPrimitives.Spacing.dp16)
+                                CyberIcon(
+                                    iconRes = SemanticIcons.Warning,
+                                    contentDescription = null,
+                                    size = CyberPrimitives.Spacing.dp16,
+                                    tint = CyberTheme.semantics.colors.warning,
+                                )
                                 Text(stringResource(R.string.skip))
                             }
                         }
@@ -1413,34 +1511,34 @@ private fun RoutineRunnerRoute(
         }
     }
 
-    if (run.status == RunStatus.ACTIVE && run.finishConfirmationRequested) {
+    if (run.status == RunStatus.ACTIVE && run.finishConfirmationRequested && !presentation.holdingCompletion) {
         val unfinished = container.runEngine.unfinishedStepIndexes(run)
         AlertDialog(
-            onDismissRequest = viewModel::continueRun,
+            onDismissRequest = { if (!presentation.holdingCompletion) viewModel.continueRun() },
             title = { Text(stringResource(R.string.confirm_complete_title)) },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(spacing.small)) {
                     if (unfinished.isNotEmpty()) Text(stringResource(R.string.unfinished_tasks))
                     unfinished.forEach { index ->
-                        TextButton(onClick = { viewModel.selectStep(index) }) { Text(run.steps[index].source.title) }
+                        TextButton(onClick = { if (!presentation.holdingCompletion) viewModel.selectStep(index) }) { Text(run.steps[index].source.title) }
                     }
                 }
             },
             confirmButton = {
-                Button(onClick = viewModel::confirmComplete) { Text(stringResource(R.string.confirm_complete)) }
+                Button(onClick = { if (!presentation.holdingCompletion) viewModel.confirmComplete() }) { Text(stringResource(R.string.confirm_complete)) }
             },
             dismissButton = {
-                TextButton(onClick = viewModel::continueRun) { Text(stringResource(R.string.continue_run)) }
+                TextButton(onClick = { if (!presentation.holdingCompletion) viewModel.continueRun() }) { Text(stringResource(R.string.continue_run)) }
             },
         )
     }
-    if (run.status == RunStatus.ACTIVE && run.abortConfirmationRequested) {
+    if (run.status == RunStatus.ACTIVE && run.abortConfirmationRequested && !presentation.holdingCompletion) {
         AlertDialog(
-            onDismissRequest = viewModel::continueRun,
+            onDismissRequest = { if (!presentation.holdingCompletion) viewModel.continueRun() },
             title = { Text(stringResource(R.string.abort_title)) },
-            confirmButton = { Button(onClick = viewModel::abort) { Text(stringResource(R.string.abort_run)) } },
+            confirmButton = { Button(onClick = { if (!presentation.holdingCompletion) viewModel.abort() }) { Text(stringResource(R.string.abort_run)) } },
             dismissButton = {
-                TextButton(onClick = viewModel::continueRun) { Text(stringResource(R.string.continue_run)) }
+                TextButton(onClick = { if (!presentation.holdingCompletion) viewModel.continueRun() }) { Text(stringResource(R.string.continue_run)) }
             },
         )
     }
@@ -1453,52 +1551,77 @@ private fun RunCountdownDial(
     progress: Float,
     remainingMillis: Long?,
     diameter: Dp,
+    status: RunStepStatus,
+    paused: Boolean,
+    completedPulse: Boolean,
+    foreground: Boolean,
+    animationsEnabled: Boolean,
 ) {
-    val painted by animateFloatAsState(progress.coerceIn(0f, 1f), animationSpec = tween(800), label = "CountdownTicks")
+    val painted by animateFloatAsState(
+        progress.coerceIn(0f, 1f),
+        animationSpec = if (animationsEnabled) tween(800) else snap(),
+        label = "CountdownTicks",
+    )
 
-    // Determine time-responsive state based on remaining time ratio and overtime status
     val isOvertime = remainingMillis != null && remainingMillis <= 0L
     val remainingRatio = (1f - progress).coerceIn(0f, 1f)
     val isUrgent = isOvertime || remainingRatio <= 0.15f
     val isWarning = !isUrgent && remainingRatio <= 0.35f
 
-    // Smoothly shift theme accent color responsive to remaining time
     val targetAccentColor = when {
+        status == RunStepStatus.COMPLETED -> CyberTheme.semantics.colors.success
+        status == RunStepStatus.SKIPPED -> CyberTheme.semantics.colors.warning
         isOvertime || isUrgent -> CyberPrimitives.Colors.Magenta500
         isWarning -> CyberPrimitives.Colors.Yellow500
-        else -> CyberPrimitives.Colors.Cyan500
+        else -> CyberTheme.colors.secondary
     }
 
     val animatedAccentColor by animateColorAsState(
         targetValue = targetAccentColor,
-        animationSpec = tween(600),
+        animationSpec = if (animationsEnabled) tween(600) else snap(),
         label = "DialColorAnimation",
     )
 
-    // Pulse alpha effect for low-time or overtime urgency
-    val infiniteTransition = rememberInfiniteTransition(label = "DialPulseTransition")
-    val pulseAlpha by infiniteTransition.animateFloat(
-        initialValue = if (isUrgent) 0.5f else 1.0f,
-        targetValue = 1.0f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(if (isOvertime) 300 else 600, easing = LinearEasing),
-            repeatMode = RepeatMode.Reverse,
-        ),
-        label = "DialPulseAlpha",
-    )
+    val pulseAlpha = if (foreground && animationsEnabled && isUrgent && status == RunStepStatus.PENDING && !paused) {
+        val infiniteTransition = rememberInfiniteTransition(label = "DialPulseTransition")
+        val alpha by infiniteTransition.animateFloat(
+            initialValue = 0.5f,
+            targetValue = 1f,
+            animationSpec = infiniteRepeatable(
+                animation = tween(if (isOvertime) 300 else 600, easing = LinearEasing),
+                repeatMode = RepeatMode.Reverse,
+            ),
+            label = "DialPulseAlpha",
+        )
+        alpha
+    } else 1f
 
     val currentGlowColor = if (isUrgent) animatedAccentColor.copy(alpha = pulseAlpha) else animatedAccentColor
     val glowRadius = if (isUrgent) CyberPrimitives.Spacing.dp16 else CyberPrimitives.Spacing.dp8
+    val radialModifier = when {
+        !foreground || !animationsEnabled -> Modifier
+        completedPulse -> Modifier.cyberRadialPulse(
+            rememberCyberRadialPulse(animationSpec = tween(RunnerMotion.completionDurationMillis)),
+            color = CyberTheme.semantics.colors.success,
+        )
+        status == RunStepStatus.PENDING && paused -> Modifier.cyberRadialPulse(
+            rememberCyberRadialPulse(), color = CyberTheme.semantics.colors.warning,
+        )
+        status == RunStepStatus.PENDING -> Modifier.cyberRadarSweep(
+            rememberCyberRadarSweep(), color = CyberTheme.colors.secondary,
+        )
+        else -> Modifier
+    }
 
     Box(
         modifier = Modifier
             .size(diameter)
+            .then(radialModifier)
             .semantics {
                 progressBarRangeInfo = ProgressBarRangeInfo(progress, 0f..1f)
             },
         contentAlignment = Alignment.Center,
     ) {
-        // Outer decorative sector rim framing the dial
         CyberSectorRim(
             size = diameter,
             color = animatedAccentColor.copy(alpha = if (isUrgent) pulseAlpha * 0.8f else 0.4f),
@@ -1507,7 +1630,6 @@ private fun RunCountdownDial(
             gapAngle = 10f,
         )
 
-        // Background inactive dial ticks
         CyberDialTicks(
             size = diameter * 0.92f,
             color = CyberTheme.colors.border.copy(alpha = 0.35f),
@@ -1516,7 +1638,6 @@ private fun RunCountdownDial(
             strokeWidth = CyberPrimitives.BorderWidths.dp2,
         )
 
-        // Active countdown dial ticks painted up to current progress
         CyberDialTicks(
             modifier = Modifier.drawWithContent {
                 val paintedArea = Path().apply {
@@ -1533,14 +1654,27 @@ private fun RunCountdownDial(
             strokeWidth = CyberPrimitives.BorderWidths.dp2,
         )
 
-        // Central timer digits with time-responsive multi-pass glyph bloom
-        GlowingText(
-            text = timer,
-            glowRadius = glowRadius,
-            glowColor = currentGlowColor,
-            textColor = CyberTheme.colors.textPrimary,
-            fontSize = 44.sp,
-        )
+        if (timer.isNotEmpty()) {
+            GlowingText(
+                text = timer,
+                glowRadius = glowRadius,
+                glowColor = currentGlowColor,
+                textColor = CyberTheme.colors.textPrimary,
+                fontSize = CyberTheme.typography.display.fontSize,
+            )
+        } else {
+            CyberIcon(
+                iconRes = when {
+                    status == RunStepStatus.COMPLETED -> SemanticIcons.Success
+                    status == RunStepStatus.SKIPPED -> SemanticIcons.Warning
+                    paused -> CyberIcons.Pause
+                    else -> CyberIcons.Play
+                },
+                contentDescription = null,
+                size = CyberPrimitives.IconSizes.dp48,
+                tint = animatedAccentColor,
+            )
+        }
     }
 }
 
@@ -1599,7 +1733,7 @@ private fun SettingsRoute(viewModel: SettingsViewModel, padding: PaddingValues) 
         verticalArrangement = Arrangement.spacedBy(spacing.medium),
     ) {
         item {
-            Text(stringResource(R.string.theme), style = MaterialTheme.typography.titleMedium)
+            Text(stringResource(R.string.theme), style = CyberTheme.typography.display)
             FlowRow(horizontalArrangement = Arrangement.spacedBy(spacing.small), verticalArrangement = Arrangement.spacedBy(spacing.small)) {
                 ThemeCatalog.options(context).forEach { option ->
                     if (state.selectedTheme == option.id) {
@@ -1625,6 +1759,22 @@ private fun builderRoute(routineId: RoutineId?): String = routineId?.let { "buil
 
 /** Use this function when starting a routine by stable identity. */
 private fun runnerRoute(routineId: RoutineId): String = "runner/${routineId.value}"
+
+/** Use this function to map each runner step state to the library's semantic status color. */
+@Composable
+private fun statusColor(status: RunStepStatus) = when (status) {
+    RunStepStatus.PENDING -> CyberTheme.semantics.colors.info
+    RunStepStatus.COMPLETED -> CyberTheme.semantics.colors.success
+    RunStepStatus.SKIPPED -> CyberTheme.semantics.colors.warning
+}
+
+/** Use this function when deciding whether decorative runner motion should honor the system animator setting. */
+private fun runnerAnimationsEnabled(context: android.content.Context): Boolean =
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+        ValueAnimator.areAnimatorsEnabled()
+    } else {
+        Settings.Global.getFloat(context.contentResolver, Settings.Global.ANIMATOR_DURATION_SCALE, 1f) > 0f
+    }
 
 private const val HOME_ROUTE = "home"
 private const val ROUTINE_ID_ARGUMENT = "routineId"
