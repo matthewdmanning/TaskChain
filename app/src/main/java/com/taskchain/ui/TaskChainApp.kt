@@ -1582,6 +1582,8 @@ private fun RoutineRunnerScreen(
 
                 Spacer(modifier = Modifier.weight(1f))
 
+                RunnerNextUpPreview(run)
+
                 if (state.historySaveFailed) {
                     Text(stringResource(R.string.run_history_save_failed))
                     Button(onClick = onRetryHistorySave) { Text(stringResource(R.string.run_retry_history_save)) }

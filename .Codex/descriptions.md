@@ -1463,3 +1463,7 @@ Use this function to verify cue definitions are copied into a run instead of sha
 ## cueRoutineSummaryCountsMainTasksAndDerivedDuration — app/src/test/java/com/taskchain/ui/BuilderValidationTest.kt
 Use this function to verify nested cues contribute duration while counting only their main task.
 Inputs: None. Dependencies: routine summary formatting and RoutineCue.
+
+## RunnerNextUpPreview — app/src/main/java/com/taskchain/ui/RunnerNextUpPreview.kt
+Use this function to preview pending main tasks from the same displayed run snapshot.
+Inputs: run — immutable run snapshot. Dependencies: RoutineRun and the preview-count resource.
