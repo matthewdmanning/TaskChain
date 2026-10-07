@@ -33,3 +33,7 @@ Original tip: 2b705c3. Conflicts: TaskChainApp.kt, TaskChainTheme.kt, deleted th
 ## Frictionless gestures alignment
 
 Original tip: 8e430bc. Conflicts: app/build.gradle.kts, RunnerGestures.kt (add/add), TaskChainApp.kt, build.gradle.kts, settings.gradle.kts. Retained main's consolidated detector, current next-finished/Skip/Pause/Resume intents and completion guards, JDK 17 configuration, and published library dependency. No Gradle third_party wiring restored. Gate: compile, all 84 JVM tests, lint, assembly passed (unchanged code checks reused by Gradle).
+
+## Collapsible nested runner alignment
+
+Original tip: 7c7eec1. Conflict: MainActivity.kt. Removed repository-driven feature host and legacy stacking overlay; composed cue list beneath the main title. Collapse changes presentation only and always keeps the active cue visible, with saveable expansion state. Bubble navigation/current activity retained. Gate: compile, all 84 JVM tests, lint, assembly passed.

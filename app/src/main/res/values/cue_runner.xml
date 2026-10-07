@@ -3,6 +3,8 @@
     <string name="cue_remaining">Cue remaining: %1$s</string>
     <string name="cue_duration_total">Main duration is the total of its cues</string>
     <string name="runner_cues">Cues</string>
+    <string name="runner_cues_collapse">Collapse cues</string>
+    <string name="runner_cues_expand">Expand cues</string>
     <string name="runner_next_up">Next up</string>
     <string name="runner_cue_advanced">Cue complete</string>
 </resources>

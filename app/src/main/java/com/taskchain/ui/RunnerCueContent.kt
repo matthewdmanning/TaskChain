@@ -5,7 +5,12 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
@@ -21,8 +26,14 @@ import com.taskchain.domain.model.RoutineRunStep
 @Composable
 internal fun RunnerCueList(step: RoutineRunStep, remainingMillis: Long?, showRemaining: Boolean) {
     if (step.source.cues.isEmpty()) return
+    var expanded by rememberSaveable(step.source.id.value) { mutableStateOf(true) }
+    val visibleCues = if (expanded) step.source.cues else
+        step.source.cues.filter { it.id == step.activeCueId }.ifEmpty { step.source.cues.takeLast(1) }
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        step.source.cues.forEach { cue ->
+        TextButton(onClick = { expanded = !expanded }) {
+            Text(stringResource(if (expanded) R.string.runner_cues_collapse else R.string.runner_cues_expand))
+        }
+        visibleCues.forEach { cue ->
             val active = cue.id == step.activeCueId
             val advanced = step.cueAdvancements.any { it.cueId == cue.id }
             Text(
