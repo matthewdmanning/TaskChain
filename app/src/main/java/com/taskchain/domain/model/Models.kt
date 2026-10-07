@@ -17,6 +17,27 @@ value class RoutineStepId(val value: String)
 @JvmInline
 value class RoutineRunId(val value: String)
 
+/** Stable identity for one ordered cue nested within a routine step. */
+@Serializable
+@JvmInline
+value class RoutineCueId(val value: String)
+
+/** A manually advanced cue that partitions one main routine step. */
+@Serializable
+data class RoutineCue(
+    val id: RoutineCueId,
+    val title: String,
+    val durationSeconds: Long,
+)
+
+/** Records one manual cue advancement using cumulative active time on its main step. */
+@Serializable
+data class CueAdvancement(
+    val cueId: RoutineCueId,
+    val elapsedMillis: Long,
+    val atEpochMillis: Long,
+)
+
 /** Metadata shared by persistent domain records without exposing file-storage details. */
 @Serializable
 data class EntityMetadata(
@@ -46,6 +67,7 @@ data class RoutineStep(
     val id: RoutineStepId,
     val title: String,
     val timerSeconds: Long? = null,
+    val cues: List<RoutineCue> = emptyList(),
     val stackingAnchorStepId: RoutineStepId? = null,
     val deadlineEpochMillis: Long? = null,
     val reminderAtEpochMillis: Long? = null,
@@ -53,7 +75,14 @@ data class RoutineStep(
     val remindEveryMinutes: Int? = null,
     val soundEnabled: Boolean = true,
     val vibrateEnabled: Boolean = true,
-)
+) {
+    /** Total configured duration in seconds, using cue duration when cues are present. */
+    val durationSeconds: Long?
+        get() = if (cues.isEmpty()) timerSeconds else cues.fold(0L) { total, cue ->
+            if (total > Long.MAX_VALUE - cue.durationSeconds) Long.MAX_VALUE
+            else total + cue.durationSeconds
+        }
+}
 
 /** A reusable ordered routine definition edited by the builder. */
 @Serializable
@@ -79,7 +108,20 @@ data class RoutineTemplate(
         require(steps.all { it.title.isNotBlank() })
         require(steps.all { it.id.value.isNotBlank() })
         require(steps.map { it.id }.distinct().size == steps.size)
-        require(steps.all { it.timerSeconds == null || it.timerSeconds > 0 })
+        require(steps.flatMap { it.cues }.map { it.id }.distinct().size == steps.sumOf { it.cues.size })
+        require(steps.all { step ->
+            if (step.cues.isEmpty()) {
+                step.timerSeconds == null || step.timerSeconds in 1..MAX_SAFE_DURATION_SECONDS
+            } else {
+                var total = 0L
+                step.cues.isNotEmpty() && step.cues.all { cue ->
+                    val valid = cue.id.value.isNotBlank() && cue.title.isNotBlank() &&
+                        cue.durationSeconds > 0 && total <= MAX_SAFE_DURATION_SECONDS - cue.durationSeconds
+                    if (valid) total += cue.durationSeconds
+                    valid
+                } && step.cues.map { it.id }.distinct().size == step.cues.size
+            }
+        })
         require(deadlineEpochMillis == null || deadlineEpochMillis >= 0)
         require(reminderAtEpochMillis == null || reminderAtEpochMillis >= 0)
         require(listOfNotNull(schedule, deadlineEpochMillis, reminderAtEpochMillis).size <= 1)
@@ -116,6 +158,8 @@ data class RoutineRunStep(
     val timerFeedbackAtEpochMillis: Long? = null,
     val pausedAtEpochMillis: Long? = null,
     val taskNudgeCount: Long = 0,
+    val activeCueId: RoutineCueId? = null,
+    val cueAdvancements: List<CueAdvancement> = emptyList(),
 )
 
 /** Immutable snapshot of an active or completed routine execution. */
@@ -158,8 +202,11 @@ data class UserPreferences(
     val vibrationIntensity: Float = 1f,
     val screenTransitionsEnabled: Boolean = true,
     val bubbleOnMinimize: Boolean = false,
+    val showCueTimeRemaining: Boolean = false,
 ) {
     init {
         require(vibrationIntensity in 0f..1f)
     }
 }
+
+private const val MAX_SAFE_DURATION_SECONDS: Long = Long.MAX_VALUE / 1_000L

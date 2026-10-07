@@ -2,6 +2,8 @@ package com.taskchain.ui
 
 import com.taskchain.domain.model.EntityMetadata
 import com.taskchain.domain.model.RoutineId
+import com.taskchain.domain.model.RoutineCue
+import com.taskchain.domain.model.RoutineCueId
 import com.taskchain.domain.model.RoutineStep
 import com.taskchain.domain.model.RoutineStepId
 import com.taskchain.domain.model.RoutineTemplate
@@ -181,5 +183,37 @@ class BuilderValidationTest {
             steps = listOf(step("Step 1").copy(timerSeconds = 3665L)),
         )
         assertEquals("Total Time: 1:01:05", formatRoutineTotalTime(longTimedRoutine))
+    }
+
+    /** Use this function to verify invalid raw cue durations and duplicate cue identities block a draft save. */
+    @Test
+    fun rejectsRawCueDurationAndDuplicateCueIds() {
+        val cueId = RoutineCueId("cue")
+        val first = step("First").copy(cues = listOf(RoutineCue(cueId, "Prepare", 60)))
+        val second = step("Second").copy(cues = listOf(RoutineCue(cueId, "Repeat", 60)))
+        val state = BuilderState(
+            title = "Routine",
+            steps = listOf(first, second),
+            pendingCueDurations = mapOf("First:cue" to "not-a-number"),
+        )
+
+        assertTrue(BuilderValidationError.CUE_FIELDS_INVALID in validateBuilderState(state, 1_000L))
+        assertEquals(setOf(cueId), state.invalidCueDurationIds)
+    }
+
+    /** Use this function to verify nested cues contribute duration while counting only their main task.
+     * Inputs: none. Dependencies: routine summary formatting and the cue model.
+     */
+    @Test
+    fun cueRoutineSummaryCountsMainTasksAndDerivedDuration() {
+        val routine = RoutineTemplate(
+            RoutineId("cues"), EntityMetadata(0, 0), "Cues",
+            steps = listOf(step("Main").copy(cues = listOf(
+                RoutineCue(RoutineCueId("one"), "One", 180),
+                RoutineCue(RoutineCueId("two"), "Two", 420),
+            ))),
+        )
+        assertEquals("1 Item", formatRoutineItemCount(routine))
+        assertEquals("Total Time: 10:00", formatRoutineTotalTime(routine))
     }
 }

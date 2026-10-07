@@ -6,6 +6,8 @@ import com.taskchain.AppContainer
 import com.taskchain.domain.model.CompletionEvent
 import com.taskchain.domain.model.EntityMetadata
 import com.taskchain.domain.model.RoutineId
+import com.taskchain.domain.model.RoutineCueId
+import com.taskchain.domain.model.RoutineStepId
 import com.taskchain.domain.model.RoutineRun
 import com.taskchain.domain.model.RoutineStep
 import com.taskchain.domain.model.RoutineTemplate
@@ -38,6 +40,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import java.util.UUID
 
 /** UI state for the local and predefined routine lists. */
 data class RoutinesState(
@@ -94,8 +97,12 @@ enum class BuilderValidationError {
     SCHEDULE_REMINDER_EXCLUSIVE,
     LEGACY_SETTINGS_CONFLICT,
     STEP_TIMER_MUST_BE_POSITIVE,
+    CUE_FIELDS_INVALID,
     SAVE_FAILED,
 }
+
+private const val DEFAULT_CUE_DURATION_SECONDS = 60L
+private const val MAX_SAFE_CUE_DURATION_SECONDS = Long.MAX_VALUE / 1_000L
 
 /** Editable state for one routine builder route. */
 data class BuilderState(
@@ -104,6 +111,7 @@ data class BuilderState(
     val steps: List<RoutineStep> = emptyList(),
     val pendingStepTitle: String = "",
     val pendingTimerSeconds: String = "",
+    val pendingCueDurations: Map<String, String> = emptyMap(),
     val deadlineEpochMillis: Long? = null,
     val reminderAtEpochMillis: Long? = null,
     val remindEveryMinutes: Int? = null,
@@ -121,7 +129,15 @@ data class BuilderState(
     val validationErrors: Set<BuilderValidationError> = emptySet(),
     val hasUnsavedChanges: Boolean = false,
     val isSaving: Boolean = false,
-)
+) {
+    val invalidCueDurationIds: Set<RoutineCueId>
+        get() = steps.flatMap { step ->
+            step.cues.mapNotNull { cue ->
+                val raw = pendingCueDurations["${step.id.value}:${cue.id.value}"]
+                if (raw != null && raw.trim().toLongOrNull()?.let { it in 1L..MAX_SAFE_CUE_DURATION_SECONDS } != true) cue.id else null
+            }
+        }.toSet()
+}
 
 /**
  * Use this function to return field-specific errors for the current builder draft at a fixed time.
@@ -168,6 +184,34 @@ internal fun validateBuilderState(
         errors += BuilderValidationError.SCHEDULE_REMINDER_EXCLUSIVE
     }
     if (state.hasConflictingLegacyRoutineSettings()) errors += BuilderValidationError.LEGACY_SETTINGS_CONFLICT
+    val cues = state.steps.flatMap { it.cues }
+    if (cues.size != cues.map { it.id }.distinct().size || cues.any { it.title.isBlank() }) {
+        errors += BuilderValidationError.CUE_FIELDS_INVALID
+    }
+    state.steps.forEach { step ->
+        var cueTotal = 0L
+        var cueDurationOverflow = false
+        step.cues.forEach { cue ->
+            val key = "${step.id.value}:${cue.id.value}"
+            val raw = state.pendingCueDurations[key]
+            val seconds = raw?.trim()?.toLongOrNull()
+            if ((raw != null && (seconds == null || seconds !in 1L..MAX_SAFE_CUE_DURATION_SECONDS)) ||
+                cue.durationSeconds <= 0L
+            ) {
+                errors += BuilderValidationError.CUE_FIELDS_INVALID
+            }
+            if (cue.durationSeconds > MAX_SAFE_CUE_DURATION_SECONDS ||
+                (cue.durationSeconds > 0L && cueTotal > MAX_SAFE_CUE_DURATION_SECONDS - cue.durationSeconds)
+            ) {
+                cueDurationOverflow = true
+            } else if (!cueDurationOverflow) {
+                cueTotal += cue.durationSeconds
+            }
+        }
+        if (cueDurationOverflow) {
+            errors += BuilderValidationError.CUE_FIELDS_INVALID
+        }
+    }
     return errors
 }
 
@@ -267,6 +311,95 @@ class RoutineBuilderViewModel(
         hasUnsavedChanges = false,
         isSaving = false,
     )
+
+    /** Use this function to add one editable cue to a task with a stable identity and safe default duration. */
+    fun addCue(stepId: RoutineStepId) {
+        mutateDraft { draft ->
+            val steps = draft.steps.map { step ->
+                if (step.id != stepId) step else step.copy(
+                    timerSeconds = if (step.cues.isEmpty()) null else step.timerSeconds,
+                    cues = step.cues + com.taskchain.domain.model.RoutineCue(
+                        id = RoutineCueId(UUID.randomUUID().toString()),
+                        title = "",
+                        durationSeconds = DEFAULT_CUE_DURATION_SECONDS,
+                    ),
+                )
+            }
+            draft.copy(steps = steps)
+        }
+    }
+
+    /** Use this function when a cue title changes; stepId scopes the cue mutation to its owning task. */
+    fun setCueTitle(
+        stepId: RoutineStepId,
+        cueId: RoutineCueId,
+        title: String,
+    ) {
+        mutateDraft { draft ->
+            draft.copy(steps = draft.steps.map { step ->
+                if (step.id != stepId) step else step.copy(cues = step.cues.map { cue ->
+                    if (cue.id == cueId) cue.copy(title = title) else cue
+                })
+            })
+        }
+    }
+
+    /** Use this function when a cue duration field changes, retaining raw invalid input for visible validation. */
+    fun setCueDuration(
+        stepId: RoutineStepId,
+        cueId: RoutineCueId,
+        value: String,
+    ) {
+        if (state.value.steps.none { step -> step.id == stepId && step.cues.any { it.id == cueId } }) return
+        mutateDraft { draft ->
+            val seconds = value.trim().toLongOrNull()?.takeIf { it > 0L }
+            val key = "${stepId.value}:${cueId.value}"
+            draft.copy(
+                steps = draft.steps.map { step ->
+                    if (step.id != stepId || seconds == null) step else step.copy(cues = step.cues.map { cue ->
+                        if (cue.id == cueId) cue.copy(durationSeconds = seconds) else cue
+                    })
+                },
+                pendingCueDurations = draft.pendingCueDurations + (key to value),
+            )
+        }
+    }
+
+    /** Use this function when removing one cue from its owning task. */
+    fun removeCue(
+        stepId: RoutineStepId,
+        cueId: RoutineCueId,
+    ) {
+        mutateDraft { draft ->
+            val key = "${stepId.value}:${cueId.value}"
+            draft.copy(
+                steps = draft.steps.map { step ->
+                    if (step.id == stepId) step.copy(cues = step.cues.filterNot { it.id == cueId }) else step
+                },
+                pendingCueDurations = draft.pendingCueDurations - key,
+            )
+        }
+    }
+
+    /** Use this function to move a cue within one task while preserving the task's other fields atomically. */
+    fun moveCue(
+        stepId: RoutineStepId,
+        cueId: RoutineCueId,
+        offset: Int,
+    ) {
+        if (offset == 0) return
+        mutateDraft { draft ->
+            draft.copy(steps = draft.steps.map { step ->
+                if (step.id != stepId) step else {
+                    val index = step.cues.indexOfFirst { it.id == cueId }
+                    val target = index.toLong() + offset.toLong()
+                    if (index < 0 || target < 0L || target >= step.cues.size) step else step.copy(
+                        cues = step.cues.toMutableList().apply { add(target.toInt(), removeAt(index)) },
+                    )
+                }
+            })
+        }
+    }
 
     init {
         if (routineId != null) viewModelScope.launch {
@@ -436,8 +569,10 @@ class RoutineBuilderViewModel(
         if (index !in draft.steps.indices) return
         val editingIndex = draft.editingStepIndex
         val removedEditingStep = editingIndex == index
+        val removedStepId = draft.steps[index].id.value
         val candidate = draft.copy(
             steps = draft.steps.filterIndexed { itemIndex, _ -> itemIndex != index },
+            pendingCueDurations = draft.pendingCueDurations.filterKeys { !it.startsWith("$removedStepId:") },
             editingStepIndex = when {
                 removedEditingStep -> null
                 editingIndex != null && editingIndex > index -> editingIndex - 1
@@ -482,6 +617,7 @@ class RoutineBuilderViewModel(
                     steps = draft.steps.map { step ->
                         step.copy(
                         title = step.title.trim(),
+                        cues = step.cues.map { cue -> cue.copy(title = cue.title.trim()) },
                         deadlineEpochMillis = null,
                         reminderAtEpochMillis = null,
                             schedule = null,
@@ -589,7 +725,9 @@ class RoutineRunnerViewModel(
     /** Use this function when Complete is pressed for the displayed task. */
     fun complete() = transition { run, now ->
         val completed = container.runEngine.completeCurrent(run, now)
-        if (transitionsEnabled && foreground) {
+        val completedMain = completed.steps.getOrNull(run.currentStepIndex)?.status == RunStepStatus.COMPLETED &&
+            run.steps.getOrNull(run.currentStepIndex)?.status != RunStepStatus.COMPLETED
+        if (transitionsEnabled && foreground && completedMain && completed.currentStepIndex != run.currentStepIndex) {
             container.runEngine.prepareNextStep(
                 completed,
                 now,
@@ -728,6 +866,8 @@ class RoutineRunnerViewModel(
             runMutex.withLock {
                 val run = state.value.run ?: return@withLock
                 if (run.status != RunStatus.ACTIVE || run.currentStepIndex != expected.currentStepIndex ||
+                    run.steps.getOrNull(run.currentStepIndex)?.activeCueId !=
+                    expected.steps.getOrNull(expected.currentStepIndex)?.activeCueId ||
                     run.finishConfirmationRequested != expected.finishConfirmationRequested ||
                     run.abortConfirmationRequested != expected.abortConfirmationRequested
                 ) return@withLock
@@ -878,6 +1018,11 @@ class SettingsViewModel(private val container: AppContainer) : ViewModel() {
     /** Use this function to opt into native run bubbles; input is the enabled gate, dependency is the preference repository. */
     fun setBubbleOnMinimize(enabled: Boolean) {
         viewModelScope.launch { container.preferences.setBubbleOnMinimize(enabled) }
+    }
+
+    /** Use this function when cue countdown visibility is toggled in Settings. */
+    fun setShowCueTimeRemaining(enabled: Boolean) {
+        viewModelScope.launch { container.preferences.setShowCueTimeRemaining(enabled) }
     }
 
     private companion object {

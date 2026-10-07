@@ -1,9 +1,11 @@
 package com.taskchain.domain.run
 
 import com.taskchain.domain.model.CompletionEvent
+import com.taskchain.domain.model.CueAdvancement
 import com.taskchain.domain.model.RoutineRun
 import com.taskchain.domain.model.RoutineRunId
 import com.taskchain.domain.model.RoutineRunStep
+import com.taskchain.domain.model.RoutineCueId
 import com.taskchain.domain.model.RoutineTemplate
 import com.taskchain.domain.model.RunStatus
 import com.taskchain.domain.model.RunStepStatus
@@ -18,9 +20,11 @@ class RoutineRunEngine {
             routineId = routine.id,
             routineTitle = routine.title,
             steps = routine.steps.mapIndexed { index, step ->
+                val snapshot = step.copy(cues = step.cues.map { it.copy() })
                 RoutineRunStep(
-                    source = step,
+                    source = snapshot,
                     startedAtEpochMillis = nowEpochMillis.takeIf { index == 0 },
+                    activeCueId = snapshot.cues.firstOrNull()?.id,
                 )
             },
             currentStepIndex = 0,
@@ -236,15 +240,76 @@ class RoutineRunEngine {
     fun remainingMillis(run: RoutineRun, nowEpochMillis: Long): Long? {
         require(run.currentStepIndex in run.steps.indices)
         val step = run.steps[run.currentStepIndex]
-        val seconds = step.source.timerSeconds ?: return null
-        val startedAt = step.startedAtEpochMillis ?: return seconds * MILLIS_PER_SECOND
-        if (step.status != RunStepStatus.PENDING) return step.actualDurationMillis?.let { seconds * MILLIS_PER_SECOND - it }
-        val effectiveNow = step.pausedAtEpochMillis
-            ?: run.confirmationStartedAtEpochMillis
-            ?: nowEpochMillis
-        val elapsed = (effectiveNow - startedAt).coerceAtLeast(0L)
-        return seconds * MILLIS_PER_SECOND - elapsed
+        val durationMillis = step.source.durationSeconds?.let(::durationMillis) ?: return null
+        if (step.status != RunStepStatus.PENDING && step.actualDurationMillis == null) return null
+        return durationMillis - elapsedMillis(run, nowEpochMillis)
     }
+
+    /**
+     * Use this function to derive one main step's active time from its persisted timestamps.
+     * Inputs: `run` — the persisted routine run; `nowEpochMillis` — the wall-clock sample.
+     * Dependencies: `RoutineRunStep` status, start, pause, confirmation, and actual-duration fields.
+     */
+    fun elapsedMillis(run: RoutineRun, nowEpochMillis: Long): Long {
+        require(run.currentStepIndex in run.steps.indices)
+        val step = run.steps[run.currentStepIndex]
+        return elapsedMillis(step, run.confirmationStartedAtEpochMillis, nowEpochMillis)
+    }
+
+    /**
+     * Use this function to read active time for one cue while preserving the main step clock.
+     * Inputs: `run` — the persisted routine run; `cueId` — the cue to inspect; `nowEpochMillis` — the wall-clock sample.
+     * Dependencies: `elapsedMillis`, the cue definition order, and persisted cue advancement markers.
+     */
+    fun cueElapsedMillis(run: RoutineRun, cueId: RoutineCueId, nowEpochMillis: Long): Long {
+        require(run.currentStepIndex in run.steps.indices)
+        val step = run.steps[run.currentStepIndex]
+        val cueIndex = step.source.cues.indexOfFirst { it.id == cueId }
+        require(cueIndex >= 0)
+        val marker = step.cueAdvancements.firstOrNull { it.cueId == cueId }
+        val activeCueIndex = step.source.cues.indexOfFirst { it.id == step.activeCueId }
+        if (marker == null && cueIndex != activeCueIndex) return 0L
+        val previousElapsed = step.source.cues.getOrNull(cueIndex - 1)?.id
+            ?.let { previousId -> step.cueAdvancements.firstOrNull { it.cueId == previousId }?.elapsedMillis }
+            ?: 0L
+        val endElapsed = marker?.elapsedMillis ?: elapsedMillis(run, nowEpochMillis)
+        return (endElapsed - previousElapsed).coerceAtLeast(0L)
+    }
+
+    /**
+     * Use this function to derive the active cue's allowance minus its persisted active time.
+     * Inputs: `run` — the persisted routine run; `nowEpochMillis` — the wall-clock sample.
+     * Dependencies: `cueElapsedMillis` and the current step's active cue definition.
+     */
+    fun cueRemainingMillis(run: RoutineRun, nowEpochMillis: Long): Long? {
+        require(run.currentStepIndex in run.steps.indices)
+        val step = run.steps[run.currentStepIndex]
+        val activeCue = step.source.cues.firstOrNull { it.id == step.activeCueId } ?: return null
+        return durationMillis(activeCue.durationSeconds) - cueElapsedMillis(run, activeCue.id, nowEpochMillis)
+    }
+
+    /**
+     * Use this function to determine whether the main step is past the active cue's planned schedule.
+     * Inputs: `run` — the persisted routine run; `nowEpochMillis` — the wall-clock sample.
+     * Dependencies: `elapsedMillis`, active cue order, and cue durations.
+     */
+    fun isBehindCueSchedule(run: RoutineRun, nowEpochMillis: Long): Boolean {
+        require(run.currentStepIndex in run.steps.indices)
+        val step = run.steps[run.currentStepIndex]
+        val cueIndex = step.source.cues.indexOfFirst { it.id == step.activeCueId }
+        if (cueIndex < 0) return false
+        var plannedEndSeconds = 0L
+        step.source.cues.take(cueIndex + 1).forEach { cue -> plannedEndSeconds += cue.durationSeconds }
+        return elapsedMillis(run, nowEpochMillis) > durationMillis(plannedEndSeconds)
+    }
+
+    /**
+     * Use this function when UI needs the active cue's ordered position for a run step.
+     * Inputs: `step` — the persisted run step containing its cue snapshot and active identity.
+     * Dependencies: `RoutineRunStep.source.cues` and `RoutineRunStep.activeCueId`.
+     */
+    fun activeCueIndex(step: RoutineRunStep): Int =
+        step.source.cues.indexOfFirst { it.id == step.activeCueId }
 
     /** Use this function before firing audio and haptics so zero feedback occurs only once. */
     fun needsTimerFeedback(run: RoutineRun, nowEpochMillis: Long): Boolean {
@@ -252,7 +317,7 @@ class RoutineRunEngine {
         require(run.currentStepIndex in run.steps.indices)
         val step = run.steps[run.currentStepIndex]
         return step.status == RunStepStatus.PENDING &&
-            step.source.timerSeconds != null &&
+            step.source.durationSeconds != null &&
             step.timerFeedbackAtEpochMillis == null &&
             remainingMillis(run, nowEpochMillis)?.let { it <= 0 } == true
     }
@@ -287,6 +352,41 @@ class RoutineRunEngine {
         val index = run.currentStepIndex
         require(index in run.steps.indices)
         val current = run.steps[index]
+        if (status == RunStepStatus.COMPLETED && current.status != RunStepStatus.COMPLETED && current.source.cues.isNotEmpty()) {
+            val activeIndex = activeCueIndex(current).takeIf { it >= 0 }
+                ?: current.source.cues.indexOfFirst { cue -> current.cueAdvancements.none { it.cueId == cue.id } }
+            require(activeIndex in current.source.cues.indices)
+            val activeCue = current.source.cues[activeIndex]
+            val advanced = current.copy(
+                activeCueId = current.source.cues.getOrNull(activeIndex + 1)?.id,
+                cueAdvancements = current.cueAdvancements + CueAdvancement(
+                    cueId = activeCue.id,
+                    elapsedMillis = elapsedMillis(run, nowEpochMillis),
+                    atEpochMillis = nowEpochMillis,
+                ),
+            )
+            val withAdvancement = run.copy(steps = run.steps.replaceAt(index, advanced))
+            if (activeIndex < current.source.cues.lastIndex) return withAdvancement
+            return finishMainStep(withAdvancement, nowEpochMillis, status, confirmationStep = current)
+        }
+        return finishMainStep(run, nowEpochMillis, status)
+    }
+
+    /**
+     * Use this function to apply one main-step terminal transition after cue handling.
+     * Inputs: `run` — the run with any cue marker already recorded; `nowEpochMillis` — transition time;
+     * `status` — the requested main-step terminal status; `confirmationStep` — the pre-transition snapshot to restore
+     * if final completion opens confirmation.
+     * Dependencies: `unfinishedStepIndexes`, `selectStep`, and persisted main-step timestamps.
+     */
+    private fun finishMainStep(
+        run: RoutineRun,
+        nowEpochMillis: Long,
+        status: RunStepStatus,
+        confirmationStep: RoutineRunStep? = null,
+    ): RoutineRun {
+        val index = run.currentStepIndex
+        val current = run.steps[index]
         val nextStatus = if (current.status == RunStepStatus.COMPLETED && status == RunStepStatus.SKIPPED) {
             RunStepStatus.COMPLETED
         } else {
@@ -318,10 +418,34 @@ class RoutineRunEngine {
                 finishConfirmationRequested = true,
                 abortConfirmationRequested = false,
                 confirmationStartedAtEpochMillis = nowEpochMillis,
-                stepBeforeFinishConfirmation = current,
+                stepBeforeFinishConfirmation = confirmationStep ?: current,
             )
         }
         return selectStep(updated, index + 1, nowEpochMillis)
+    }
+
+    /**
+     * Use this function to convert a validated positive duration into milliseconds.
+     * Inputs: `seconds` — a duration bounded by `RoutineTemplate.requireRunnable`.
+     * Dependencies: the engine's millisecond-per-second constant.
+     */
+    private fun durationMillis(seconds: Long): Long = seconds * MILLIS_PER_SECOND
+
+    /**
+     * Use this function to derive one step's active time from persisted lifecycle fields.
+     * Inputs: `step` — the run step; `confirmationStartedAtEpochMillis` — an optional confirmation freeze;
+     * `nowEpochMillis` — the wall-clock sample.
+     * Dependencies: step status, start, pause, and actual-duration fields.
+     */
+    private fun elapsedMillis(
+        step: RoutineRunStep,
+        confirmationStartedAtEpochMillis: Long?,
+        nowEpochMillis: Long,
+    ): Long {
+        if (step.status != RunStepStatus.PENDING) return step.actualDurationMillis ?: 0L
+        val startedAt = step.startedAtEpochMillis ?: return 0L
+        val effectiveNow = step.pausedAtEpochMillis ?: confirmationStartedAtEpochMillis ?: nowEpochMillis
+        return (effectiveNow - startedAt).coerceAtLeast(0L)
     }
 
     /** Use this function to immutably replace one run step without a mutable collection. */

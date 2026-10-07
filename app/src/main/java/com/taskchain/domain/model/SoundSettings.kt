@@ -10,6 +10,7 @@ enum class SoundToken {
     TaskCompleted,
     TaskRunning,
     TaskPaused,
+    CueAdvanced,
 }
 
 /** One sound's persisted enablement and optional Android asset pointer. */
@@ -38,4 +39,5 @@ private fun defaultSoundEntries(): Map<SoundToken, SoundSetting> = mapOf(
     SoundToken.TaskCompleted to SoundSetting(assetPath = "sounds/task_completed.ogg"),
     SoundToken.TaskRunning to SoundSetting(assetPath = "sounds/task_running.ogg"),
     SoundToken.TaskPaused to SoundSetting(assetPath = "sounds/task_paused.ogg"),
+    SoundToken.CueAdvanced to SoundSetting(enabled = true),
 )

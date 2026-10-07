@@ -1173,7 +1173,7 @@ Use this function to verify routine-card text is inert while Edit and Start rema
 Inputs: none.
 Dependencies: `MainActivity`, routine cards, runner navigation.
 
-## `builder_dragHandlesReorderCollapsedAndExpandedSteps` � app/src/androidTest/java/com/taskchain/MainActivityTest.kt
+## `builder_dragHandlesReorderCollapsedAndExpandedSteps` � app/src/androidTest/java/com/taskchain/MainActivityTest.kt
 Use this function to verify visible builder handles reorder collapsed and expanded steps through real pointer input.
 Inputs: None.
 Dependencies: `MainActivity`, `activityRule`, the built-in Morning reset routine.
@@ -1313,3 +1313,153 @@ Dependencies: `container.preferences`, `viewModelScope`.
 Use this function for a right swipe to revisit the next completed or skipped task.
 Inputs: None.
 Dependencies: `transition`, `RoutineRunEngine.advanceToNextFinishedStep`.
+
+## setShowCueTimeRemaining — app/src/main/java/com/taskchain/data/DataStoreUserPreferenceRepository.kt
+Use this function when Settings changes whether the active cue shows remaining time.
+
+## setShowCueTimeRemaining — app/src/main/java/com/taskchain/data/Repositories.kt
+Use this function when Settings toggles cue countdown visibility in the runner.
+
+## RoutineCueId — app/src/main/java/com/taskchain/domain/model/Models.kt
+Stable identity for one ordered cue nested within a routine step.
+
+## RoutineCue — app/src/main/java/com/taskchain/domain/model/Models.kt
+A manually advanced cue that partitions one main routine step.
+
+## CueAdvancement — app/src/main/java/com/taskchain/domain/model/Models.kt
+Records one manual cue advancement using cumulative active time on its main step.
+
+## elapsedMillis — app/src/main/java/com/taskchain/domain/run/RoutineRunEngine.kt
+Use this function to derive one main step's active time from its persisted timestamps.
+Inputs: `run` — the persisted routine run; `nowEpochMillis` — the wall-clock sample.
+Dependencies: `RoutineRunStep` status, start, pause, confirmation, and actual-duration fields.
+
+## cueElapsedMillis — app/src/main/java/com/taskchain/domain/run/RoutineRunEngine.kt
+Use this function to read active time for one cue while preserving the main step clock.
+Inputs: `run` — the persisted routine run; `cueId` — the cue to inspect; `nowEpochMillis` — the wall-clock sample.
+Dependencies: `elapsedMillis`, the cue definition order, and persisted cue advancement markers.
+
+## cueRemainingMillis — app/src/main/java/com/taskchain/domain/run/RoutineRunEngine.kt
+Use this function to derive the active cue's allowance minus its persisted active time.
+Inputs: `run` — the persisted routine run; `nowEpochMillis` — the wall-clock sample.
+Dependencies: `cueElapsedMillis` and the current step's active cue definition.
+
+## isBehindCueSchedule — app/src/main/java/com/taskchain/domain/run/RoutineRunEngine.kt
+Use this function to determine whether the main step is past the active cue's planned schedule.
+Inputs: `run` — the persisted routine run; `nowEpochMillis` — the wall-clock sample.
+Dependencies: `elapsedMillis`, active cue order, and cue durations.
+
+## activeCueIndex — app/src/main/java/com/taskchain/domain/run/RoutineRunEngine.kt
+Use this function when UI needs the active cue's ordered position for a run step.
+Inputs: `step` — the persisted run step containing its cue snapshot and active identity.
+Dependencies: `RoutineRunStep.source.cues` and `RoutineRunStep.activeCueId`.
+
+## finishMainStep — app/src/main/java/com/taskchain/domain/run/RoutineRunEngine.kt
+Use this function to apply one main-step terminal transition after cue handling.
+Inputs: `run` — the run with any cue marker already recorded; `nowEpochMillis` — transition time;
+`status` — the requested main-step terminal status; `confirmationStep` — the pre-transition snapshot to restore
+if final completion opens confirmation.
+Dependencies: `unfinishedStepIndexes`, `selectStep`, and persisted main-step timestamps.
+
+## durationMillis — app/src/main/java/com/taskchain/domain/run/RoutineRunEngine.kt
+Use this function to convert a validated positive duration into milliseconds.
+Inputs: `seconds` — a duration bounded by `RoutineTemplate.requireRunnable`.
+Dependencies: the engine's millisecond-per-second constant.
+
+## elapsedMillis — app/src/main/java/com/taskchain/domain/run/RoutineRunEngine.kt
+Use this function to derive one step's active time from persisted lifecycle fields.
+Inputs: `step` — the run step; `confirmationStartedAtEpochMillis` — an optional confirmation freeze;
+`nowEpochMillis` — the wall-clock sample.
+Dependencies: step status, start, pause, and actual-duration fields.
+
+## cueAdvancedEvents — app/src/main/java/com/taskchain/domain/run/RunFeedbackPolicy.kt
+Use this function after a run transition to detect newly persisted manual cue advancements.
+Inputs: `previous` — run before the transition; `updated` — run after the transition.
+Dependencies: `RoutineRunStep.cueAdvancements` and `SoundToken.CueAdvanced`.
+
+## addCue — app/src/main/java/com/taskchain/ui/FeatureViewModels.kt
+Use this function to add one editable cue to a task with a stable identity and safe default duration.
+
+## setCueTitle — app/src/main/java/com/taskchain/ui/FeatureViewModels.kt
+Use this function when a cue title changes; stepId scopes the cue mutation to its owning task.
+
+## setCueDuration — app/src/main/java/com/taskchain/ui/FeatureViewModels.kt
+Use this function when a cue duration field changes, retaining raw invalid input for visible validation.
+
+## removeCue — app/src/main/java/com/taskchain/ui/FeatureViewModels.kt
+Use this function when removing one cue from its owning task.
+
+## moveCue — app/src/main/java/com/taskchain/ui/FeatureViewModels.kt
+Use this function to move a cue within one task while preserving the task's other fields atomically.
+
+## setShowCueTimeRemaining — app/src/main/java/com/taskchain/ui/FeatureViewModels.kt
+Use this function when cue countdown visibility is toggled in Settings.
+
+## RoutineRunnerScreen — app/src/main/java/com/taskchain/ui/TaskChainApp.kt
+Use this function to render the runner from immutable VM/presentation state and emit user intent.
+Inputs: state and presentation snapshots, preferences, lifecycle/motion gates, derived timer/unfinished tasks,
+and action callbacks. Dependencies: RunnerState, RunnerPresentation, RunCountdownDial, and runnerGestures.
+
+## rejectsRawCueDurationAndDuplicateCueIds — app/src/test/java/com/taskchain/ui/BuilderValidationTest.kt
+Use this function to verify invalid raw cue durations and duplicate cue identities block a draft save.
+
+## cueAdvancementDoesNotHoldCompletionOrReadiness — app/src/test/java/com/taskchain/ui/RunPresentationTest.kt
+Use this function to verify cue advancement does not start a main-task visual hold.
+Inputs: none. Dependencies: RoutineRunEngine and the two existing presentation gates.
+
+## BuilderCueEditor — app/src/main/java/com/taskchain/ui/BuilderCueEditor.kt
+Renders editable cue fields and accessible list controls without owning draft state.
+Inputs: `cues` — ordered cue values; `durationText` — raw duration text for each cue; callbacks — plain cue IDs and
+field values for the owning ViewModel; `durationErrorIds` — cues whose raw duration is invalid.
+Dependencies: `CyberTextField`, `CyberButton`, `CyberTheme`, and the caller's state holder.
+
+## RunnerCueList — app/src/main/java/com/taskchain/ui/RunnerCueContent.kt
+Use this function to display ordered cues beneath their main task.
+Inputs: step snapshot, derived active-cue remaining time, and the display preference.
+Dependencies: RoutineRunStep and the existing semantic theme and timer formatter.
+
+## CueSerializationTest — app/src/test/java/com/taskchain/domain/model/CueSerializationTest.kt
+Verifies cue persistence, legacy defaults, and derived duration behavior.
+
+## cueStateRoundTripsAcrossTemplateRunAndHistory — app/src/test/java/com/taskchain/domain/model/CueSerializationTest.kt
+Use this function to verify template, active-run, and history JSON retain cue state.
+
+## legacyRecordsUseNoCueDefaults — app/src/test/java/com/taskchain/domain/model/CueSerializationTest.kt
+Use this function to verify old no-cue records decode with empty cue state and current preferences.
+
+## cueValidationRequiresPositiveUniqueSafeDefinitions — app/src/test/java/com/taskchain/domain/model/CueSerializationTest.kt
+Use this function to verify cue validation rejects malformed identities, titles, durations, and totals.
+
+## RoutineRunEngineCueTest — app/src/test/java/com/taskchain/domain/run/RoutineRunEngineCueTest.kt
+Guards nested cue timing, manual advancement, and immutable run snapshots.
+
+## routine — app/src/test/java/com/taskchain/domain/run/RoutineRunEngineCueTest.kt
+Use this function to build the ten-minute main task used by cue timing checks.
+
+## advancingCueKeepsMainTaskActiveAndUsesMainElapsedTime — app/src/test/java/com/taskchain/domain/run/RoutineRunEngineCueTest.kt
+Use this function to verify manual cue advancement leaves the main task active and preserves its clock.
+
+## skippedCueTaskRestoresFrozenMainAndCueState — app/src/test/java/com/taskchain/domain/run/RoutineRunEngineCueTest.kt
+Use this function to verify cue and main clocks freeze through skip, navigation, and explicit resume.
+
+## completingLastCueCompletesMainTask — app/src/test/java/com/taskchain/domain/run/RoutineRunEngineCueTest.kt
+Use this function to verify the last cue completes its main task and requests normal final confirmation.
+
+## completingLastCueUsesMainFinalConfirmation — app/src/test/java/com/taskchain/domain/run/RoutineRunEngineCueTest.kt
+Use this function to verify a completed cue task still requests confirmation when an earlier task is unfinished.
+
+## completingSkippedCuePreservesFrozenStateUntilResume — app/src/test/java/com/taskchain/domain/run/RoutineRunEngineCueTest.kt
+Use this function to verify Complete advances a skipped cue while preserving its frozen main state until Resume.
+
+## continuingFinalCueConfirmationRestoresActiveCueSnapshot — app/src/test/java/com/taskchain/domain/run/RoutineRunEngineCueTest.kt
+Use this function to verify cancelling final-cue confirmation restores the last cue for a later Complete.
+
+## cueAdvancementFeedbackIsOnceOnlyAndFinalCueAlsoAdvances — app/src/test/java/com/taskchain/domain/run/RoutineRunEngineCueTest.kt
+Use this function to verify cue feedback is emitted once without pretending a nonfinal cue completed the task.
+
+## startDeepCopiesCueDefinitions — app/src/test/java/com/taskchain/domain/run/RoutineRunEngineCueTest.kt
+Use this function to verify cue definitions are copied into a run instead of sharing mutable caller state.
+
+## cueRoutineSummaryCountsMainTasksAndDerivedDuration — app/src/test/java/com/taskchain/ui/BuilderValidationTest.kt
+Use this function to verify nested cues contribute duration while counting only their main task.
+Inputs: None. Dependencies: routine summary formatting and RoutineCue.
