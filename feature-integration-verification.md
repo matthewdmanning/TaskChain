@@ -21,3 +21,7 @@ Device validation remains separate from build and JVM evidence. Required flows: 
 Baseline outcome: all four checks passed (2026-10-07). Existing warnings remain; no device proof claimed.
 
 Foundation cleanup: removed .gitmodules, the empty third_party/cyberpunkAndroid gitlink, and its stale local Git configuration. No Gradle files reference third_party; the published v1.0.8 library dependency remains. Renormalized the Windows wrapper under existing .gitattributes (line endings only). Compilation, JVM tests, lint, and assembly passed after cleanup.
+
+## Substeps alignment
+
+Original tip: 3b573f9. Content conflicts: ReminderScheduler.kt, FeatureViewModels.kt, TaskChainApp.kt. Replaced flat independent secondary tasks with nested cue definitions and persisted main-clock advancement markers. Current reminder and runner behavior retained. Added MVVM Screen boundary, cue authoring, preference persistence, semantic sound, and backward-compatible JSON tests. Primary review corrected future-cue timing, skipped-task advancement, final-confirmation rollback, readiness/double-action guards, and duration summaries. Gate: compile, 84 JVM tests (zero failures/errors), lint, assembly passed. Device checks remain pending until all visual features are aligned.

@@ -29,7 +29,7 @@ object RunFeedbackPolicy {
      */
     fun stateEntryEvents(previous: RoutineRun?, updated: RoutineRun): List<RunFeedbackEvent> {
         if (updated.status != RunStatus.ACTIVE) {
-            return previous?.let { completedEvents(it, updated) } ?: emptyList()
+            return previous?.let { cueAdvancedEvents(it, updated) + completedEvents(it, updated) } ?: emptyList()
         }
         if (previous == null) {
             val current = updated.steps.getOrNull(updated.currentStepIndex)
@@ -45,7 +45,7 @@ object RunFeedbackPolicy {
             }
         }
 
-        val events = completedEvents(previous, updated).toMutableList()
+        val events = (cueAdvancedEvents(previous, updated) + completedEvents(previous, updated)).toMutableList()
         val previousStep = previous.steps.getOrNull(previous.currentStepIndex)
         val updatedStep = updated.steps.getOrNull(updated.currentStepIndex)
         val enteredPendingStep = updatedStep?.status == RunStepStatus.PENDING &&
@@ -122,6 +122,21 @@ object RunFeedbackPolicy {
             val prior = previous.steps.getOrNull(index)
             if (prior?.status != RunStepStatus.COMPLETED && step.status == RunStepStatus.COMPLETED) {
                 RunFeedbackEvent(SoundToken.TaskCompleted, index)
+            } else {
+                null
+            }
+        }
+
+    /**
+     * Use this function after a run transition to detect newly persisted manual cue advancements.
+     * Inputs: `previous` — run before the transition; `updated` — run after the transition.
+     * Dependencies: `RoutineRunStep.cueAdvancements` and `SoundToken.CueAdvanced`.
+     */
+    private fun cueAdvancedEvents(previous: RoutineRun, updated: RoutineRun): List<RunFeedbackEvent> =
+        updated.steps.mapIndexedNotNull { index, step ->
+            val priorCount = previous.steps.getOrNull(index)?.cueAdvancements?.size ?: 0
+            if (step.cueAdvancements.size > priorCount) {
+                RunFeedbackEvent(SoundToken.CueAdvanced, index)
             } else {
                 null
             }

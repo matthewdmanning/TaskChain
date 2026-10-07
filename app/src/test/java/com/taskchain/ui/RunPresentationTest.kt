@@ -1,6 +1,11 @@
 package com.taskchain.ui
 
 import com.taskchain.domain.model.RoutineId
+import com.taskchain.domain.model.EntityMetadata
+import com.taskchain.domain.model.RoutineCue
+import com.taskchain.domain.model.RoutineCueId
+import com.taskchain.domain.model.RoutineTemplate
+import com.taskchain.domain.run.RoutineRunEngine
 import com.taskchain.domain.model.RoutineRun
 import com.taskchain.domain.model.RoutineRunId
 import com.taskchain.domain.model.RoutineRunStep
@@ -15,6 +20,25 @@ import org.junit.Test
 
 /** Verifies the completion transition gate used by the runner presentation. */
 class RunPresentationTest {
+    /** Use this function to verify cue advancement does not start a main-task visual hold.
+     * Inputs: none. Dependencies: RoutineRunEngine and the two existing presentation gates.
+     */
+    @Test
+    fun cueAdvancementDoesNotHoldCompletionOrReadiness() {
+        val engine = RoutineRunEngine()
+        val template = RoutineTemplate(
+            RoutineId("routine"), EntityMetadata(0, 0), "Routine",
+            steps = listOf(RoutineStep(RoutineStepId("main"), "Main", cues = listOf(
+                RoutineCue(RoutineCueId("first"), "First", 180),
+                RoutineCue(RoutineCueId("second"), "Second", 420),
+            ))),
+        )
+        val before = engine.start(template, RoutineRunId("run"), 0)
+        val after = engine.completeCurrent(before, 120_000)
+        assertFalse(shouldHoldCompletedPresentation(before, after))
+        assertFalse(shouldHoldTaskReadyTransition(before, after))
+    }
+
     @Test
     fun completedStepTransitionOwnsOnePresentationHold() {
         val pending = run("run", listOf(RunStepStatus.PENDING, RunStepStatus.PENDING), 0)

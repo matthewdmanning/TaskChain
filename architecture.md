@@ -33,4 +33,10 @@ The initial app is Android-only, offline-only, and database-free. Repository int
 
 ## UI library dependency
 
-cyberpunkAndroid is a separate project dependency that supplies UI components, theme tokens, and effects. Do not describe or manage it as a Git submodule. Verify the configured dependency location before running Gradle.
+cyberpunkAndroid supplies UI components, theme tokens, and effects through the published `com.github.matthewdmanning:cyberpunkAndroid:v1.0.8` dependency. TaskChain has no `third_party` source checkout, submodule, or Gradle project inclusion for it.
+
+## Runner feature composition
+
+The Run route owns ViewModel creation, lifecycle-aware observation, navigation, and completion/readiness presentation. `RoutineRunnerScreen` receives immutable state, derived timer values, and callbacks; nested cues and runner visuals compose within that screen. No runner feature observes repository emissions to infer navigation or starts an independent polling clock.
+
+`RoutineRunEngine` owns cue advancement, frozen elapsed time, and behind-schedule policy. Cue definitions live inside `RoutineStep`; persisted active identity and advancement markers live inside `RoutineRunStep`. All run sequence indexes and completion/progress summaries refer to main tasks. The existing ViewModel persists transitions before semantic feedback dispatch, including `CueAdvanced`.

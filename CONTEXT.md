@@ -27,6 +27,20 @@ This is the source of truth for TaskChain's domain vocabulary, behavior invarian
 - Completion effects delay presentation only; completion timestamps and run transitions are persisted immediately.
 - With task transitions enabled, a newly started next task waits for the completion effect and readiness countdown before its active timer begins; the start timestamp is persisted so recreation retains that delay.
 
-## Open decision
+## Ordered cues within a main task
+
+- A cue is a piece of its owning main task, with a stable identity, title, and positive duration. Cue durations partition the main task's total duration; a task without cues retains its optional timer.
+- A run snapshots cue definitions and advancement markers inside each main task. Cues never become separate run steps, bottom icons, next-up tasks, or overall-progress entries.
+- Complete manually advances the active cue. The last cue completes the main task and advances to the next main task. Expiry never advances a cue.
+- Skip skips the main task and retains its active cue. Navigation, pause, skip, and confirmation freeze cue timing through the existing persisted main-task clock. Explicit Resume reopens a skipped task without resetting its cues.
+- Completing a cue on a revisited skipped task retains its frozen skipped state until Resume or completion of its last cue.
+- Each advancement records cumulative main active time and its wall-clock timestamp. Actual cue duration is the difference between adjacent advancement markers; the active cue uses the main clock after the previous marker.
+- The main dial keeps showing main time remaining. Cue rims have increasing radii, proportional start angles, stable sequential colors from the design-system seed, and actual-time sweep that can extend beyond the cue's planned end. Advancement leaves a glowing marker.
+- The entire dial interior becomes Warning when main active time exceeds the active cue's cumulative planned end. With 3- and 7-minute cues and first-cue advancement at minute 2, the second cue becomes behind schedule after main minute 10. Rim colors stay unchanged.
+- Cue advancement emits a distinct semantic sound through the existing routine/task sound gates. It does not trigger main-task completion or readiness effects.
+- Settings can show active substep time remaining (allowance minus actual cue time), default off. Visibility never affects timing.
+- `stackingAnchorStepId` remains independent of cue ownership. The pending per-routine run-storage migration is outside this integration.
+
+## Open decisions
 
 - After completing a previously skipped step, whether to jump to the next unfinished step or continue normal sequence remains TBD.

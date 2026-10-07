@@ -21,11 +21,15 @@ class AndroidAssetSoundPlayer(private val context: Context) : SoundPlayer {
     override fun play(token: SoundToken, settings: SoundSetting) {
         if (!settings.enabled) return
         if (settings.assetPath == null) {
-            if (token != SoundToken.TimerExpired) return
+            val toneType = when (token) {
+                SoundToken.TimerExpired -> ToneGenerator.TONE_PROP_BEEP
+                SoundToken.CueAdvanced -> ToneGenerator.TONE_PROP_ACK
+                else -> return
+            }
             runCatching {
                 val tone = ToneGenerator(AudioManager.STREAM_ALARM, ToneGenerator.MAX_VOLUME)
                 try {
-                    tone.startTone(ToneGenerator.TONE_PROP_BEEP, TIMER_TONE_DURATION_MILLIS)
+                    tone.startTone(toneType, TIMER_TONE_DURATION_MILLIS)
                     val released = Handler(Looper.getMainLooper()).postDelayed(
                         { runCatching { tone.release() } },
                         TIMER_TONE_DURATION_MILLIS.toLong(),
