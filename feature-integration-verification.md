@@ -25,3 +25,7 @@ Foundation cleanup: removed .gitmodules, the empty third_party/cyberpunkAndroid 
 ## Substeps alignment
 
 Original tip: 3b573f9. Content conflicts: ReminderScheduler.kt, FeatureViewModels.kt, TaskChainApp.kt. Replaced flat independent secondary tasks with nested cue definitions and persisted main-clock advancement markers. Current reminder and runner behavior retained. Added MVVM Screen boundary, cue authoring, preference persistence, semantic sound, and backward-compatible JSON tests. Primary review corrected future-cue timing, skipped-task advancement, final-confirmation rollback, readiness/double-action guards, and duration summaries. Gate: compile, 84 JVM tests (zero failures/errors), lint, assembly passed. Device checks remain pending until all visual features are aligned.
+
+## Step accordions alignment
+
+Original tip: 2b705c3. Conflicts: TaskChainApp.kt, TaskChainTheme.kt, deleted third_party gitlink. Current stable-ID accordion/reorder, title editing, native duration pickers, typography, and nested cue editing already implement the feature; retained them and retained submodule deletion. Gate: compile, all 84 JVM tests, lint, assembly passed. An initial premature build encountered unresolved merge markers; corrected resolution and reran the complete gate successfully.
