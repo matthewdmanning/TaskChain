@@ -30,3 +30,7 @@ Feature ViewModels initiate Reminder scheduling and cancellation in response to 
 Both entry points reuse the same platform-neutral recurrence and Reminder mapping policy. Keep recurrence calculations in `domain/schedule` and Android intent, `AlarmManager`, notification, audio, and haptic behavior in `reminder`. Do not add another interface around Reminder delivery unless behavior genuinely varies across a second adapter.
 
 The initial app is Android-only, offline-only, and database-free. Repository interfaces keep the file format and Android APIs outside domain behavior without adding speculative cloud, sync, authentication, or backup implementations.
+
+## UI library dependency
+
+cyberpunkAndroid is a separate project dependency that supplies UI components, theme tokens, and effects. Do not describe or manage it as a Git submodule. Verify the configured dependency location before running Gradle.

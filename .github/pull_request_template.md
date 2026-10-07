@@ -1,16 +1,21 @@
 ## Summary
 
-<!-- Describe the change and the user-facing behavior it affects. -->
+<!-- What changed, and why? Link to a local issue/spec if relevant. -->
 
-## Validation
+## Verification
 
-- [ ] `./gradlew :app:testDebugUnitTest`
-- [ ] `./gradlew :app:lintDebug`
-- [ ] `./gradlew :app:assembleDebug`
+<!-- Record the command or manual check and its result. Say why if a relevant check was not run. -->
+- `command or check` — `PASS` / `FAIL` / not run (`reason`)
 
-## Checklist
+<!-- For UI or reminder changes, include device/emulator and Android version, scenario, and result. -->
 
-- [ ] I kept the app local-only and account-free.
-- [ ] I added or updated tests for behavior changes.
+## Screenshots or recording (UI changes)
+
+<!-- Attach before/after evidence when the change affects the UI. Remove this section otherwise. -->
+
+## Self-review
+
+- [ ] I reviewed the diff for unrelated changes.
+- [ ] Behavior changes have focused test coverage, or I noted why tests were not added.
 - [ ] I updated documentation when needed.
-- [ ] I attached screenshots for UI changes.
+- [ ] I preserved the app's local-only, account-free, telemetry-free design.

@@ -66,3 +66,7 @@ Use the five default triage roles. See `docs/agents/triage-labels.md`.
 ### Domain docs
 
 Use one root context. See `docs/agents/domain.md`.
+
+## UI library dependency
+
+cyberpunkAndroid is a separate project dependency that supplies UI components, theme tokens, and effects. Do not describe or manage it as a Git submodule. Verify the configured dependency location before running Gradle.
