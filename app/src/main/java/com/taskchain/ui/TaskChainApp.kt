@@ -1310,6 +1310,14 @@ private fun RoutineRunnerRoute(
         animationsEnabled = animationsEnabled,
         remaining = presentation.run?.let { container.runEngine.remainingMillis(it, state.nowEpochMillis) },
         cueRemaining = presentation.run?.let { container.runEngine.cueRemainingMillis(it, state.nowEpochMillis) },
+        cueElapsed = presentation.run?.let { run ->
+            run.steps[run.currentStepIndex].source.cues.map { cue ->
+                container.runEngine.cueElapsedMillis(run, cue.id, state.nowEpochMillis)
+            }
+        }.orEmpty(),
+        behindCueSchedule = presentation.run?.let {
+            container.runEngine.isBehindCueSchedule(it, state.nowEpochMillis)
+        } ?: false,
         unfinishedStepIndexes = presentation.run?.let(container.runEngine::unfinishedStepIndexes).orEmpty(),
         onComplete = { viewModel.complete() },
         onSkip = { viewModel.skip() },
@@ -1338,6 +1346,8 @@ private fun RoutineRunnerScreen(
     animationsEnabled: Boolean,
     remaining: Long?,
     cueRemaining: Long?,
+    cueElapsed: List<Long>,
+    behindCueSchedule: Boolean,
     unfinishedStepIndexes: List<Int>,
     onComplete: () -> Unit,
     onSkip: () -> Unit,
@@ -1460,18 +1470,21 @@ private fun RoutineRunnerScreen(
 
                     key(run.currentStepIndex, presentation.holdingCompletion) {
                         Box(modifier = Modifier.graphicsLayer { alpha = entrance.value }) {
+                            RunnerCueDial(current, cueElapsed, dialDiameter, behindCueSchedule) { innerDiameter ->
                             RunCountdownDial(
                                 timer = if (presentation.readyLabel == "Get Ready") stringResource(R.string.punch_get_ready)
                                     else presentation.readyLabel ?: timerString,
                                 progress = countdownProgress(current.source.durationSeconds, remaining),
                                 remainingMillis = remaining,
-                                diameter = dialDiameter,
+                                diameter = innerDiameter,
+                                behindCueSchedule = behindCueSchedule,
                                 status = current.status,
                                 paused = current.pausedAtEpochMillis != null,
                                 completedPulse = presentation.holdingCompletion && presentation.readyLabel == null,
                                 foreground = foreground,
                                 animationsEnabled = animationsEnabled && presentation.readyLabel == null,
                             )
+                            }
                         }
                     }
 
@@ -1701,6 +1714,7 @@ private fun RunCountdownDial(
     progress: Float,
     remainingMillis: Long?,
     diameter: Dp,
+    behindCueSchedule: Boolean,
     status: RunStepStatus,
     paused: Boolean,
     completedPulse: Boolean,
@@ -1721,6 +1735,7 @@ private fun RunCountdownDial(
     val targetAccentColor = when {
         status == RunStepStatus.COMPLETED -> CyberTheme.semantics.colors.success
         status == RunStepStatus.SKIPPED -> CyberTheme.semantics.colors.warning
+        behindCueSchedule -> CyberTheme.semantics.colors.warning
         isOvertime -> CyberTheme.semantics.colors.error
         isUrgent || isWarning -> CyberTheme.semantics.colors.warning
         else -> CyberTheme.semantics.colors.info
@@ -1774,6 +1789,8 @@ private fun RunCountdownDial(
         modifier = Modifier
             .size(diameter)
             .clip(CircleShape)
+            .background(if (behindCueSchedule) CyberTheme.semantics.colors.warning.copy(alpha = 0.3f)
+                else androidx.compose.ui.graphics.Color.Transparent)
             .then(radialModifier)
             .semantics {
                 progressBarRangeInfo = ProgressBarRangeInfo(progress, 0f..1f)

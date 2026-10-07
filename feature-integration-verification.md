@@ -41,3 +41,7 @@ Original tip: 7c7eec1. Conflict: MainActivity.kt. Removed repository-driven feat
 ## Next-up preview alignment
 
 Original tip: 4cdcc13. Conflict: MainActivity.kt. Replaced undefined host overlay call with RunnerNextUpPreview inside the current Screen, reading only its displayed run snapshot. Retained resource-configurable two-task preview and pending main-task filtering. Removed repository host and duplicated progress overlay; progress is reserved for the micro-animation stage. Gate: compile, all 84 JVM tests, lint, assembly passed.
+
+## Dynamic progress ring alignment
+
+Original tip: 47f22a4. Conflict: MainActivity.kt. Removed independently polling halo/feature host. Existing main countdown is wrapped in fixed-angle, increasing-radius cue rims computed from the same sampled time and persisted markers. Stable palette is generated from the design-system Info seed. Advancement markers glow; overtime extends sweeps without changing rim colors; behind-schedule state fills the entire main interior with Warning. Added proportional/overtime geometry checks and accessible cue state descriptions. Gate: compile, all 85 JVM tests, lint, assembly passed. Pixel 7 installation succeeded; app data backed up before device checks.

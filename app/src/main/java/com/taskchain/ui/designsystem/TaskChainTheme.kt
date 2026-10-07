@@ -9,6 +9,8 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.material3.Typography
 import com.example.cyberpunkandroid.theme.CyberTypography
 import com.example.cyberpunkandroid.theme.cyberMaterialTypography
@@ -59,6 +61,20 @@ data class Spacing(
 
 /** Provides configured spacing to feature UI through the design-system boundary. */
 object TaskChainDesignSystem {
+    /** Semantic seed for the ordered cue palette; configure its theme mapping here. */
+    val cueColorSeed: Color
+        @Composable get() = CyberTheme.semantics.colors.info
+
+    /** Use this function to generate a stable sequential cue color from the design-system seed.
+     * Inputs: ordered cue index. Dependencies: cueColorSeed and native HSV color conversion.
+     */
+    @Composable
+    fun cueColor(index: Int): Color {
+        val hsv = FloatArray(3)
+        android.graphics.Color.colorToHSV(cueColorSeed.toArgb(), hsv)
+        return Color.hsv((hsv[0] + index * 47f) % 360f, hsv[1], hsv[2])
+    }
+
     /** Use this function when feature UI needs semantic spacing from cyberpunkAndroid. */
     @Composable
     fun spacing(): Spacing = Spacing(

@@ -7,4 +7,8 @@
     <string name="runner_cues_expand">Expand cues</string>
     <string name="runner_next_up">Next up</string>
     <string name="runner_cue_advanced">Cue complete</string>
+    <string name="behind_cue_schedule">Behind cue schedule</string>
+    <string name="cue_active">Active cue</string>
+    <string name="cue_advanced">Completed cue</string>
+    <string name="cue_pending">Upcoming cue</string>
 </resources>
