@@ -19,5 +19,24 @@ if ($release -notmatch '(?m)^JAVA_VERSION="17\.') {
 }
 
 $env:JAVA_HOME = $javaHome
-& "$PSScriptRoot\..\gradlew.bat" @args
-exit $LASTEXITCODE
+$updateDebug = $args -contains ":app:installDebug" -or $args -contains "installDebug"
+$gradleArgs = @($args | ForEach-Object {
+    if ($_ -eq ":app:installDebug" -or $_ -eq "installDebug") { ":app:assembleDebug" } else { $_ }
+})
+& "$PSScriptRoot\..\gradlew.bat" @gradleArgs
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+if ($updateDebug -and $args -notcontains "--dry-run" -and $args -notcontains "-m") {
+    $sdkRoot = $env:ANDROID_HOME
+    $localProperties = "$PSScriptRoot\..\local.properties"
+    if (Test-Path -LiteralPath $localProperties) {
+        $sdkLine = Get-Content -LiteralPath $localProperties | Where-Object { $_ -match "^sdk\.dir=" } | Select-Object -First 1
+        if ($sdkLine) { $sdkRoot = $sdkLine.Substring(8).Replace("\:", ":").Replace("\\", "\") }
+    }
+    if (-not $sdkRoot) { throw "Set sdk.dir in local.properties or ANDROID_HOME to the Android SDK." }
+    $adb = Join-Path $sdkRoot "platform-tools\adb.exe"
+    if (-not (Test-Path -LiteralPath $adb -PathType Leaf)) { throw "ADB was not found at $adb." }
+    Write-Host "Updating the USB-connected app in place with adb install -r; existing app data is retained."
+    & $adb -d install -r "$PSScriptRoot\..\app\build\outputs\apk\debug\app-debug.apk"
+    exit $LASTEXITCODE
+}
+exit 0
