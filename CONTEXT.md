@@ -1,10 +1,15 @@
 # Domain context
 
+This is the source of truth for TaskChain's domain vocabulary, behavior invariants, and open decisions. `architecture.md` owns package boundaries and technical architecture; `docs/agents/domain.md` only routes readers to these sources.
+
 - **Routine run:** an instance of the user completing or skipping steps. Completed runs are persisted locally, like routines. Aborting discards the run as though it never happened.
 
 ## Invariants
 
 - A routine has a stable ID and at least one non-blank step before it can run.
+- Steps inside a run are domain state, not Android navigation destinations.
+- The active run is persisted so screen recreation does not reset progress or timers.
+- Editing a routine never changes an existing run because the run owns a snapshot of its steps.
 - Completed or skipped steps never restart their timer when revisited.
 - Timer state is derived from persisted timestamps, not an in-memory counter.
 - Completing a skipped step changes it directly to completed.
@@ -15,6 +20,9 @@
 - Actual duration is distinct from configured duration and is retained per run step.
 - A routine's schedule cannot coexist with its deadline or one-time reminder.
 - Sound and Vibrate are independently configurable for step-timer and routine-reminder feedback.
+- A run snapshots its routine-level Sound and Vibrate gates and semantic sound settings. Routine mute takes precedence over step settings; missing or unplayable audio does not interrupt run behavior or enabled haptics.
+- Task nudges use active task time and are suppressed while paused, in confirmation, or outside the foreground Run screen. The default cadence is one minute, including untimed and overtime tasks, without replaying missed background nudges.
+- Completion effects delay presentation only; completion timestamps and run transitions are persisted immediately.
 
 ## Open decision
 

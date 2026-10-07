@@ -6,4 +6,4 @@ The app is intentionally a single Android module. Source and resources live unde
 
 ## Build
 
-From PowerShell, run `./scripts/gradle.ps1 :app:assembleDebug`. The script selects the project's verified JDK 21 and forwards any additional arguments to the checked-in Gradle wrapper.
+From PowerShell, run `./scripts/gradle.ps1 :app:assembleDebug`. Set JAVA_HOME to a complete JDK 17. The script rejects other runtimes and forwards additional arguments to the checked-in Gradle wrapper.

@@ -9,7 +9,6 @@ Goal: maintain attention, motivation, and momentum during very short work interv
 - **Reminder, not ticking bomb:** The timer should maintain awareness of passing time without creating panic. Rushing increases mistakes, so the emotional tone should be steady, controlled, and motivating rather than urgent or threatening.
 - **Evenly spaced feedback:** Prefer subtle effects distributed consistently across the interval instead of a dramatic panic mode near zero.
 - **Progress must be obvious:** Visual progress indicators are a primary UI element, not decoration. The user should be able to understand remaining time at a glance without reading the numerals.
-- **Implementation realism:** Favor effects that can be implemented cleanly in a normal Android UI stack: animated progress rings/bars, gradients, glows, masks, simple particles, sweep lines, opacity shifts, scale pulses, and restrained motion. Avoid cinematic effects that depend on complex 3D rendering, heavy shaders, or bespoke VFX.
 - **Sci-fi through composition, not spectacle:** The cyberpunk/action-scifi character should primarily come from typography, geometry, layering, color, progress visualization, and controlled motion.
 
 ## 1. Neon Core Reactor
@@ -18,9 +17,8 @@ Goal: maintain attention, motivation, and momentum during very short work interv
 
 - **Centerpiece:** A large glowing circular countdown timer styled like a contained reactor core.
 - **Visual style:** Black or charcoal background with electric cyan, magenta, and violet glow.
-- **Countdown behavior:** The ring depletes smoothly and continuously as time decreases.
+- **Countdown behavior:** The ring depletes continuously as time decreases.
 - **Time display:** Large digital numerals in the center, ultra-legible, with only a very restrained holographic treatment.
-- **Motivation layer:** Short command-style text beneath the timer, such as **LOCK IN**, **HOLD FOCUS**, or **STAY ON TASK**.
 - **Momentum cues:** Small, evenly spaced pulse or sweep events provide rhythm without increasing pressure near the end.
 - **Progress signal:** The circular ring is the dominant indicator and should make elapsed-versus-remaining time understandable instantly.
 - **Implementation:** Standard circular progress drawing, gradients, glow/blur, opacity and scale animation; no 3D reactor simulation required.

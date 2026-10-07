@@ -2,13 +2,17 @@
 
 ## Project Structure & Architecture
 
-TaskChain is a single-module, offline Android app. Kotlin source is under `app/src/main/java/com/taskchain/`: `domain/model` defines run data, `domain/run` owns transitions and timers, `data` handles local persistence, `reminder` adapts Android alarms, and `ui` contains Compose screens and ViewModels. Keep Material 3 configuration in `ui/designsystem`. Resources and JSON defaults live in `app/src/main/res/` and `app/src/main/assets/config/`; unit tests live in `app/src/test/java/`. Read `architecture.md` and `CONTEXT.md` before changing behavior.
+See `architecture.md` for package boundaries and `CONTEXT.md` for domain vocabulary, behavior invariants, and open decisions. Read both before changing behavior. `docs/agents/domain.md` explains how to use these sources; it is routing guidance, not a second source of domain truth.
+
+Kotlin source is under `app/src/main/java/com/taskchain/`; resources and JSON defaults live in `app/src/main/res/` and `app/src/main/assets/config/`; unit tests live in `app/src/test/java/`.
 
 `augmented-ui-generator` is a separate standalone library. It now lives in its own repository beside this one, at `../augmented-ui-generator`. TaskChain does not depend on it. Read that repository's `README.md` and follow its `AGENTS.md` before working there.
 
 ## Build, Test & Development Commands
 
-Humans should use `./scripts/gradle.ps1` on Windows. Sandboxed agents must use `scripts\gradle-agent.cmd`, which avoids PowerShell and runs the same checked-in Gradle wrapper with the shared Gradle cache and a complete JDK 21 containing `java`, `javac`, and `jlink`; the helper prefers explicit `GRADLE_USER_HOME`/`JAVA_HOME`, then the local Gradle-managed Eclipse Temurin JDK 21, then Android Studio JBR. The app's Java source and bytecode compatibility remain version 17.
+Use **JDK 17 only** for the Gradle runtime, Java toolchain, and app source/bytecode compatibility. The user reports that other JDK versions crash; do not select, install, download, or fall back to another version. Set JAVA_HOME to a complete JDK 17 containing java, javac, and jlink, and verify its version before running Gradle.
+
+Humans should use ./scripts/gradle.ps1 on Windows. Sandboxed agents must use scripts\gradle-agent.cmd with an explicit JDK 17 JAVA_HOME and the checked-in Gradle wrapper. Both helpers require a complete JDK 17 and reject other runtimes without falling back.
 
 - `./scripts/gradle.ps1 :app:assembleDebug` builds the debug APK on Windows.
 - `./scripts/gradle.ps1 :app:testDebugUnitTest` runs local JVM unit tests.
@@ -38,7 +42,7 @@ Use a short imperative subject describing the change. In PRs, explain the behavi
 
 ## Configuration & Agent Guidance
 
-Keep defaults in `app/src/main/assets/config/` and UI values in resources or design-system configuration. Preserve the local-only, account-free, telemetry-free architecture; do not add secrets or remote services. After a sandboxed command fails, verify the command and its exact scope, then retry once with appropriate escalation. If it still fails, stop and provide the exact PowerShell command for manual execution. During parallel work, the root agent owns full Gradle verification unless a worker is explicitly assigned a focused check.
+Keep defaults in `app/src/main/assets/config/` and UI values in resources or design-system configuration. Preserve the platform, storage, and service constraints defined in `architecture.md`; do not add secrets or remote services. After a sandboxed command fails, verify the command and its exact scope, then retry once with appropriate escalation. If it still fails, stop and provide the exact PowerShell command for manual execution. During parallel work, the root agent owns full Gradle verification unless a worker is explicitly assigned a focused check.
 
 Delegate to the read-only `codebase_scanner` agent with `fork_turns = "none"` when answering a bounded question requires searching enough code that the raw results would add mostly non-useful material to the primary agent's context. Give it the exact question, search scope, and desired evidence; use its distilled, file-cited findings instead of repeating the scan in the primary context.
 
