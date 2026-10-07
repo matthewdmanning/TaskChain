@@ -37,3 +37,7 @@ Original tip: 8e430bc. Conflicts: app/build.gradle.kts, RunnerGestures.kt (add/a
 ## Collapsible nested runner alignment
 
 Original tip: 7c7eec1. Conflict: MainActivity.kt. Removed repository-driven feature host and legacy stacking overlay; composed cue list beneath the main title. Collapse changes presentation only and always keeps the active cue visible, with saveable expansion state. Bubble navigation/current activity retained. Gate: compile, all 84 JVM tests, lint, assembly passed.
+
+## Next-up preview alignment
+
+Original tip: 4cdcc13. Conflict: MainActivity.kt. Replaced undefined host overlay call with RunnerNextUpPreview inside the current Screen, reading only its displayed run snapshot. Retained resource-configurable two-task preview and pending main-task filtering. Removed repository host and duplicated progress overlay; progress is reserved for the micro-animation stage. Gate: compile, all 84 JVM tests, lint, assembly passed.
