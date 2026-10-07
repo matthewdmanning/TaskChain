@@ -139,18 +139,25 @@ fun TaskChainTheme(selectedTheme: String, content: @Composable () -> Unit) {
     val cappedScale = density.fontScale.coerceAtMost((width / 240f).coerceAtLeast(1f))
     val base = Typography()
     val typography = cyberMaterialTypography(base.copy(
-        bodySmall = base.bodyLarge,
-        bodyMedium = base.bodyLarge,
-        labelSmall = base.labelLarge,
-        labelMedium = base.labelLarge,
+        bodySmall = base.bodyLarge.copy(fontSize = 20.sp, lineHeight = 28.sp),
+        bodyMedium = base.bodyLarge.copy(fontSize = 22.sp, lineHeight = 30.sp),
+        bodyLarge = base.bodyLarge.copy(fontSize = 22.sp, lineHeight = 30.sp),
+        labelSmall = base.labelLarge.copy(fontSize = 18.sp, lineHeight = 24.sp),
+        labelMedium = base.labelLarge.copy(fontSize = 20.sp, lineHeight = 26.sp),
+        labelLarge = base.labelLarge.copy(fontSize = 22.sp, lineHeight = 30.sp),
+        titleSmall = base.titleSmall.copy(fontSize = 22.sp, lineHeight = 30.sp),
+        titleMedium = base.titleMedium.copy(fontSize = 24.sp, lineHeight = 32.sp),
+        headlineSmall = base.headlineSmall.copy(fontSize = 28.sp, lineHeight = 36.sp),
+        headlineMedium = base.headlineMedium.copy(fontSize = 32.sp, lineHeight = 40.sp),
+        displayMedium = base.displayMedium.copy(fontSize = 48.sp, lineHeight = 56.sp),
         titleLarge = base.headlineLarge,
     ))
     CompositionLocalProvider(LocalDensity provides Density(density.density, cappedScale)) {
         CyberTheme(
             colors = colors,
             typography = CyberTypography(display = CyberTypography().display.copy(fontSize = 40.sp),
-                terminal = CyberTypography().terminal.copy(fontSize = 18.sp),
-                body = CyberTypography().body.copy(fontSize = 18.sp)),
+                terminal = CyberTypography().terminal.copy(fontSize = 22.sp, lineHeight = 30.sp),
+                body = CyberTypography().body.copy(fontSize = 22.sp, lineHeight = 30.sp)),
             materialTypography = typography,
             content = content,
         )

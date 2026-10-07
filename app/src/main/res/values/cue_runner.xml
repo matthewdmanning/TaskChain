@@ -11,4 +11,5 @@
     <string name="cue_active">Active cue</string>
     <string name="cue_advanced">Completed cue</string>
     <string name="cue_pending">Upcoming cue</string>
+    <string name="runner_main_progress">%1$d of %2$d main tasks finished</string>
 </resources>

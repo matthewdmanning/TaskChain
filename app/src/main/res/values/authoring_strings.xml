@@ -5,6 +5,7 @@
     <string name="authoring_drag_handle">Reorder step</string>
     <string name="authoring_duration">Duration</string>
     <string name="authoring_duration_value">Duration: %1$02d:%2$02d</string>
+    <string name="authoring_duration_compact">%1$02d:%2$02d</string>
     <string name="authoring_duration_minutes">Minutes</string>
     <string name="authoring_duration_seconds">Seconds</string>
     <string name="authoring_sound">Sound</string>

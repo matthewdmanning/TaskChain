@@ -280,7 +280,8 @@ private fun HomeShell(
                             selected = selectedTab == tab,
                             onClick = { onSelectedTabChange(tab) },
                             icon = {},
-                            label = { Text(stringResource(tab.label)) },
+                            label = { Text(stringResource(tab.label), style = MaterialTheme.typography.labelSmall,
+                                softWrap = false) },
                         )
                     }
                 }
@@ -834,38 +835,6 @@ private fun RoutineBuilderRoute(
                             .clickable(role = Role.Button) { changeExpansion(!isExpanded) },
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                    Box(Modifier.weight(1f)) {
-                    if (isExpanded && editingNameStepId == step.id.value) {
-                        com.example.cyberpunkandroid.components.CyberTextField(
-                            value = state.pendingStepTitle,
-                            placeholder = stringResource(R.string.step_name),
-                            isError = BuilderValidationError.STEP_NAME_REQUIRED in state.validationErrors,
-                            onValueChange = viewModel::setPendingStepTitle,
-                        )
-                    } else {
-                        Text(
-                            text = step.title.ifBlank { stringResource(R.string.step_name) },
-                            style = CyberTheme.typography.body,
-                            color = if (step.title.isBlank()) CyberTheme.colors.textSecondary else CyberTheme.colors.textPrimary,
-                            modifier = if (isExpanded) {
-                                Modifier.wrapContentWidth().clickable { editingNameStepId = step.id.value }
-                            } else {
-                                Modifier
-                            },
-                        )
-                    }
-                    }
-                    if (!isExpanded) {
-                        val duration = routineDurationParts(step.durationSeconds ?: 0L)
-                        Text(
-                            stringResource(
-                                R.string.authoring_duration_value,
-                                duration.first,
-                                duration.second,
-                            ),
-                            color = CyberTheme.colors.textSecondary,
-                        )
-                    }
                     CyberIcon(
                         iconRes = CyberIcons.Drag,
                         contentDescription = stringResource(R.string.authoring_drag_handle),
@@ -894,6 +863,38 @@ private fun RoutineBuilderRoute(
                                 )
                             },
                     )
+                    Box(Modifier.weight(1f)) {
+                    if (isExpanded && editingNameStepId == step.id.value) {
+                        com.example.cyberpunkandroid.components.CyberTextField(
+                            value = state.pendingStepTitle,
+                            placeholder = stringResource(R.string.step_name),
+                            isError = BuilderValidationError.STEP_NAME_REQUIRED in state.validationErrors,
+                            onValueChange = viewModel::setPendingStepTitle,
+                        )
+                    } else {
+                        Text(
+                            text = step.title.ifBlank { stringResource(R.string.step_name) },
+                            style = CyberTheme.typography.body,
+                            color = if (step.title.isBlank()) CyberTheme.colors.textSecondary else CyberTheme.colors.textPrimary,
+                            modifier = if (isExpanded) {
+                                Modifier.wrapContentWidth().clickable { editingNameStepId = step.id.value }
+                            } else {
+                                Modifier
+                            },
+                        )
+                    }
+                    }
+                    if (!isExpanded) step.durationSeconds?.let { seconds ->
+                        val duration = routineDurationParts(seconds)
+                        Text(
+                            stringResource(
+                                R.string.authoring_duration_compact,
+                                duration.first,
+                                duration.second,
+                            ),
+                            color = CyberTheme.colors.textSecondary,
+                        )
+                    }
                     }
                 },
                 onExpandedChange = changeExpansion,
@@ -958,9 +959,6 @@ private fun RoutineBuilderRoute(
                     }
                     if (BuilderValidationError.STEP_TIMER_MUST_BE_POSITIVE in state.validationErrors && state.editingStepIndex == index) {
                         Text(stringResource(R.string.validation_timer_positive), color = CyberTheme.semantics.colors.danger)
-                    }
-                    if (step.cues.isNotEmpty()) {
-                        Text(stringResource(R.string.cue_duration_total))
                     }
                     BuilderCueEditor(
                         cues = step.cues,
@@ -1169,7 +1167,7 @@ internal fun LabeledSwitchRow(label: String, checked: Boolean, onCheckedChange: 
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(label)
+        Text(label, modifier = Modifier.weight(1f).padding(end = CyberPrimitives.Spacing.dp8))
         Switch(checked = checked, onCheckedChange = null, modifier = Modifier.clearAndSetSemantics {})
     }
 }
@@ -1387,6 +1385,7 @@ private fun RoutineRunnerScreen(
     val current = run.steps[run.currentStepIndex]
     val configuration = LocalConfiguration.current
     val smallerDimensionDp = minOf(configuration.screenWidthDp, configuration.screenHeightDp).dp
+    val controlMinWidth = 112.dp * androidx.compose.ui.platform.LocalDensity.current.fontScale
     val dialDiameter = (smallerDimensionDp - CyberPrimitives.Spacing.dp32 * 2)
         .coerceAtLeast(CyberPrimitives.IconSizes.dp48)
         .coerceAtMost(RunnerMotion.dialDiameter)
@@ -1595,21 +1594,23 @@ private fun RoutineRunnerScreen(
 
                 Spacer(modifier = Modifier.weight(1f))
 
+                RunnerMainProgress(run, state.nowEpochMillis,
+                    presentation.holdingCompletion && presentation.readyLabel == null, foreground, animationsEnabled)
                 RunnerNextUpPreview(run)
 
                 if (state.historySaveFailed) {
                     Text(stringResource(R.string.run_history_save_failed))
                     Button(onClick = onRetryHistorySave) { Text(stringResource(R.string.run_retry_history_save)) }
                 } else if (run.status == RunStatus.ACTIVE) {
-                    Row(
+                    FlowRow(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(bottom = CyberPrimitives.Spacing.dp16),
                         horizontalArrangement = Arrangement.spacedBy(CyberPrimitives.Spacing.dp8),
-                        verticalAlignment = Alignment.CenterVertically,
+                        verticalArrangement = Arrangement.spacedBy(CyberPrimitives.Spacing.dp8),
                     ) {
                         CyberButton(
-                            modifier = Modifier.weight(1f).heightIn(min = CyberPrimitives.IconSizes.dp48),
+                            modifier = Modifier.weight(1f).widthIn(min = controlMinWidth).heightIn(min = CyberPrimitives.IconSizes.dp48),
                             enabled = !presentation.holdingCompletion,
                             onClick = { if (!presentation.holdingCompletion) onBack() },
                             style = CyberButtonStyle.Outline,
@@ -1621,7 +1622,7 @@ private fun RoutineRunnerScreen(
                             }
                         }
                         CyberButton(
-                            modifier = Modifier.weight(1f).heightIn(min = CyberPrimitives.IconSizes.dp48),
+                            modifier = Modifier.weight(1f).widthIn(min = controlMinWidth).heightIn(min = CyberPrimitives.IconSizes.dp48),
                             enabled = !presentation.holdingCompletion,
                             onClick = {
                                 if (!presentation.holdingCompletion) {
@@ -1641,7 +1642,7 @@ private fun RoutineRunnerScreen(
                             }
                         }
                         CyberButton(
-                            modifier = Modifier.weight(1f).heightIn(min = CyberPrimitives.IconSizes.dp48),
+                            modifier = Modifier.weight(1f).widthIn(min = controlMinWidth).heightIn(min = CyberPrimitives.IconSizes.dp48),
                             enabled = !presentation.holdingCompletion,
                             onClick = { if (!presentation.holdingCompletion) onSkip() },
                             style = CyberButtonStyle.Outline,
@@ -1971,7 +1972,6 @@ private fun SettingsRoute(viewModel: SettingsViewModel, padding: PaddingValues) 
                     }
                 })
             if (state.bubbleOnMinimize) {
-                Text(stringResource(R.string.punch_bubble_system_help))
                 TextButton(onClick = {
                     context.startActivity(android.content.Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
                         .putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName))

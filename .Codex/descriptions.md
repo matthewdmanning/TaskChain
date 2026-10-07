@@ -1492,3 +1492,8 @@ Inputs: None. Dependencies: cue rim geometry and nested cue durations.
 ## rimsKeepPlannedAnchorsAndExtendPastAllowance — app/src/test/java/com/taskchain/ui/CueRimGeometryTest.kt
 Use this function to verify early advancement and overtime do not shift planned cue anchors.
 Inputs: None. Dependencies: cueRimStartDegrees, cueRimSweepDegrees, RoutineCue.
+
+## RunnerMainProgress — app/src/main/java/com/taskchain/ui/RunnerMainProgress.kt
+Use this function to animate main-task progress and feedback from existing runner presentation and time.
+Inputs: displayed run, sampled time, completion hold, foreground and animation gates.
+Dependencies: persisted main-task statuses/timestamps, CyberProgress, completion presentation.
