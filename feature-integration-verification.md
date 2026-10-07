@@ -74,3 +74,11 @@ A focused device check remains at `.scratch/device-verification/gesture-check.ps
 Final source gate passed: compileDebugKotlin, testDebugUnitTest (85 tests, zero failures/errors), lintDebug and assembleDebug, using JDK 17 and pinned Gradle 9.8.0. Installed the exact final APK successfully. Native hierarchy confirms all navigation labels remain single-line at font scale 1.5; long Settings labels wrap while switches retain their full width; runner actions wrap with readable labels and all remain scroll-accessible.
 
 Device cleanup completed: removed only the identified temporary routine/session and its one history event. Both original routines and all 13 original history events match the backup semantically. Cue-time preference is back off, font scale is 1.5 and animator setting is absent, matching the original settings. Temporary device-side fixture/capture files were removed; ignored local evidence and backup remain available.
+
+## Accepted result
+
+All seven independent feature acceptances are recorded on refactor-feature-integration; final code merge is 3c4203e, from alignment tip 8dae278. Its tracked tree exactly matches the fully tested final alignment. All seven alignment tips are ancestors of the integration branch, and main-to-aligned merge-tree simulations exit 0 with no conflicts. The rolling alignment branches include earlier accepted feature merges.
+
+Local main remains ae2d52e and the original checkout remains claude/run-replacement-note at 8da6ee1. All seven original origin/feature refs match their baseline hashes. The integration result can fast-forward from that unchanged main; merging/publishing remains a separate action. Tracked work is committed. The refreshed merge-conflict-assessment.tmp.md is intentionally retained as an untracked local report in this worktree; the original checkout's temporary assessment is preserved.
+
+Legacy .gitmodules and third_party/cyberpunkAndroid remain absent from tracked integration files, with no third_party project wiring in any Gradle/settings files. The published v1.0.8 library dependency remains in use.
