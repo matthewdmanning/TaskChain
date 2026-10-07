@@ -10,15 +10,22 @@ import com.taskchain.domain.model.RoutineRun
 import com.taskchain.domain.model.RoutineStep
 import com.taskchain.domain.model.RoutineTemplate
 import com.taskchain.domain.model.RunStatus
+import com.taskchain.domain.model.RunStepStatus
 import com.taskchain.domain.model.ScheduleFrequency
 import com.taskchain.domain.model.ScheduleRule
+import com.taskchain.domain.model.SoundToken
+import com.taskchain.domain.model.SoundSettings
 import com.taskchain.domain.model.UserPreferences
+import com.taskchain.domain.model.defaultSoundSettings
 import com.taskchain.domain.home.projectTodayRoutines
 import com.taskchain.domain.home.TodayProjection
 import com.taskchain.domain.progress.ProgressSummary
 import com.taskchain.domain.progress.projectProgress
+import com.taskchain.domain.run.RunFeedbackEvent
+import com.taskchain.domain.run.RunFeedbackPolicy
 import com.taskchain.domain.schedule.NextTriggerCalculator
 import com.taskchain.reminder.toReminderRequest
+import com.taskchain.ui.designsystem.RunnerMotion
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -102,6 +109,7 @@ data class BuilderState(
     val remindEveryMinutes: Int? = null,
     val soundEnabled: Boolean = true,
     val vibrateEnabled: Boolean = true,
+    val soundSettings: SoundSettings = defaultSoundSettings(),
     val editingStepIndex: Int? = null,
     val scheduleEnabled: Boolean = false,
     val scheduleFrequency: ScheduleFrequency = ScheduleFrequency.DAILY,
@@ -209,6 +217,7 @@ internal fun RoutineTemplate.toBuilderState(): BuilderState {
         remindEveryMinutes = remindEveryMinutes ?: steps.firstNotNullOfOrNull { it.remindEveryMinutes },
         soundEnabled = legacySettingsStep?.soundEnabled ?: soundEnabled,
         vibrateEnabled = legacySettingsStep?.vibrateEnabled ?: vibrateEnabled,
+        soundSettings = soundSettings,
         scheduleEnabled = migratedSchedule != null,
         scheduleFrequency = migratedSchedule?.frequency ?: ScheduleFrequency.DAILY,
         scheduleHour = migratedSchedule?.localHour ?: 9,
@@ -491,6 +500,7 @@ class RoutineBuilderViewModel(
                     remindEveryMinutes = draft.remindEveryMinutes,
                     soundEnabled = draft.soundEnabled,
                     vibrateEnabled = draft.vibrateEnabled,
+                    soundSettings = draft.soundSettings,
                 )
                 routine.requireRunnable()
                 val trigger = routine.schedule?.let {
@@ -537,12 +547,21 @@ class RoutineRunnerViewModel(
 ) : ViewModel() {
     val state = MutableStateFlow(RunnerState(nowEpochMillis = container.now()))
     private val runMutex = Mutex()
+    private var foreground = false
+    private var foregroundSynchronized = false
+    private var initialRunningFeedbackPending = false
+    private var transitionsEnabled = true
+    private var feedbackIntensity = 1f
 
     init {
+        viewModelScope.launch {
+            container.preferences.observe().collect { feedbackIntensity = it.vibrationIntensity }
+        }
         viewModelScope.launch {
             runMutex.withLock {
                 val active = container.activeRun.observeActive().first()
                 val run = active?.takeIf { it.status == RunStatus.ACTIVE } ?: startRun()
+                initialRunningFeedbackPending = active?.status != RunStatus.ACTIVE
                 container.activeRun.saveActive(run)
                 state.value = state.value.copy(run = run)
             }
@@ -555,14 +574,40 @@ class RoutineRunnerViewModel(
         }
     }
 
+    /** Use this function when the runner route enters or leaves the foreground lifecycle state. */
+    fun setForeground(active: Boolean) {
+        if (foreground == active) return
+        foreground = active
+        foregroundSynchronized = false
+    }
+
+    /** Use this function when the route combines the user transition setting with the system animator gate. */
+    fun setTransitionsEnabled(enabled: Boolean) {
+        transitionsEnabled = enabled
+    }
+
     /** Use this function when Complete is pressed for the displayed task. */
-    fun complete() = transition { run, now -> container.runEngine.completeCurrent(run, now) }
+    fun complete() = transition { run, now ->
+        val completed = container.runEngine.completeCurrent(run, now)
+        if (transitionsEnabled && foreground) {
+            container.runEngine.prepareNextStep(
+                completed,
+                now,
+                RunnerMotion.completionDurationMillis.toLong() + RunnerMotion.taskReadyTransitionDurationMillis,
+            )
+        } else {
+            completed
+        }
+    }
 
     /** Use this function when Skip is pressed for the displayed task. */
     fun skip() = transition { run, now -> container.runEngine.skipCurrent(run, now) }
 
     /** Use this function when Back is pressed inside the runner. */
     fun back() = transition { run, now -> container.runEngine.back(run, now) }
+
+    /** Use this function for a right swipe to revisit the next finished task; no inputs, dependency is RoutineRunEngine. */
+    fun advanceToNextFinishedStep() = transition { run, now -> container.runEngine.advanceToNextFinishedStep(run, now) }
 
     /** Use this function when Pause is pressed for the displayed task. */
     fun pause() = transition { run, now -> container.runEngine.pauseCurrent(run, now) }
@@ -589,8 +634,17 @@ class RoutineRunnerViewModel(
                 val terminal = state.value.run ?: return@withLock
                 if (terminal.status == RunStatus.ACTIVE) return@withLock
                 try {
+                    container.activeRun.saveActive(terminal)
                     container.recoverTerminalRun()
-                    state.value = RunnerState(nowEpochMillis = container.now(), finished = true)
+                    if (terminal.status == RunStatus.COMPLETED) {
+                        runCatching {
+                            rescheduleRoutineReminderAfterCompletion(
+                                terminal.routineId,
+                                terminal.endedAtEpochMillis ?: container.now(),
+                            )
+                        }
+                    }
+                    state.value = RunnerState(nowEpochMillis = container.now(), run = terminal, finished = true)
                 } catch (_: Exception) {
                     state.value = state.value.copy(historySaveFailed = true)
                 }
@@ -601,13 +655,69 @@ class RoutineRunnerViewModel(
     /** Use this function on the runner clock cadence to update display and fire zero feedback once. */
     private suspend fun tick() = runMutex.withLock {
         val now = container.now()
-        val run = state.value.run
         state.value = state.value.copy(nowEpochMillis = now)
-        if (run != null && run.status == RunStatus.ACTIVE && container.runEngine.needsTimerFeedback(run, now)) {
-            container.timerFeedback.fire(run.steps[run.currentStepIndex].source.soundEnabled, run.steps[run.currentStepIndex].source.vibrateEnabled)
+        var run = state.value.run ?: return@withLock
+        if (foreground && !foregroundSynchronized) {
+            val synchronized = RunFeedbackPolicy.skipMissedNudges(
+                run,
+                now,
+                container.taskNudgeIntervalMillis,
+            )
+            if (synchronized != run) {
+                try {
+                    container.activeRun.saveActive(synchronized)
+                } catch (_: Exception) {
+                    return@withLock
+                }
+                state.value = state.value.copy(run = synchronized)
+                run = synchronized
+            }
+            foregroundSynchronized = true
+            if (initialRunningFeedbackPending) {
+                RunFeedbackPolicy.stateEntryEvents(null, run).forEach { fireFeedback(run, it) }
+                initialRunningFeedbackPending = false
+            }
+        }
+        if (!foreground || run.status != RunStatus.ACTIVE || run.finishConfirmationRequested || run.abortConfirmationRequested) {
+            return@withLock
+        }
+        val current = run.steps.getOrNull(run.currentStepIndex) ?: return@withLock
+        if (current.status != RunStepStatus.PENDING || current.pausedAtEpochMillis != null) return@withLock
+
+        val nudge = RunFeedbackPolicy.evaluateNudge(
+            run,
+            now,
+            container.taskNudgeIntervalMillis,
+            emit = true,
+        )
+        if (nudge.run != run) {
+            try {
+                container.activeRun.saveActive(nudge.run)
+            } catch (_: Exception) {
+                return@withLock
+            }
+            state.value = state.value.copy(run = nudge.run)
+            run = nudge.run
+            if (nudge.shouldFire) {
+                fireFeedback(run, RunFeedbackEvent(SoundToken.TaskNudge, run.currentStepIndex))
+            }
+        }
+        if (container.runEngine.needsTimerFeedback(run, now)) {
+            val step = run.steps[run.currentStepIndex].source
             val acknowledged = container.runEngine.acknowledgeTimerFeedback(run, now)
-            container.activeRun.saveActive(acknowledged)
+            try {
+                container.activeRun.saveActive(acknowledged)
+            } catch (_: Exception) {
+                return@withLock
+            }
             state.value = state.value.copy(run = acknowledged)
+            if (!foreground) return@withLock
+            container.timerFeedback.fire(
+                soundEnabled = run.routineSoundEnabled && step.soundEnabled,
+                vibrateEnabled = run.routineVibrateEnabled && step.vibrateEnabled,
+                soundSettings = run.soundSettings,
+                intensity = feedbackIntensity,
+            )
         }
     }
 
@@ -622,8 +732,14 @@ class RoutineRunnerViewModel(
                     run.abortConfirmationRequested != expected.abortConfirmationRequested
                 ) return@withLock
                 val updated = change(run, container.now())
-                container.activeRun.saveActive(updated)
-                state.value = state.value.copy(run = updated)
+                if (updated.status != RunStatus.ACTIVE) {
+                    if (persistTerminalRun(updated) && foreground) fireStateFeedback(run, updated)
+                } else {
+                    container.activeRun.saveActive(updated)
+                    state.value = state.value.copy(run = updated)
+                    if (updated != run) initialRunningFeedbackPending = false
+                    if (foreground) fireStateFeedback(run, updated)
+                }
             }
         }
     }
@@ -639,25 +755,59 @@ class RoutineRunnerViewModel(
                     run.abortConfirmationRequested != expected.abortConfirmationRequested
                 ) return@withLock
                 val terminal = change(run, container.now())
-                container.activeRun.saveActive(terminal)
-                state.value = state.value.copy(run = terminal)
-                try {
-                    container.completions.append(container.runEngine.toCompletionEvent(terminal))
-                    container.activeRun.clearActive()
-                } catch (_: Exception) {
-                    state.value = state.value.copy(historySaveFailed = true)
-                    return@withLock
-                }
-                if (terminal.status == RunStatus.COMPLETED) {
-                    runCatching {
-                        rescheduleRoutineReminderAfterCompletion(
-                            run.routineId,
-                            terminal.endedAtEpochMillis ?: container.now(),
-                        )
-                    }
-                }
-                state.value = RunnerState(nowEpochMillis = container.now(), finished = true)
+                persistTerminalRun(terminal)
             }
+        }
+    }
+
+    /** Use this function to persist a terminal run once before history clear and completion navigation. */
+    private suspend fun persistTerminalRun(terminal: RoutineRun): Boolean {
+        try {
+            container.activeRun.saveActive(terminal)
+        } catch (_: Exception) {
+            state.value = state.value.copy(run = terminal, historySaveFailed = true)
+            return false
+        }
+        state.value = state.value.copy(run = terminal, historySaveFailed = false)
+        try {
+            container.completions.append(container.runEngine.toCompletionEvent(terminal))
+            container.activeRun.clearActive()
+        } catch (_: Exception) {
+            state.value = state.value.copy(historySaveFailed = true)
+            return false
+        }
+        if (terminal.status == RunStatus.COMPLETED) {
+            runCatching {
+                rescheduleRoutineReminderAfterCompletion(
+                    terminal.routineId,
+                    terminal.endedAtEpochMillis ?: container.now(),
+                )
+            }
+        }
+        state.value = RunnerState(nowEpochMillis = container.now(), run = terminal, finished = true)
+        return true
+    }
+
+    /** Use this function to emit state-entry events after their run transition is durably saved. */
+    private fun fireStateFeedback(previous: RoutineRun, updated: RoutineRun) {
+        RunFeedbackPolicy.stateEntryEvents(previous, updated).forEach { event -> fireFeedback(updated, event) }
+    }
+
+    /** Use this function to pass one semantic event through independent sound and haptic gates. */
+    private fun fireFeedback(run: RoutineRun, event: RunFeedbackEvent) {
+        if (!foreground) return
+        val step = run.steps.getOrNull(event.stepIndex) ?: return
+        val soundEnabled = run.routineSoundEnabled && step.source.soundEnabled && run.soundSettings[event.token].enabled
+        val vibrateEnabled = event.token == SoundToken.TaskNudge &&
+            run.routineVibrateEnabled && step.source.vibrateEnabled
+        runCatching {
+            container.taskFeedback.fire(
+                token = event.token,
+                soundEnabled = soundEnabled,
+                vibrateEnabled = vibrateEnabled,
+                soundSettings = run.soundSettings,
+                intensity = feedbackIntensity,
+            )
         }
     }
 
@@ -713,6 +863,21 @@ class SettingsViewModel(private val container: AppContainer) : ViewModel() {
     /** Use this function when overtime behavior is toggled in Settings. */
     fun setContinuePastZero(enabled: Boolean) {
         viewModelScope.launch { container.preferences.setContinueTimerPastZero(enabled) }
+    }
+
+    /** Use this function to set press vibration strength; input is 0..1 intensity, dependency is the preference repository. */
+    fun setVibrationIntensity(intensity: Float) {
+        viewModelScope.launch { container.preferences.setVibrationIntensity(intensity) }
+    }
+
+    /** Use this function to toggle task entry effects; input is the enabled gate, dependency is the preference repository. */
+    fun setScreenTransitionsEnabled(enabled: Boolean) {
+        viewModelScope.launch { container.preferences.setScreenTransitionsEnabled(enabled) }
+    }
+
+    /** Use this function to opt into native run bubbles; input is the enabled gate, dependency is the preference repository. */
+    fun setBubbleOnMinimize(enabled: Boolean) {
+        viewModelScope.launch { container.preferences.setBubbleOnMinimize(enabled) }
     }
 
     private companion object {

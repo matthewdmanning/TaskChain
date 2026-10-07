@@ -53,4 +53,13 @@ interface UserPreferenceRepository {
 
     /** Use this function when overtime behavior is toggled. */
     suspend fun setContinueTimerPastZero(enabled: Boolean)
+
+    /** Use this function when haptic feedback strength changes. */
+    suspend fun setVibrationIntensity(intensity: Float)
+
+    /** Use this function when completion transition presentation changes. */
+    suspend fun setScreenTransitionsEnabled(enabled: Boolean)
+
+    /** Use this function when minimize bubble behavior changes. */
+    suspend fun setBubbleOnMinimize(enabled: Boolean)
 }

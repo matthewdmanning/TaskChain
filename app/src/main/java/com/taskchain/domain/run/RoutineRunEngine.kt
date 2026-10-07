@@ -25,6 +25,9 @@ class RoutineRunEngine {
             },
             currentStepIndex = 0,
             startedAtEpochMillis = nowEpochMillis,
+            routineSoundEnabled = routine.soundEnabled,
+            soundSettings = routine.soundSettings,
+            routineVibrateEnabled = routine.vibrateEnabled,
         )
     }
 
@@ -47,13 +50,29 @@ class RoutineRunEngine {
         return run.copy(steps = run.steps.replaceAt(index, current.copy(pausedAtEpochMillis = nowEpochMillis)))
     }
 
-    /** Use this function to resume the current pending step while excluding paused time. */
+    /** Use this function to resume a paused pending step or explicitly reopen the skipped current step. */
     fun resumeCurrent(run: RoutineRun, nowEpochMillis: Long): RoutineRun {
         require(run.status == RunStatus.ACTIVE)
         require(!run.finishConfirmationRequested && !run.abortConfirmationRequested)
         val index = run.currentStepIndex
         require(index in run.steps.indices)
         val current = run.steps[index]
+        if (current.status == RunStepStatus.SKIPPED) {
+            val elapsed = current.actualDurationMillis ?: 0L
+            return run.copy(
+                steps = run.steps.replaceAt(
+                    index,
+                    current.copy(
+                        status = RunStepStatus.PENDING,
+                        startedAtEpochMillis = nowEpochMillis - elapsed,
+                        finishedAtEpochMillis = null,
+                        completedAtEpochMillis = null,
+                        actualDurationMillis = null,
+                        pausedAtEpochMillis = null,
+                    ),
+                ),
+            )
+        }
         val pausedAt = current.pausedAtEpochMillis ?: return run
         if (current.status != RunStepStatus.PENDING) return run
         val pausedDuration = (nowEpochMillis - pausedAt).coerceAtLeast(0)
@@ -105,6 +124,40 @@ class RoutineRunEngine {
         )
     }
 
+    /**
+     * Use this function when a right swipe should move forward to the next already finished task.
+     * Inputs: `run` — the active routine run; `nowEpochMillis` — the navigation timestamp.
+     * Dependencies: `selectStep` and `RunStepStatus`.
+     */
+    fun advanceToNextFinishedStep(run: RoutineRun, nowEpochMillis: Long): RoutineRun {
+        require(run.status == RunStatus.ACTIVE)
+        require(run.currentStepIndex in run.steps.indices)
+        val nextIndex = (run.currentStepIndex + 1 until run.steps.size)
+            .firstOrNull { run.steps[it].status != RunStepStatus.PENDING }
+            ?: return run
+        return selectStep(run, nextIndex, nowEpochMillis)
+    }
+
+    /**
+     * Use this function when a newly entered pending task must wait for the ready transition before timing.
+     * Inputs: `run` — the active run after completion advanced to its next task; `nowEpochMillis` — the completion time;
+     * `delayMillis` — the total presentation delay before the timer starts.
+     * Dependencies: `RoutineRun`, `RunStatus`, and `RunStepStatus`.
+     */
+    fun prepareNextStep(run: RoutineRun, nowEpochMillis: Long, delayMillis: Long): RoutineRun {
+        require(delayMillis >= 0L)
+        if (run.status != RunStatus.ACTIVE || run.currentStepIndex !in run.steps.indices) return run
+        val index = run.currentStepIndex
+        val current = run.steps[index]
+        if (current.status != RunStepStatus.PENDING || current.startedAtEpochMillis != nowEpochMillis) return run
+        return run.copy(
+            steps = run.steps.replaceAt(
+                index,
+                current.copy(startedAtEpochMillis = nowEpochMillis + delayMillis),
+            ),
+        )
+    }
+
     /** Use this function when Back is pressed so the first step can request abort confirmation. */
     fun back(run: RoutineRun, nowEpochMillis: Long): RoutineRun {
         require(run.status == RunStatus.ACTIVE)
@@ -130,7 +183,9 @@ class RoutineRunEngine {
         val pauseDuration = run.confirmationStartedAtEpochMillis
             ?.let { (nowEpochMillis - it).coerceAtLeast(0) }
             ?: 0
-        val resumed = if (prior.status == RunStepStatus.PENDING && prior.startedAtEpochMillis != null) {
+        val resumed = if (prior.status == RunStepStatus.PENDING && prior.startedAtEpochMillis != null &&
+            prior.pausedAtEpochMillis == null
+        ) {
             prior.copy(startedAtEpochMillis = prior.startedAtEpochMillis + pauseDuration)
         } else {
             prior
@@ -184,10 +239,11 @@ class RoutineRunEngine {
         val seconds = step.source.timerSeconds ?: return null
         val startedAt = step.startedAtEpochMillis ?: return seconds * MILLIS_PER_SECOND
         if (step.status != RunStepStatus.PENDING) return step.actualDurationMillis?.let { seconds * MILLIS_PER_SECOND - it }
-        val effectiveNow = run.confirmationStartedAtEpochMillis
-            ?: step.pausedAtEpochMillis
+        val effectiveNow = step.pausedAtEpochMillis
+            ?: run.confirmationStartedAtEpochMillis
             ?: nowEpochMillis
-        return seconds * MILLIS_PER_SECOND - (effectiveNow - startedAt)
+        val elapsed = (effectiveNow - startedAt).coerceAtLeast(0L)
+        return seconds * MILLIS_PER_SECOND - elapsed
     }
 
     /** Use this function before firing audio and haptics so zero feedback occurs only once. */
@@ -201,7 +257,7 @@ class RoutineRunEngine {
             remainingMillis(run, nowEpochMillis)?.let { it <= 0 } == true
     }
 
-    /** Use this function immediately after platform timer feedback succeeds. */
+    /** Use this function before dispatching timer feedback so the persisted acknowledgement prevents duplicate delivery. */
     fun acknowledgeTimerFeedback(run: RoutineRun, nowEpochMillis: Long): RoutineRun {
         require(run.status == RunStatus.ACTIVE)
         require(run.currentStepIndex in run.steps.indices)
@@ -248,6 +304,16 @@ class RoutineRunEngine {
         )
         val updated = run.copy(steps = run.steps.replaceAt(index, finished))
         if (index == run.steps.lastIndex) {
+            if (unfinishedStepIndexes(updated).isEmpty()) {
+                return updated.copy(
+                    status = RunStatus.COMPLETED,
+                    endedAtEpochMillis = nowEpochMillis,
+                    finishConfirmationRequested = false,
+                    abortConfirmationRequested = false,
+                    confirmationStartedAtEpochMillis = null,
+                    stepBeforeFinishConfirmation = null,
+                )
+            }
             return updated.copy(
                 finishConfirmationRequested = true,
                 abortConfirmationRequested = false,

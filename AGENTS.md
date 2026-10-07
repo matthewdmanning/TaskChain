@@ -2,13 +2,17 @@
 
 ## Project Structure & Architecture
 
-TaskChain is a single-module, offline Android app. Kotlin source is under `app/src/main/java/com/taskchain/`: `domain/model` defines run data, `domain/run` owns transitions and timers, `data` handles local persistence, `reminder` adapts Android alarms, and `ui` contains Compose screens and ViewModels. Keep Material 3 configuration in `ui/designsystem`. Resources and JSON defaults live in `app/src/main/res/` and `app/src/main/assets/config/`; unit tests live in `app/src/test/java/`. Read `architecture.md` and `CONTEXT.md` before changing behavior.
+See `architecture.md` for package boundaries and `CONTEXT.md` for domain vocabulary, behavior invariants, and open decisions. Read both before changing behavior. `docs/agents/domain.md` explains how to use these sources; it is routing guidance, not a second source of domain truth.
+
+Kotlin source is under `app/src/main/java/com/taskchain/`; resources and JSON defaults live in `app/src/main/res/` and `app/src/main/assets/config/`; unit tests live in `app/src/test/java/`.
 
 `augmented-ui-generator` is a separate standalone library. It now lives in its own repository beside this one, at `../augmented-ui-generator`. TaskChain does not depend on it. Read that repository's `README.md` and follow its `AGENTS.md` before working there.
 
 ## Build, Test & Development Commands
 
-Humans should use `./scripts/gradle.ps1` on Windows. Sandboxed agents must use `scripts\gradle-agent.cmd`, which avoids PowerShell and runs the same checked-in Gradle wrapper with the shared Gradle cache and a complete JDK 21 containing `java`, `javac`, and `jlink`; the helper prefers explicit `GRADLE_USER_HOME`/`JAVA_HOME`, then the local Gradle-managed Eclipse Temurin JDK 21, then Android Studio JBR. The app's Java source and bytecode compatibility remain version 17.
+Use **JDK 17 only** for the Gradle runtime, Java toolchain, and app source/bytecode compatibility. The user reports that other JDK versions crash; do not select, install, download, or fall back to another version. Set JAVA_HOME to a complete JDK 17 containing java, javac, and jlink, and verify its version before running Gradle.
+
+Humans should use ./scripts/gradle.ps1 on Windows. Sandboxed agents must use scripts\gradle-agent.cmd with an explicit JDK 17 JAVA_HOME and the checked-in Gradle wrapper. Both helpers require a complete JDK 17 and reject other runtimes without falling back.
 
 - `./scripts/gradle.ps1 :app:assembleDebug` builds the debug APK on Windows.
 - `./scripts/gradle.ps1 :app:testDebugUnitTest` runs local JVM unit tests.
@@ -38,7 +42,7 @@ Use a short imperative subject describing the change. In PRs, explain the behavi
 
 ## Configuration & Agent Guidance
 
-Keep defaults in `app/src/main/assets/config/` and UI values in resources or design-system configuration. Preserve the local-only, account-free, telemetry-free architecture; do not add secrets or remote services. After a sandboxed command fails, verify the command and its exact scope, then retry once with appropriate escalation. If it still fails, stop and provide the exact PowerShell command for manual execution. During parallel work, the root agent owns full Gradle verification unless a worker is explicitly assigned a focused check.
+Keep defaults in `app/src/main/assets/config/` and UI values in resources or design-system configuration. Preserve the platform, storage, and service constraints defined in `architecture.md`; do not add secrets or remote services. After a sandboxed command fails, verify the command and its exact scope, then retry once with appropriate escalation. If it still fails, stop and provide the exact PowerShell command for manual execution. During parallel work, the root agent owns full Gradle verification unless a worker is explicitly assigned a focused check.
 
 Delegate to the read-only `codebase_scanner` agent with `fork_turns = "none"` when answering a bounded question requires searching enough code that the raw results would add mostly non-useful material to the primary agent's context. Give it the exact question, search scope, and desired evidence; use its distilled, file-cited findings instead of repeating the scan in the primary context.
 
@@ -46,7 +50,7 @@ Delegate to the read-only `codebase_scanner` agent with `fork_turns = "none"` wh
 
 - On Windows, set `exec_command` to `shell: "cmd.exe"` and `login: false`, then pass a native command directly. Do not nest `cmd.exe /c`, use PowerShell quoting, or invoke Unix text tools through cmd. Use `type AGENTS.md` for a simple read; avoid multi-pattern `findstr /c:` quoting through a shell wrapper.
 - Verify the actual path with `rg.exe --files` before a scoped search. Tested commands from the repository root: `rg.exe --files app\src\main\java\com\taskchain\ui` and `rg.exe -n TaskChainApp app\src\main\java\com\taskchain\ui\TaskChainApp.kt` both exit 0. The UI currently lives in `TaskChainApp.kt` and `FeatureViewModels.kt`, not `ui/home` or `ui/run` directories. `rg` exit 1 with no diagnostic means no matches, so adjust the query or scope instead of retrying the same command.
-- On a genuine tool failure, follow the raw recovery and tool-failure recording instructions from the global PostToolUse hook. A completed test run with failing assertions or test cases is diagnostic output, not a tool failure; fix the tests without logging or counting it toward the consecutive-failure stop rule. Record the attempted command, exit code, and error excerpt for actual tool failures. Read-only subagents must send those details to the parent for logging without attempting to write outside their sandbox. Stop after consecutive tool failures.
+- On a genuine tool failure, follow the raw recovery and tool-failure recording instructions from the global PostToolUse hook. A completed test run with failing assertions or test cases is diagnostic output, not a tool failure; fix the tests without logging or counting it toward the consecutive-failure stop rule. Record the attempted command, exit code, and error excerpt for actual tool failures. Read-only subagents must send those details to the parent for logging without attempting to write outside their sandbox. Track consecutive failures separately for each agent. Stop the affected agent's task after consecutive tool failures; the orchestrator continues independent work and assigns that subagent the next task not blocked by the failed task.
 - Before abandoning a stuck subagent, the parent should inspect its exact command, shell, working directory, and scope, then provide one corrected approach with verified paths. Do not repeat the failed command unchanged.
 
 ## Agent skills
@@ -62,3 +66,7 @@ Use the five default triage roles. See `docs/agents/triage-labels.md`.
 ### Domain docs
 
 Use one root context. See `docs/agents/domain.md`.
+
+## UI library dependency
+
+cyberpunkAndroid is a separate project dependency that supplies UI components, theme tokens, and effects. Do not describe or manage it as a Git submodule. Verify the configured dependency location before running Gradle.

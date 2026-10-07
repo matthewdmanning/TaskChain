@@ -6,6 +6,9 @@ import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.test.onAllNodesWithContentDescription
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextInput
@@ -22,6 +25,42 @@ import org.junit.runner.RunWith
 class MainActivityTest {
     @get:Rule
     val activityRule = createAndroidComposeRule<MainActivity>()
+
+    /** Use this function to verify visible builder handles reorder collapsed and expanded steps through real pointer input. */
+    @Test
+    fun builder_dragHandlesReorderCollapsedAndExpandedSteps() {
+        activityRule.waitUntil(10_000) {
+            activityRule.onAllNodesWithText("Routines").fetchSemanticsNodes().isNotEmpty()
+        }
+        activityRule.onNodeWithText("Routines").performClick()
+        activityRule.onAllNodesWithText("Edit").onFirst().performClick()
+        activityRule.onNodeWithText("Drink water").performScrollTo()
+        activityRule.onAllNodesWithContentDescription("Reorder step", useUnmergedTree = true).assertCountEquals(2)
+        activityRule.onAllNodesWithContentDescription("Reorder step", useUnmergedTree = true).onFirst().performTouchInput {
+            down(center)
+            advanceEventTime(600)
+            moveBy(Offset(0f, 100f), delayMillis = 100)
+            up()
+        }
+        activityRule.waitForIdle()
+        check(activityRule.onNodeWithText("Review today").fetchSemanticsNode().boundsInRoot.top <
+            activityRule.onNodeWithText("Drink water").fetchSemanticsNode().boundsInRoot.top) {
+            "Dragging the collapsed first step down must swap the step order"
+        }
+        activityRule.onAllNodesWithContentDescription("CyberAccordionChevron", useUnmergedTree = true).onFirst().performClick()
+        activityRule.onAllNodesWithContentDescription("Reorder step", useUnmergedTree = true).assertCountEquals(2)
+        activityRule.onAllNodesWithContentDescription("Reorder step", useUnmergedTree = true).onFirst().performTouchInput {
+            down(center)
+            advanceEventTime(600)
+            moveBy(Offset(0f, 100f), delayMillis = 100)
+            up()
+        }
+        activityRule.waitForIdle()
+        check(activityRule.onNodeWithText("Drink water").fetchSemanticsNode().boundsInRoot.top <
+            activityRule.onNodeWithText("Review today").fetchSemanticsNode().boundsInRoot.top) {
+            "Dragging the expanded first step down must swap the step order"
+        }
+    }
 
     /** Verifies routine-owned controls, terminal step creation, autosaved editing, and Save navigation. */
     @Test

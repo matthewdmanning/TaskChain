@@ -26,8 +26,7 @@ class RunRecoveryTest {
             RoutineId("routine"), EntityMetadata(0, 0), "Morning",
             steps = listOf(RoutineStep(RoutineStepId("step"), "Work")),
         )
-        val requested = engine.completeCurrent(engine.start(routine, RoutineRunId("run"), 1_000), 2_000)
-        val terminal = engine.confirmComplete(requested, 3_000)
+        val terminal = engine.completeCurrent(engine.start(routine, RoutineRunId("run"), 1_000), 2_000)
         val active = object : RoutineRunRepository {
             var current: RoutineRun? = terminal
             /** Use this function when the recovery check reads the fake active session. */

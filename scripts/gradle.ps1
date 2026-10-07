@@ -5,16 +5,38 @@ if (-not $env:GRADLE_USER_HOME -and (Test-Path -LiteralPath "$env:USERPROFILE\.g
 }
 
 $javaHome = $env:JAVA_HOME
-if (-not (Test-Path -LiteralPath "$javaHome\bin\jlink.exe" -PathType Leaf)) {
-    $javaHome = "$env:USERPROFILE\.gradle\jdks\eclipse_adoptium-21-amd64-windows.2"
+if (-not $javaHome) {
+    throw "Set JAVA_HOME to a complete JDK 17. Only JDK 17 is supported."
 }
-if (-not (Test-Path -LiteralPath "$javaHome\bin\jlink.exe" -PathType Leaf)) {
-    $javaHome = "C:\Program Files\Android\Android Studio\jbr"
+foreach ($tool in @("java", "javac", "jlink")) {
+    if (-not (Test-Path -LiteralPath "$javaHome\bin\$tool.exe" -PathType Leaf)) {
+        throw "Set JAVA_HOME to a complete JDK 17 containing java, javac, and jlink."
+    }
 }
-if (-not (Test-Path -LiteralPath "$javaHome\bin\jlink.exe" -PathType Leaf)) {
-    throw "A complete JDK 21 was not found. Set JAVA_HOME to a JDK containing java, javac, and jlink."
+$release = Get-Content -LiteralPath "$javaHome\release" -Raw
+if ($release -notmatch '(?m)^JAVA_VERSION="17\.') {
+    throw "Only JDK 17 is supported. Correct JAVA_HOME before running Gradle."
 }
 
 $env:JAVA_HOME = $javaHome
-& "$PSScriptRoot\..\gradlew.bat" @args
-exit $LASTEXITCODE
+$updateDebug = $args -contains ":app:installDebug" -or $args -contains "installDebug"
+$gradleArgs = @($args | ForEach-Object {
+    if ($_ -eq ":app:installDebug" -or $_ -eq "installDebug") { ":app:assembleDebug" } else { $_ }
+})
+& "$PSScriptRoot\..\gradlew.bat" @gradleArgs
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+if ($updateDebug -and $args -notcontains "--dry-run" -and $args -notcontains "-m") {
+    $sdkRoot = $env:ANDROID_HOME
+    $localProperties = "$PSScriptRoot\..\local.properties"
+    if (Test-Path -LiteralPath $localProperties) {
+        $sdkLine = Get-Content -LiteralPath $localProperties | Where-Object { $_ -match "^sdk\.dir=" } | Select-Object -First 1
+        if ($sdkLine) { $sdkRoot = $sdkLine.Substring(8).Replace("\:", ":").Replace("\\", "\") }
+    }
+    if (-not $sdkRoot) { throw "Set sdk.dir in local.properties or ANDROID_HOME to the Android SDK." }
+    $adb = Join-Path $sdkRoot "platform-tools\adb.exe"
+    if (-not (Test-Path -LiteralPath $adb -PathType Leaf)) { throw "ADB was not found at $adb." }
+    Write-Host "Updating the USB-connected app in place with adb install -r; existing app data is retained."
+    & $adb -d install -r "$PSScriptRoot\..\app\build\outputs\apk\debug\app-debug.apk"
+    exit $LASTEXITCODE
+}
+exit 0

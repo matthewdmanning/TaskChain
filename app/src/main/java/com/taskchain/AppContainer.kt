@@ -16,7 +16,9 @@ import com.taskchain.domain.model.RoutineRunId
 import com.taskchain.domain.model.RoutineStepId
 import com.taskchain.domain.run.RoutineRunEngine
 import com.taskchain.reminder.AndroidReminderScheduler
+import com.taskchain.reminder.AndroidTaskFeedback
 import com.taskchain.reminder.ReminderScheduler
+import com.taskchain.reminder.TaskFeedback
 import com.taskchain.reminder.TimerFeedback
 import java.io.File
 import java.util.UUID
@@ -36,6 +38,10 @@ class AppContainer(context: Context) {
     val runEngine = RoutineRunEngine()
     val reminders: ReminderScheduler = AndroidReminderScheduler(appContext)
     val timerFeedback = TimerFeedback(appContext)
+    val taskFeedback: TaskFeedback = AndroidTaskFeedback(appContext)
+    val taskNudgeIntervalMillis = appContext.resources
+        .getInteger(R.integer.run_nudge_interval_seconds)
+        .toLong() * 1000L
 
     /** Use this function before UI loads so an interrupted terminal run reaches append-only history. */
     suspend fun recoverTerminalRun() = recoverTerminalSession(activeRun, completions, runEngine)
