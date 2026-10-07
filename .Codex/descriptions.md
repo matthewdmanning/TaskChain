@@ -1467,3 +1467,28 @@ Inputs: None. Dependencies: routine summary formatting and RoutineCue.
 ## RunnerNextUpPreview — app/src/main/java/com/taskchain/ui/RunnerNextUpPreview.kt
 Use this function to preview pending main tasks from the same displayed run snapshot.
 Inputs: run — immutable run snapshot. Dependencies: RoutineRun and the preview-count resource.
+
+## RunnerCueDial — app/src/main/java/com/taskchain/ui/RunnerCueDial.kt
+Use this function to place durable cue rims around the existing main countdown dial.
+Inputs: step snapshot, cue active-time projections, diameter, schedule warning, main-dial content.
+Dependencies: advancement markers, cue geometry, TaskChainDesignSystem.cueColor.
+
+## cueRimStartDegrees — app/src/main/java/com/taskchain/ui/RunnerCueDial.kt
+Use this function to anchor a cue rim at its proportional planned start.
+Inputs: main task, cue index. Dependencies: validated cue duration totals.
+
+## cueRimSweepDegrees — app/src/main/java/com/taskchain/ui/RunnerCueDial.kt
+Use this function to draw actual cue time beyond its proportional end.
+Inputs: active elapsed milliseconds, total duration seconds. Dependencies: None.
+
+## cueColor — app/src/main/java/com/taskchain/ui/designsystem/TaskChainTheme.kt
+Use this function to generate a stable sequential cue color from the design-system seed.
+Inputs: ordered cue index. Dependencies: cueColorSeed and native HSV conversion.
+
+## CueRimGeometryTest — app/src/test/java/com/taskchain/ui/CueRimGeometryTest.kt
+Verifies fixed planned rim anchors and actual-time overtime sweeps.
+Inputs: None. Dependencies: cue rim geometry and nested cue durations.
+
+## rimsKeepPlannedAnchorsAndExtendPastAllowance — app/src/test/java/com/taskchain/ui/CueRimGeometryTest.kt
+Use this function to verify early advancement and overtime do not shift planned cue anchors.
+Inputs: None. Dependencies: cueRimStartDegrees, cueRimSweepDegrees, RoutineCue.

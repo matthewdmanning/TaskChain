@@ -15,6 +15,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import com.example.cyberpunkandroid.theme.CyberTheme
 import com.taskchain.R
 import com.taskchain.domain.model.RoutineRunStep
@@ -36,6 +38,11 @@ internal fun RunnerCueList(step: RoutineRunStep, remainingMillis: Long?, showRem
         visibleCues.forEach { cue ->
             val active = cue.id == step.activeCueId
             val advanced = step.cueAdvancements.any { it.cueId == cue.id }
+            val cueState = stringResource(when {
+                advanced -> R.string.cue_advanced
+                active -> R.string.cue_active
+                else -> R.string.cue_pending
+            })
             Text(
                 text = cue.title,
                 style = MaterialTheme.typography.headlineSmall,
@@ -45,7 +52,7 @@ internal fun RunnerCueList(step: RoutineRunStep, remainingMillis: Long?, showRem
                     else -> CyberTheme.colors.textSecondary
                 },
                 textAlign = TextAlign.Center,
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().semantics { stateDescription = cueState },
             )
             if (active && showRemaining) {
                 Text(
