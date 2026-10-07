@@ -1172,3 +1172,144 @@ Dependencies: `MainActivity`, `BackHandler`, Compose text actions.
 Use this function to verify routine-card text is inert while Edit and Start remain separate actions.
 Inputs: none.
 Dependencies: `MainActivity`, routine cards, runner navigation.
+
+## `builder_dragHandlesReorderCollapsedAndExpandedSteps` � app/src/androidTest/java/com/taskchain/MainActivityTest.kt
+Use this function to verify visible builder handles reorder collapsed and expanded steps through real pointer input.
+Inputs: None.
+Dependencies: `MainActivity`, `activityRule`, the built-in Morning reset routine.
+
+
+## RunBubble - app/src/main/java/com/taskchain/reminder/RunBubble.kt
+Posts the native Android bubble for an active run when the user and platform allow it.
+Inputs: context: Context
+Dependencies: NotificationCompat, NotificationManagerCompat, ShortcutManager, MainActivity, RoutineRun, Android notification permission and bubble settings.
+
+## isAvailable - app/src/main/java/com/taskchain/reminder/RunBubble.kt
+Use this function before rendering or posting the bubble to check Android version, notification permission, app notification state, global bubble state, and channel bubble state.
+Inputs: none.
+Dependencies: Context, NotificationManager, NotificationManagerCompat, Settings channel state.
+Returns: Boolean availability result.
+
+## show - app/src/main/java/com/taskchain/reminder/RunBubble.kt
+Use this function when the activity leaves the foreground to post one silent ongoing bubble for an active run.
+Inputs: run: RoutineRun
+Dependencies: RoutineRun.status, run steps, NotificationCompat.MessagingStyle, conversation shortcut, MainActivity pending intent, Android notification policy.
+Returns: none; denied platform settings are handled as a no-op.
+
+## cancel - app/src/main/java/com/taskchain/reminder/RunBubble.kt
+Use this function when the activity returns to the foreground to remove the active-run bubble.
+Inputs: none.
+Dependencies: NotificationManagerCompat.
+Returns: none.
+
+## settingsIntent - app/src/main/java/com/taskchain/reminder/RunBubble.kt
+Use this function to route a settings affordance to Android app bubble controls, falling back to app notification settings when unavailable.
+Inputs: none.
+Dependencies: Settings actions, package manager, app package name.
+Returns: Intent.
+
+## channelSettingsIntent - app/src/main/java/com/taskchain/reminder/RunBubble.kt
+Use this function when Android reports the active-run channel has bubbles disabled.
+Inputs: none.
+Dependencies: Settings channel notification action, channel id, app package name.
+Returns: Intent.
+
+## createChannel - app/src/main/java/com/taskchain/reminder/RunBubble.kt
+Use this function before bubble availability checks or posting to create the user-controlled active-run notification channel.
+Inputs: none.
+Dependencies: NotificationManager, notification channel resources.
+Returns: none.
+
+## createShortcut - app/src/main/java/com/taskchain/reminder/RunBubble.kt
+Use this function before posting a shortcut bubble to register its long-lived conversation shortcut and person metadata.
+Inputs: routineTitle: String
+Dependencies: ShortcutManager, ShortcutInfo, MainActivity, notification icon resource.
+Returns: none; registration failures are contained.
+
+## pendingIntentMutability - app/src/main/java/com/taskchain/reminder/RunBubble.kt
+Use this function to select the bubble launch PendingIntent mutability required by the device API.
+Inputs: none.
+Dependencies: Build.VERSION and PendingIntent flags.
+Returns: Int flag value.
+
+## setVibrationIntensity - app/src/main/java/com/taskchain/data/DataStoreUserPreferenceRepository.kt
+Use this function when settings changes haptic feedback strength.
+Inputs: intensity: Float
+Dependencies: DataStore float preference; intensity must be in 0f..1f.
+Returns: none.
+
+## setScreenTransitionsEnabled - app/src/main/java/com/taskchain/data/DataStoreUserPreferenceRepository.kt
+Use this function when settings changes completion transition presentation.
+Inputs: enabled: Boolean
+Dependencies: DataStore boolean preference.
+Returns: none.
+
+## setBubbleOnMinimize - app/src/main/java/com/taskchain/data/DataStoreUserPreferenceRepository.kt
+Use this function when settings changes whether the app requests a minimize bubble.
+Inputs: enabled: Boolean
+Dependencies: DataStore boolean preference.
+Returns: none.
+## `routineDurationParts` — app/src/main/java/com/taskchain/ui/TaskChainApp.kt
+Use this function to split persisted routine duration seconds into display minutes and seconds without losing values longer than one hour.
+Inputs: `seconds` — non-negative persisted duration.
+Dependencies: None.
+
+## `TaskReadyPhase` — app/src/main/java/com/taskchain/ui/TaskReadyTransition.kt
+Labels the fixed preparation phases shown before the next timed task begins.
+Inputs: `label` — localized-ready phase text.
+Dependencies: None.
+
+## `taskReadyPhase` — app/src/main/java/com/taskchain/ui/TaskReadyTransition.kt
+Use this function to map elapsed preparation time to Get Ready, countdown, or completion state.
+Inputs: `elapsedMillis` — elapsed transition time.
+Dependencies: `RunnerMotion` timing constants.
+
+## `shouldHoldTaskReadyTransition` — app/src/main/java/com/taskchain/ui/TaskReadyTransition.kt
+Use this function to decide whether a completed step should hold the five-second preparation transition for a pending next step.
+Inputs: `previous` — completed presentation; `next` — next pending presentation.
+Dependencies: `RunnerPresentation`.
+
+## `vibrationAmplitude` — app/src/main/java/com/taskchain/reminder/TaskFeedback.kt
+Use this function to convert normalized haptic intensity into an Android amplitude while suppressing zero intensity.
+Inputs: `intensity` — normalized haptic strength.
+Dependencies: None.
+
+## `vibrateNative` — app/src/main/java/com/taskchain/reminder/TaskFeedback.kt
+Use this function to invoke Android vibration with the requested duration and amplitude on supported API levels.
+Inputs: `context` — Android vibration service source; `durationMillis` — pulse duration; `amplitude` — Android amplitude.
+Dependencies: `Vibrator`, `VibrationEffect`.
+
+## `builder_punch_DurationFormatTest` — app/src/test/java/com/taskchain/ui/builder_punch_DurationFormatTest.kt
+Verifies routine-builder duration formatting preserves minute and second components across hour boundaries.
+Constructor inputs: none.
+Dependencies: `routineDurationParts`.
+
+## `pressAction` — app/src/main/java/com/taskchain/ui/PressFeedback.kt
+Use this function to add configured vibration to a button action.
+Inputs: `action` — button callback.
+Dependencies: `LocalVibrationIntensity`, Android `Vibrator` and `VibrationEffect`.
+
+## `CyberButton`, `Button`, `OutlinedButton`, `TextButton` — app/src/main/java/com/taskchain/ui/PressFeedback.kt
+Use these functions to retain existing button styles while applying press feedback.
+Inputs: `onClick` — action; `modifier` — layout; `enabled` — interaction gate; `content` — label; `style`, `size`, `colors` — applicable button appearance.
+Dependencies: `pressAction`, cyberpunkAndroid and Material button components.
+
+## `setVibrationIntensity` — app/src/main/java/com/taskchain/ui/FeatureViewModels.kt
+Use this function to persist haptic strength selected in Settings.
+Inputs: `intensity` — normalized strength from zero to one.
+Dependencies: `container.preferences`, `viewModelScope`.
+
+## `setScreenTransitionsEnabled` — app/src/main/java/com/taskchain/ui/FeatureViewModels.kt
+Use this function to persist the task-transition preference.
+Inputs: `enabled` — transition gate.
+Dependencies: `container.preferences`, `viewModelScope`.
+
+## `setBubbleOnMinimize` — app/src/main/java/com/taskchain/ui/FeatureViewModels.kt
+Use this function to persist the native bubble opt-in.
+Inputs: `enabled` — bubble preference.
+Dependencies: `container.preferences`, `viewModelScope`.
+
+## `advanceToNextFinishedStep` — app/src/main/java/com/taskchain/ui/FeatureViewModels.kt
+Use this function for a right swipe to revisit the next completed or skipped task.
+Inputs: None.
+Dependencies: `transition`, `RoutineRunEngine.advanceToNextFinishedStep`.
