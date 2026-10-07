@@ -827,6 +827,7 @@ class RoutineRunnerViewModel(
     }
 
     /** Use this function when no compatible active run exists for the requested routine. */
+    // Pending decision after more app testing: starting a run should replace that routine's aborted or unfinished run without prompting, and resuming an aborted run may be unnecessary.
     private suspend fun startRun(): RoutineRun {
         val routine = container.routines.get(routineId)
             ?: container.builtInLibrary.load(container.now()).first { it.id == routineId }
