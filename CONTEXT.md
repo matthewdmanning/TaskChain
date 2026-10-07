@@ -39,6 +39,8 @@ This is the source of truth for TaskChain's domain vocabulary, behavior invarian
 - The entire dial interior becomes Warning when main active time exceeds the active cue's cumulative planned end. With 3- and 7-minute cues and first-cue advancement at minute 2, the second cue becomes behind schedule after main minute 10. Rim colors stay unchanged.
 - Cue advancement emits a distinct semantic sound through the existing routine/task sound gates. It does not trigger main-task completion or readiness effects.
 - Settings can show active substep time remaining (allowance minus actual cue time), default off. Visibility never affects timing.
+- The runner shows only the current cue beneath the main title. Completed cues remain represented by durable dial rims and markers.
+- Builder drag handles sit at the far left. Collapsed task headers show only a set duration value, without a label. The UI uses controls and visual state rather than instructional prose.
 - `stackingAnchorStepId` remains independent of cue ownership. The pending per-routine run-storage migration is outside this integration.
 
 ## Open decisions

@@ -1,5 +1,9 @@
 # Integrate the feature branches through MVVM alignment
 
+## Subsequent user refinements (2026-10-07)
+
+These override the earlier cue-list presentation and builder controls: show only the current cue; remove instructional prose; reorder cues by dragging with handles at the far left; put main-task handles at the far left too; show collapsed duration values without "Duration:" and hide unset durations. Increase other text sizes while preserving timer, routine-name and Home category-header sizes.
+
 ## Integration workspace and workflow
 
 - Create local branch `refactor-feature-integration` from verified current `main`, in a separate worktree at `C:\GitHub\TaskChain\.scratch\feature-integration`.

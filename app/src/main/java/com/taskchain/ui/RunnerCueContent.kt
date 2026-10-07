@@ -5,63 +5,50 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.unit.dp
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
+import com.example.cyberpunkandroid.config.CyberPrimitives
 import com.example.cyberpunkandroid.theme.CyberTheme
 import com.taskchain.R
 import com.taskchain.domain.model.RoutineRunStep
 
-/** Use this function to display ordered cues beneath their main task.
+/** Use this function to display the current cue beneath its main task.
  * Inputs: step snapshot, derived active-cue remaining time, and the display preference.
- * Dependencies: RoutineRunStep and the existing semantic theme and timer formatter.
+ * Dependencies: RoutineRunStep, CyberPrimitives, and the existing semantic theme and timer formatter.
  */
 @Composable
 internal fun RunnerCueList(step: RoutineRunStep, remainingMillis: Long?, showRemaining: Boolean) {
     if (step.source.cues.isEmpty()) return
-    var expanded by rememberSaveable(step.source.id.value) { mutableStateOf(true) }
-    val visibleCues = if (expanded) step.source.cues else
-        step.source.cues.filter { it.id == step.activeCueId }.ifEmpty { step.source.cues.takeLast(1) }
-    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        TextButton(onClick = { expanded = !expanded }) {
-            Text(stringResource(if (expanded) R.string.runner_cues_collapse else R.string.runner_cues_expand))
-        }
-        visibleCues.forEach { cue ->
-            val active = cue.id == step.activeCueId
-            val advanced = step.cueAdvancements.any { it.cueId == cue.id }
-            val cueState = stringResource(when {
-                advanced -> R.string.cue_advanced
-                active -> R.string.cue_active
-                else -> R.string.cue_pending
-            })
+    val cue = step.activeCueId?.let { activeCueId ->
+        step.source.cues.firstOrNull { it.id == activeCueId }
+    } ?: step.source.cues.lastOrNull().takeIf {
+        step.cueAdvancements.size >= step.source.cues.size
+    } ?: return
+    val active = cue.id == step.activeCueId
+    val advanced = step.cueAdvancements.any { it.cueId == cue.id }
+    val cueState = stringResource(if (advanced) R.string.cue_advanced else R.string.cue_active)
+    Column(
+        Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(CyberPrimitives.Spacing.dp8),
+    ) {
+        Text(
+            text = cue.title,
+            style = MaterialTheme.typography.headlineMedium,
+            color = if (advanced) CyberTheme.semantics.colors.success else CyberTheme.colors.secondary,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth().semantics { stateDescription = cueState },
+        )
+        if (active && showRemaining) {
             Text(
-                text = cue.title,
-                style = MaterialTheme.typography.headlineSmall,
-                color = when {
-                    advanced -> CyberTheme.semantics.colors.success
-                    active -> CyberTheme.colors.secondary
-                    else -> CyberTheme.colors.textSecondary
-                },
+                formatRunnerTimer(remainingMillis, null, true),
+                style = MaterialTheme.typography.titleLarge,
+                modifier = Modifier.fillMaxWidth(),
                 textAlign = TextAlign.Center,
-                modifier = Modifier.fillMaxWidth().semantics { stateDescription = cueState },
             )
-            if (active && showRemaining) {
-                Text(
-                    stringResource(R.string.cue_remaining, formatRunnerTimer(remainingMillis, null, true)),
-                    style = MaterialTheme.typography.titleLarge,
-                    modifier = Modifier.fillMaxWidth(),
-                    textAlign = TextAlign.Center,
-                )
-            }
         }
     }
 }

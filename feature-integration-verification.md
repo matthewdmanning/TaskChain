@@ -45,3 +45,32 @@ Original tip: 4cdcc13. Conflict: MainActivity.kt. Replaced undefined host overla
 ## Dynamic progress ring alignment
 
 Original tip: 47f22a4. Conflict: MainActivity.kt. Removed independently polling halo/feature host. Existing main countdown is wrapped in fixed-angle, increasing-radius cue rims computed from the same sampled time and persisted markers. Stable palette is generated from the design-system Info seed. Advancement markers glow; overtime extends sweeps without changing rim colors; behind-schedule state fills the entire main interior with Warning. Added proportional/overtime geometry checks and accessible cue state descriptions. Gate: compile, all 85 JVM tests, lint, assembly passed. Pixel 7 installation succeeded; app data backed up before device checks.
+
+## Micro-animation alignment and final UI refinements
+
+Original tip: 4cd3b49. Conflict: MainActivity.kt. Removed the repository-driven feature host and independently polling overlay. RunnerMainProgress uses the displayed main-task snapshot, existing sampled time, and completion/readiness hold, foreground, user-transition and system-animation gates. Cue advancement leaves main-task progress unchanged. Initial gate: compile, all 85 JVM tests, lint and assembly passed.
+
+Subsequent user instructions supersede the earlier collapsible list: show only the current cue, keep completed rims/markers, remove instructional prose, use leftmost drag handles for cues and main tasks, show only set compact durations on collapsed headers, and enlarge other text while retaining timer/routine-name/Home-category sizes. Cue reordering retains stable identities and associated durations; accessibility move actions remain available. Primary device review also replaced the nonfunctional native-view gesture listener with Compose pointer observation and made the runner action row wrap for enlarged text. The final source gate is recorded below after completion.
+
+## Physical-device evidence (2026-10-07)
+
+Pixel 7, density 420, authored a temporary two-main-task routine using the UI, with Prepare/180 seconds and Focus/420 seconds in the first task. Tested at default font scale 1.0 and original scale 1.5. Artifacts remain ignored under `.scratch/device-verification/`.
+
+- Cue authoring derives 10:00, preserves values on save, and blocks malformed raw duration input. Native drag-and-drop reordered the two cues in both directions while retaining their associated durations.
+- Main-task handles are leftmost; collapsed timed header displays `10:00`, untimed header has no duration. Larger shared text and current-cue-only display were inspected on device.
+- Complete changes Prepare to Focus without changing main index, main-only icons or `0 of 2` progress. Completing the last cue advances the main task with existing readiness behavior.
+- Skip advances the main task. Back restores Focus and its advancement marker. A skipped main elapsed value of 46,773 ms remained unchanged after process termination/relaunch; explicit Resume reopened it without resetting the cue.
+- Long press pauses/resumes; left swipe skips; right swipe navigates to a finished main task. Normal Complete/button taps and vertical scrolling still work.
+- Completing the last main task with an earlier skipped task presents final confirmation. Selecting the unfinished task returns to its saved cue; right swipe then reaches the completed task.
+- Settings initially hid cue remaining time, then showed it when enabled. A controlled test-run fixture with first advancement at minute 2 and main active time 10:10 rendered main overtime +0:10, cue overtime +1:10, whole-interior Warning, unchanged cue colors and durable marker. This rendering fixture supplements the domain test; it is not a ten-minute real-time device run.
+- The bubble's `open_active_run` activity extra opened the persisted run directly. Native bubble delivery/expansion was not exercised because the feature remains opted out; notification/bubble permission settings were preserved.
+- System animator scale 0 allowed last-cue completion to start the next main task immediately (767 ms relative to the rounded device-second sample), without readiness delay. Restored the original absent animator setting afterwards.
+- Sound eligibility and once-only dispatch pass JVM tests; physical audibility and haptic strength were not measured.
+
+Temporary routine/session/history data and the cue-time preference are restored during final cleanup. Font scale is restored to the original 1.5. No existing user routine or history record is intentionally replaced.
+
+A focused device check remains at `.scratch/device-verification/gesture-check.ps1` (requires the controlled integration test run). It verifies two long presses toggle pause/resume exactly once and retain main/cue identity; it passed after waiting for the UI hierarchy to be ready. Enlarged-font review also reserves full switch width and uses larger single-line navigation labels. Original 13 history events match the pre-test backup semantically after removing the temporary test event.
+
+Final source gate passed: compileDebugKotlin, testDebugUnitTest (85 tests, zero failures/errors), lintDebug and assembleDebug, using JDK 17 and pinned Gradle 9.8.0. Installed the exact final APK successfully. Native hierarchy confirms all navigation labels remain single-line at font scale 1.5; long Settings labels wrap while switches retain their full width; runner actions wrap with readable labels and all remain scroll-accessible.
+
+Device cleanup completed: removed only the identified temporary routine/session and its one history event. Both original routines and all 13 original history events match the backup semantically. Cue-time preference is back off, font scale is 1.5 and animator setting is absent, matching the original settings. Temporary device-side fixture/capture files were removed; ignored local evidence and backup remain available.

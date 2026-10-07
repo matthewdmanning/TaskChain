@@ -1,17 +1,19 @@
 package com.taskchain.ui
 
-import android.annotation.SuppressLint
-import android.view.GestureDetector
-import android.view.MotionEvent
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberUpdatedState
-import androidx.compose.ui.Modifier
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
-import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.platform.LocalViewConfiguration
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.changedToUp
+import androidx.compose.ui.input.pointer.changedToUpIgnoreConsumed
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.customActions
@@ -30,7 +32,6 @@ import kotlin.math.absoluteValue
  * @param onPause Invoked after a long press while running.
  * @param onResume Invoked after a long press while paused.
  */
-@SuppressLint("ClickableViewAccessibility")
 @Composable
 internal fun Modifier.runnerGestureTracking(
     paused: Boolean,
@@ -39,10 +40,11 @@ internal fun Modifier.runnerGestureTracking(
     onPause: () -> Unit,
     onResume: () -> Unit,
 ): Modifier {
-    val view = LocalView.current
     val haptics = LocalHapticFeedback.current
     val density = LocalDensity.current
+    val viewConfiguration = LocalViewConfiguration.current
     val swipeThresholdPx = with(density) { CyberPrimitives.IconSizes.dp48.toPx() }
+    val longPressTimeoutMillis = viewConfiguration.longPressTimeoutMillis
     val completeLabel = stringResource(R.string.punch_gesture_advance)
     val skipLabel = stringResource(R.string.runner_gesture_skip)
     val pauseResumeLabel = stringResource(
@@ -52,74 +54,81 @@ internal fun Modifier.runnerGestureTracking(
     val currentSkip by rememberUpdatedState(onSkip)
     val currentPause by rememberUpdatedState(onPause)
     val currentResume by rememberUpdatedState(onResume)
+    val currentPaused by rememberUpdatedState(paused)
 
-    DisposableEffect(view, paused, swipeThresholdPx) {
-        var consumeUntilRelease = false
-        var downX = 0f
-        var downY = 0f
-        var trackingTouch = false
+    // #fallback: cyberpunkAndroid intentionally supplies visual primitives rather than a gesture recognizer.
+    // Compose observes before children, then consumes only a committed gesture so taps and scrolling remain native.
+    return pointerInput(swipeThresholdPx, longPressTimeoutMillis, viewConfiguration.touchSlop) {
+        awaitEachGesture {
+            val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+            val pointerId = down.id
+            var released = false
+            var cancelled = false
+            var recognized = false
+            var longPressEligible = true
+            var horizontalDistance = 0f
+            var verticalDistance = 0f
 
-        /** Cancels a Compose press after this detector has claimed the gesture. */
-        fun cancelUnderlyingPress(source: MotionEvent) {
-            val cancelEvent = MotionEvent.obtain(source).apply { setAction(MotionEvent.ACTION_CANCEL) }
-            view.onTouchEvent(cancelEvent)
-            cancelEvent.recycle()
-        }
-
-        // #fallback: cyberpunkAndroid intentionally supplies visual primitives rather than a gesture recognizer.
-        // Android's standard touch and GestureDetector APIs are used so normal taps still reach CyberButton.
-        val detector = GestureDetector(
-            view.context,
-            object : GestureDetector.SimpleOnGestureListener() {
-                override fun onDown(event: MotionEvent): Boolean = true
-
-                override fun onLongPress(event: MotionEvent) {
-                    consumeUntilRelease = true
-                    cancelUnderlyingPress(event)
-                    haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                    if (paused) currentResume() else currentPause()
+            withTimeoutOrNull(longPressTimeoutMillis) {
+                while (!released && !cancelled && !recognized) {
+                    val event = awaitPointerEvent(PointerEventPass.Initial)
+                    val change = event.changes.firstOrNull { it.id == pointerId }
+                    if (change == null || change.changedToUp()) {
+                        released = true
+                        continue
+                    }
+                    horizontalDistance = change.position.x - down.position.x
+                    verticalDistance = change.position.y - down.position.y
+                    if (
+                        horizontalDistance.absoluteValue >= swipeThresholdPx &&
+                        horizontalDistance.absoluteValue > verticalDistance.absoluteValue
+                    ) {
+                        recognized = true
+                        change.consume()
+                        haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                        if (horizontalDistance > 0f) currentAdvance() else currentSkip()
+                    } else if (
+                        verticalDistance.absoluteValue >= viewConfiguration.touchSlop &&
+                        verticalDistance.absoluteValue >= horizontalDistance.absoluteValue
+                    ) {
+                        cancelled = true
+                    } else if (
+                        horizontalDistance.absoluteValue >= viewConfiguration.touchSlop
+                    ) {
+                        longPressEligible = false
+                    }
                 }
-            },
-        )
+            }
 
-        view.setOnTouchListener { _, event ->
-            detector.onTouchEvent(event)
-            when (event.actionMasked) {
-                MotionEvent.ACTION_DOWN -> {
-                    downX = event.x
-                    downY = event.y
-                    trackingTouch = true
-                }
-                MotionEvent.ACTION_UP -> {
-                    if (!consumeUntilRelease && trackingTouch) {
-                        val horizontalDistance = event.x - downX
-                        val verticalDistance = event.y - downY
-                        if (
-                            horizontalDistance.absoluteValue >= swipeThresholdPx &&
-                            horizontalDistance.absoluteValue > verticalDistance.absoluteValue
-                        ) {
-                            consumeUntilRelease = true
-                            cancelUnderlyingPress(event)
+            if (!released && !cancelled && !recognized && longPressEligible) {
+                recognized = true
+                haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                if (currentPaused) currentResume() else currentPause()
+            }
+
+            while (!cancelled && !released) {
+                val event = awaitPointerEvent(PointerEventPass.Initial)
+                val change = event.changes.firstOrNull { it.id == pointerId }
+                if (change == null) {
+                    released = true
+                } else {
+                    if (!recognized) {
+                        horizontalDistance = change.position.x - down.position.x
+                        verticalDistance = change.position.y - down.position.y
+                        if (horizontalDistance.absoluteValue >= swipeThresholdPx &&
+                            horizontalDistance.absoluteValue > verticalDistance.absoluteValue) {
+                            recognized = true
                             haptics.performHapticFeedback(HapticFeedbackType.LongPress)
                             if (horizontalDistance > 0f) currentAdvance() else currentSkip()
-                        }
+                        } else if (verticalDistance.absoluteValue >= viewConfiguration.touchSlop &&
+                            verticalDistance.absoluteValue >= horizontalDistance.absoluteValue) cancelled = true
                     }
-                    trackingTouch = false
+                    if (recognized) change.consume()
+                    if (change.changedToUpIgnoreConsumed()) released = true
                 }
-                MotionEvent.ACTION_CANCEL -> trackingTouch = false
             }
-
-            val consume = consumeUntilRelease
-            if (event.actionMasked == MotionEvent.ACTION_UP || event.actionMasked == MotionEvent.ACTION_CANCEL) {
-                consumeUntilRelease = false
-            }
-            consume
         }
-
-        onDispose { view.setOnTouchListener(null) }
-    }
-
-    return this.semantics {
+    }.semantics {
         customActions = listOf(
             CustomAccessibilityAction(completeLabel) {
                 currentAdvance()
