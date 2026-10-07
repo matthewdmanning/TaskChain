@@ -2,7 +2,9 @@
 
 This is the source of truth for TaskChain's domain vocabulary, behavior invariants, and open decisions. `architecture.md` owns package boundaries and technical architecture; `docs/agents/domain.md` only routes readers to these sources.
 
-- **Routine run:** an instance of the user completing or skipping steps. Completed runs are persisted locally, like routines. Aborting discards the run as though it never happened.
+- **Routine run:** an instance of the user completing or skipping steps. Completed runs are persisted locally, like routines. Each routine has at most one Routine run that is not completed.
+- **Aborted run:** a Routine run the user ended before finishing. It is kept temporarily and never enters history. Restoring an Aborted run is a possible future feature, not current behavior.
+- **Unfinished run:** a Routine run that is neither completed nor aborted.
 
 ## Invariants
 
@@ -18,7 +20,9 @@ This is the source of truth for TaskChain's domain vocabulary, behavior invarian
 - Completing the final step ends the run directly when no step remains unfinished. If any steps remain pending or skipped, finishing requests confirmation and shows the unfinished steps.
 - Confirmation shows unfinished steps and lets the user jump to one before finalizing.
 - Back on the first step requests abort confirmation.
-- Aborting discards the active run and returns Home without creating completed or aborted history or changing the routine's scheduled-completion state. Settings changes are preserved.
+- Aborting keeps the run as an Aborted run and returns Home without creating completed or aborted history or changing the routine's scheduled-completion state. Settings changes are preserved.
+- Starting a new Routine run deletes that routine's Aborted or Unfinished run.
+- An Aborted or Unfinished run is deleted 18 hours after its last Skip or Complete, or 18 hours after it started if no step was skipped or completed. Opening, closing, pausing, resuming, and aborting do not reset this time.
 - Actual duration is distinct from configured duration and is retained per run step.
 - A routine's schedule cannot coexist with its deadline or one-time reminder.
 - Sound and Vibrate are independently configurable for step-timer and routine-reminder feedback.
@@ -30,3 +34,4 @@ This is the source of truth for TaskChain's domain vocabulary, behavior invarian
 ## Open decision
 
 - After completing a previously skipped step, whether to jump to the next unfinished step or continue normal sequence remains TBD.
+- Whether starting a routine that has an Unfinished run should prompt to resume instead of replacing it, and whether resuming an Aborted run is needed, waits for more app testing. Until then, a new run replaces the old one without prompting.
