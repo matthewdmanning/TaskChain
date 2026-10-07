@@ -4,6 +4,7 @@ import com.taskchain.domain.model.SoundSetting
 import com.taskchain.domain.model.SoundSettings
 import com.taskchain.domain.model.SoundToken
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -16,7 +17,7 @@ class TaskFeedbackTest {
     @Test
     fun missingSoundDoesNotSuppressNudgeHaptic() {
         val hapticDurations = mutableListOf<Long>()
-        val feedback = AndroidTaskFeedback(
+        val feedback: TaskFeedback = AndroidTaskFeedback(
             soundPlayer = object : SoundPlayer {
                 /**
                  * Use this function to model a missing or unloadable configured sound asset.
@@ -50,7 +51,7 @@ class TaskFeedbackTest {
     fun routineSoundMutePreservesNudgeHaptic() {
         var played = false
         val hapticDurations = mutableListOf<Long>()
-        val feedback = AndroidTaskFeedback(
+        val feedback: TaskFeedback = AndroidTaskFeedback(
             soundPlayer = object : SoundPlayer {
                 /**
                  * Use this function to record whether a muted sound crossed the playback boundary.
@@ -71,5 +72,29 @@ class TaskFeedbackTest {
 
         assertTrue(!played)
         assertEquals(listOf(300L), hapticDurations)
+    }
+
+    /** Use this function to verify zero suppresses haptics and fractional intensity maps to Android amplitude.
+     * Inputs: none.
+     * Dependencies: `AndroidTaskFeedback`, `vibrationAmplitude`, and fake haptic callbacks.
+     */
+    @Test
+    fun vibrationIntensityControlsAmplitudeAndZeroSuppresses() {
+        val amplitudes = mutableListOf<Int>()
+        val feedback: TaskFeedback = AndroidTaskFeedback(
+            soundPlayer = object : SoundPlayer {
+                override fun play(token: SoundToken, settings: SoundSetting) = Unit
+            },
+            vibrate = { error("legacy haptic callback should not be used when amplitude callback is present") },
+            vibrateWithAmplitude = { _, amplitude -> amplitudes += amplitude },
+        )
+        val settings = SoundSettings(entries = mapOf(SoundToken.TaskNudge to SoundSetting(enabled = false, assetPath = "")))
+
+        feedback.fire(SoundToken.TaskNudge, true, true, settings, intensity = 0f)
+        feedback.fire(SoundToken.TaskNudge, true, true, settings, intensity = 0.5f)
+
+        assertEquals(listOf(128), amplitudes)
+        assertNull(vibrationAmplitude(0f))
+        assertEquals(255, vibrationAmplitude(2f))
     }
 }

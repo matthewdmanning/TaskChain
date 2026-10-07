@@ -17,6 +17,8 @@ import kotlinx.coroutines.delay
 internal data class RunnerPresentation(
     val run: RoutineRun?,
     val holdingCompletion: Boolean,
+    val readyLabel: String? = null,
+    val transitionElapsedMillis: Long = 0L,
 )
 
 /**
@@ -36,6 +38,8 @@ internal fun rememberRunnerPresentation(
     var presentedRun by remember { mutableStateOf(run) }
     var holdingCompletion by remember { mutableStateOf(false) }
     var completionSnapshot by remember { mutableStateOf<RoutineRun?>(null) }
+    var readySnapshot by remember { mutableStateOf<RoutineRun?>(null) }
+    var transitionElapsedMillis by remember { mutableStateOf(0L) }
     val latestRun by rememberUpdatedState(run)
     val completionKey = completionPresentationKey(presentedRun, run)
     val synchronousSnapshot = completedSnapshot(presentedRun, run)
@@ -49,22 +53,40 @@ internal fun rememberRunnerPresentation(
         if (completionKey != null && animationsEnabled && foreground && synchronousSnapshot != null) {
             completionSnapshot = synchronousSnapshot
             holdingCompletion = true
+            readySnapshot = null
+            transitionElapsedMillis = 0L
             delay(RunnerMotion.completionDurationMillis.toLong())
+            val nextRun = latestRun
+            if (shouldHoldTaskReadyTransition(presentedRun, nextRun)) {
+                readySnapshot = nextRun
+                while (transitionElapsedMillis < RunnerMotion.taskReadyTransitionDurationMillis) {
+                    delay(TASK_READY_TICK_MILLIS)
+                    transitionElapsedMillis =
+                        (transitionElapsedMillis + TASK_READY_TICK_MILLIS)
+                            .coerceAtMost(RunnerMotion.taskReadyTransitionDurationMillis)
+                }
+            }
             presentedRun = latestRun
         } else if (run != null) {
             presentedRun = run
         }
+        readySnapshot = null
+        transitionElapsedMillis = 0L
         completionSnapshot = null
         holdingCompletion = false
     }
 
+    val readyTransitionActive = readySnapshot != null && canHold
     return RunnerPresentation(
         run = when {
+            readyTransitionActive -> readySnapshot
             holdingCompletion && canHold -> completionSnapshot ?: synchronousSnapshot ?: presentedRun
             completionKey != null && animationsEnabled && foreground -> synchronousSnapshot ?: presentedRun
             else -> run
         },
         holdingCompletion = canHold && (holdingCompletion || completionKey != null),
+        readyLabel = if (readyTransitionActive) taskReadyPhase(transitionElapsedMillis)?.label else null,
+        transitionElapsedMillis = if (readyTransitionActive) transitionElapsedMillis else 0L,
     )
 }
 
@@ -94,3 +116,5 @@ private fun completedSnapshot(previous: RoutineRun?, next: RoutineRun?): Routine
     if (!shouldHoldCompletedPresentation(previous, next)) return null
     return next!!.copy(currentStepIndex = previous!!.currentStepIndex)
 }
+
+private const val TASK_READY_TICK_MILLIS = 50L

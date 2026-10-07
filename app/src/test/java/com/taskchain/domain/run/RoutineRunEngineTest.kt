@@ -127,6 +127,72 @@ class RoutineRunEngineTest {
         assertEquals(6_000L, engine.remainingMillis(resumed, 10_000))
     }
 
+    /**
+     * Use this function to verify that explicitly resuming a skipped paused task preserves elapsed time.
+     * Inputs: none; the test builds an active run with a paused then skipped current step.
+     * Dependencies: `RoutineRunEngine`, `routine`, and JUnit assertions.
+     */
+    @Test
+    fun explicitlyResumingSkippedPausedTaskRestoresPendingTimer() {
+        val engine = RoutineRunEngine()
+        val started = engine.start(routine(timerSeconds = 10), RoutineRunId("run"), 1_000)
+        val paused = engine.pauseCurrent(started, 4_000)
+        val skipped = engine.skipCurrent(paused, 5_000)
+        val revisited = engine.back(skipped, 6_000)
+        val resumed = engine.resumeCurrent(revisited, 9_000)
+
+        assertEquals(RunStepStatus.SKIPPED, revisited.steps.first().status)
+        assertEquals(1_000L, revisited.steps.first().startedAtEpochMillis)
+        assertEquals(RunStepStatus.PENDING, resumed.steps.first().status)
+        assertEquals(6_000L, resumed.steps.first().startedAtEpochMillis)
+        assertEquals(null, resumed.steps.first().pausedAtEpochMillis)
+        assertEquals(7_000L, engine.remainingMillis(resumed, 9_000))
+    }
+
+    /**
+     * Use this function to verify right-swipe navigation selects only the next finished task.
+     * Inputs: none; the test builds active runs with completed and skipped candidates after the current step.
+     * Dependencies: `RoutineRunEngine`, `routine`, and JUnit assertions.
+     */
+    @Test
+    fun advancesToNextCompletedOrSkippedTaskOnly() {
+        val engine = RoutineRunEngine()
+        listOf(RunStepStatus.COMPLETED, RunStepStatus.SKIPPED).forEach { finishedStatus ->
+            val startedRun = engine.start(routine(), RoutineRunId("run-$finishedStatus"), 1_000)
+            val started = startedRun.copy(
+                steps = startedRun.steps.mapIndexed { index, step ->
+                    if (index == 1) step.copy(status = finishedStatus) else step
+                },
+            )
+            val advanced = engine.advanceToNextFinishedStep(started, 2_000)
+
+            assertEquals(1, advanced.currentStepIndex)
+            assertEquals(finishedStatus, advanced.steps[1].status)
+            assertEquals(advanced, engine.advanceToNextFinishedStep(advanced, 3_000))
+        }
+    }
+
+    /**
+     * Use this function to verify that a newly entered timer waits for the presentation delay without changing persisted completion time.
+     * Inputs: none; the test builds a two-step timed run and completes the first step.
+     * Dependencies: `RoutineRunEngine`, `RoutineTemplate`, and JUnit assertions.
+     */
+    @Test
+    fun preparedNextStepStartsAfterReadyTransition() {
+        val engine = RoutineRunEngine()
+        val baseRoutine = routine(timerSeconds = 10)
+        val timedRoutine = baseRoutine.copy(steps = baseRoutine.steps.map { it.copy(timerSeconds = 10) })
+        val started = engine.start(timedRoutine, RoutineRunId("run"), 1_000)
+        val completed = engine.completeCurrent(started, 2_000)
+        val prepared = engine.prepareNextStep(completed, 2_000, 5_350)
+
+        assertEquals(2_000L, prepared.steps.first().finishedAtEpochMillis)
+        assertEquals(7_350L, prepared.steps.last().startedAtEpochMillis)
+        assertEquals(10_000L, engine.remainingMillis(prepared, 2_000))
+        assertEquals(10_000L, engine.remainingMillis(prepared, 7_350))
+        assertEquals(prepared, engine.prepareNextStep(prepared, 3_000, 5_350))
+    }
+
     /** Use this function to verify that zero-time feedback is acknowledged idempotently. */
     @Test
     fun timerFeedbackIsAcknowledgedOnce() {
@@ -211,9 +277,9 @@ class RoutineRunEngineTest {
         assertEquals(null, engine.remainingMillis(continued, 9_000))
     }
 
-    /** Use this function to verify cancelling final Complete restores a timed step before the dialog pause. */
+    /** Use this function to verify completing a timed final step ends the run without confirmation. */
     @Test
-    fun cancellingFinalCompleteRestoresTimedStepBeforeDialogPause() {
+    fun completingFinalTimedTaskEndsImmediately() {
         val engine = RoutineRunEngine()
         val routine = RoutineTemplate(
             id = RoutineId("routine"),
@@ -223,15 +289,14 @@ class RoutineRunEngineTest {
         )
         val started = engine.start(routine, RoutineRunId("run"), 1_000)
 
-        val requested = engine.completeCurrent(started, 5_000)
-        val continued = engine.continueRun(requested, 9_000)
-        val step = continued.steps.single()
+        val completed = engine.completeCurrent(started, 5_000)
+        val step = completed.steps.single()
 
-        assertEquals(RunStepStatus.PENDING, step.status)
-        assertEquals(5_000L, step.startedAtEpochMillis)
-        assertEquals(null, step.finishedAtEpochMillis)
-        assertEquals(null, step.actualDurationMillis)
-        assertEquals(6_000L, engine.remainingMillis(continued, 9_000))
+        assertEquals(RunStatus.COMPLETED, completed.status)
+        assertFalse(completed.finishConfirmationRequested)
+        assertEquals(RunStepStatus.COMPLETED, step.status)
+        assertEquals(5_000L, step.finishedAtEpochMillis)
+        assertEquals(4_000L, step.actualDurationMillis)
     }
 
     /** Use this function to verify a pending timer freezes while an abort dialog is open. */

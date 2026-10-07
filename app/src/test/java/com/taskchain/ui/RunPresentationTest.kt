@@ -7,7 +7,9 @@ import com.taskchain.domain.model.RoutineRunStep
 import com.taskchain.domain.model.RoutineStep
 import com.taskchain.domain.model.RoutineStepId
 import com.taskchain.domain.model.RunStepStatus
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -24,8 +26,23 @@ class RunPresentationTest {
         )
 
         assertTrue(shouldHoldCompletedPresentation(pending, advanced))
+        assertTrue(shouldHoldTaskReadyTransition(pending, advanced))
         assertFalse(shouldHoldCompletedPresentation(pending, advanced.copy(id = RoutineRunId("other"))))
         assertFalse(shouldHoldCompletedPresentation(pending, advanced.copy(steps = advanced.steps.map { it.copy(status = RunStepStatus.SKIPPED) })))
+    }
+
+    /** Use this function to verify the five-second task-ready labels stay on their specified boundaries.
+     * Inputs: none.
+     * Dependencies: `taskReadyPhase`.
+     */
+    @Test
+    fun taskReadyPhase_usesGetReadyThenThreeTwoOne() {
+        assertEquals(TaskReadyPhase.GET_READY, taskReadyPhase(0L))
+        assertEquals(TaskReadyPhase.GET_READY, taskReadyPhase(1_999L))
+        assertEquals(TaskReadyPhase.THREE, taskReadyPhase(2_000L))
+        assertEquals(TaskReadyPhase.TWO, taskReadyPhase(3_000L))
+        assertEquals(TaskReadyPhase.ONE, taskReadyPhase(4_000L))
+        assertNull(taskReadyPhase(5_000L))
     }
 
     /** Use this function to create the smallest run snapshots needed by the transition assertions. */

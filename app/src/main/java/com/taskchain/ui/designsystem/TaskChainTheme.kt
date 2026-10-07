@@ -4,6 +4,14 @@ import androidx.annotation.StringRes
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.sp
+import androidx.compose.material3.Typography
+import com.example.cyberpunkandroid.theme.CyberTypography
+import com.example.cyberpunkandroid.theme.cyberMaterialTypography
 import androidx.compose.ui.platform.LocalContext
 import com.example.cyberpunkandroid.config.CyberPrimitives
 import com.example.cyberpunkandroid.theme.CyberColors
@@ -109,5 +117,26 @@ fun TaskChainTheme(selectedTheme: String, content: @Composable () -> Unit) {
             border = palette.Chrome600,
         )
     }
-    CyberTheme(colors = colors, content = content)
+    val density = LocalDensity.current
+    val width = LocalConfiguration.current.screenWidthDp
+    // Bound enlarged text by the available header width while retaining the user's scale below that limit.
+    val cappedScale = density.fontScale.coerceAtMost((width / 240f).coerceAtLeast(1f))
+    val base = Typography()
+    val typography = cyberMaterialTypography(base.copy(
+        bodySmall = base.bodyLarge,
+        bodyMedium = base.bodyLarge,
+        labelSmall = base.labelLarge,
+        labelMedium = base.labelLarge,
+        titleLarge = base.headlineLarge,
+    ))
+    CompositionLocalProvider(LocalDensity provides Density(density.density, cappedScale)) {
+        CyberTheme(
+            colors = colors,
+            typography = CyberTypography(display = CyberTypography().display.copy(fontSize = 40.sp),
+                terminal = CyberTypography().terminal.copy(fontSize = 18.sp),
+                body = CyberTypography().body.copy(fontSize = 18.sp)),
+            materialTypography = typography,
+            content = content,
+        )
+    }
 }

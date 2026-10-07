@@ -1,0 +1,9 @@
+<resources>
+    <string name="punch_gesture_advance">Next completed or skipped task</string>
+    <string name="punch_get_ready">Get Ready</string>
+    <string name="punch_vibration_intensity">Vibration intensity</string>
+    <string name="punch_screen_transitions">Task transitions</string>
+    <string name="punch_bubble_minimize">Run bubble when minimized</string>
+    <string name="punch_bubble_system_help">Requires Android bubble support and notification permission. Enable bubbles for TaskChain in system notification settings.</string>
+    <string name="punch_bubble_system_settings">Notification and bubble settings</string>
+</resources>

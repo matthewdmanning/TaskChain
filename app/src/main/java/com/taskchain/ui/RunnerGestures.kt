@@ -25,7 +25,7 @@ import kotlin.math.absoluteValue
  * available for discoverability and accessibility.
  *
  * @param paused Whether the active step timer is currently paused.
- * @param onComplete Invoked after a committed right swipe.
+ * @param onAdvance Invoked after a committed right swipe.
  * @param onSkip Invoked after a committed left swipe.
  * @param onPause Invoked after a long press while running.
  * @param onResume Invoked after a long press while paused.
@@ -34,7 +34,7 @@ import kotlin.math.absoluteValue
 @Composable
 internal fun Modifier.runnerGestureTracking(
     paused: Boolean,
-    onComplete: () -> Unit,
+    onAdvance: () -> Unit,
     onSkip: () -> Unit,
     onPause: () -> Unit,
     onResume: () -> Unit,
@@ -43,12 +43,12 @@ internal fun Modifier.runnerGestureTracking(
     val haptics = LocalHapticFeedback.current
     val density = LocalDensity.current
     val swipeThresholdPx = with(density) { CyberPrimitives.IconSizes.dp48.toPx() }
-    val completeLabel = stringResource(R.string.runner_gesture_complete)
+    val completeLabel = stringResource(R.string.punch_gesture_advance)
     val skipLabel = stringResource(R.string.runner_gesture_skip)
     val pauseResumeLabel = stringResource(
         if (paused) R.string.runner_gesture_resume else R.string.runner_gesture_pause,
     )
-    val currentComplete by rememberUpdatedState(onComplete)
+    val currentAdvance by rememberUpdatedState(onAdvance)
     val currentSkip by rememberUpdatedState(onSkip)
     val currentPause by rememberUpdatedState(onPause)
     val currentResume by rememberUpdatedState(onResume)
@@ -101,7 +101,7 @@ internal fun Modifier.runnerGestureTracking(
                             consumeUntilRelease = true
                             cancelUnderlyingPress(event)
                             haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                            if (horizontalDistance > 0f) currentComplete() else currentSkip()
+                            if (horizontalDistance > 0f) currentAdvance() else currentSkip()
                         }
                     }
                     trackingTouch = false
@@ -122,7 +122,7 @@ internal fun Modifier.runnerGestureTracking(
     return this.semantics {
         customActions = listOf(
             CustomAccessibilityAction(completeLabel) {
-                currentComplete()
+                currentAdvance()
                 true
             },
             CustomAccessibilityAction(skipLabel) {

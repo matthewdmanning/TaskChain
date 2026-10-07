@@ -351,6 +351,7 @@ class ReminderRescheduleReceiver : BroadcastReceiver() {
 class TimerFeedback(
     private val context: Context,
     private val soundPlayer: SoundPlayer = AndroidAssetSoundPlayer(context),
+    private val vibrateWithAmplitude: ((Long, Int) -> Unit)? = null,
 ) {
 
     /** Use this function exactly once when the domain reports an unacknowledged timer expiry. */
@@ -358,22 +359,28 @@ class TimerFeedback(
         soundEnabled: Boolean = true,
         vibrateEnabled: Boolean = true,
         soundSettings: SoundSettings = defaultSoundSettings(),
+        intensity: Float = 1f,
     ) {
         val setting = soundSettings[SoundToken.TimerExpired]
         if (soundEnabled && setting.enabled) runCatching { soundPlayer.play(SoundToken.TimerExpired, setting) }
         if (!vibrateEnabled) return
+        val amplitude = vibrationAmplitude(intensity) ?: return
         runCatching {
-            val vibrator = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                context.getSystemService(VibratorManager::class.java).defaultVibrator
+            if (vibrateWithAmplitude != null) {
+                vibrateWithAmplitude.invoke(VIBRATION_DURATION_MILLIS, amplitude)
             } else {
-                @Suppress("DEPRECATION")
-                context.getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
-            }
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                vibrator.vibrate(VibrationEffect.createOneShot(VIBRATION_DURATION_MILLIS, VibrationEffect.DEFAULT_AMPLITUDE))
-            } else {
-                @Suppress("DEPRECATION")
-                vibrator.vibrate(VIBRATION_DURATION_MILLIS)
+                val vibrator = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                    context.getSystemService(VibratorManager::class.java).defaultVibrator
+                } else {
+                    @Suppress("DEPRECATION")
+                    context.getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
+                }
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    vibrator.vibrate(VibrationEffect.createOneShot(VIBRATION_DURATION_MILLIS, amplitude))
+                } else {
+                    @Suppress("DEPRECATION")
+                    vibrator.vibrate(VIBRATION_DURATION_MILLIS)
+                }
             }
         }
     }

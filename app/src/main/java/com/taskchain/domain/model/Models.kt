@@ -155,4 +155,11 @@ data class CompletionEvent(
 data class UserPreferences(
     val selectedTheme: String = "system",
     val continueTimerPastZero: Boolean = true,
-)
+    val vibrationIntensity: Float = 1f,
+    val screenTransitionsEnabled: Boolean = true,
+    val bubbleOnMinimize: Boolean = false,
+) {
+    init {
+        require(vibrationIntensity in 0f..1f)
+    }
+}

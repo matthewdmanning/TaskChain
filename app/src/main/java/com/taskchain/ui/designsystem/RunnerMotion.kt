@@ -14,5 +14,8 @@ object RunnerMotion {
     val titleEndOffset = (-8).dp
     const val durationMillis = 650
     const val completionDurationMillis = 350
+    const val taskReadyGetReadyDurationMillis = 2_000L
+    const val taskReadyPhaseDurationMillis = 1_000L
+    const val taskReadyTransitionDurationMillis = 5_000L
     val easing = FastOutSlowInEasing
 }

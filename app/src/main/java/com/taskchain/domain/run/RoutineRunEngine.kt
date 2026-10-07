@@ -50,13 +50,29 @@ class RoutineRunEngine {
         return run.copy(steps = run.steps.replaceAt(index, current.copy(pausedAtEpochMillis = nowEpochMillis)))
     }
 
-    /** Use this function to resume the current pending step while excluding paused time. */
+    /** Use this function to resume a paused pending step or explicitly reopen the skipped current step. */
     fun resumeCurrent(run: RoutineRun, nowEpochMillis: Long): RoutineRun {
         require(run.status == RunStatus.ACTIVE)
         require(!run.finishConfirmationRequested && !run.abortConfirmationRequested)
         val index = run.currentStepIndex
         require(index in run.steps.indices)
         val current = run.steps[index]
+        if (current.status == RunStepStatus.SKIPPED) {
+            val elapsed = current.actualDurationMillis ?: 0L
+            return run.copy(
+                steps = run.steps.replaceAt(
+                    index,
+                    current.copy(
+                        status = RunStepStatus.PENDING,
+                        startedAtEpochMillis = nowEpochMillis - elapsed,
+                        finishedAtEpochMillis = null,
+                        completedAtEpochMillis = null,
+                        actualDurationMillis = null,
+                        pausedAtEpochMillis = null,
+                    ),
+                ),
+            )
+        }
         val pausedAt = current.pausedAtEpochMillis ?: return run
         if (current.status != RunStepStatus.PENDING) return run
         val pausedDuration = (nowEpochMillis - pausedAt).coerceAtLeast(0)
@@ -105,6 +121,40 @@ class RoutineRunEngine {
             abortConfirmationRequested = false,
             confirmationStartedAtEpochMillis = null,
             stepBeforeFinishConfirmation = null,
+        )
+    }
+
+    /**
+     * Use this function when a right swipe should move forward to the next already finished task.
+     * Inputs: `run` — the active routine run; `nowEpochMillis` — the navigation timestamp.
+     * Dependencies: `selectStep` and `RunStepStatus`.
+     */
+    fun advanceToNextFinishedStep(run: RoutineRun, nowEpochMillis: Long): RoutineRun {
+        require(run.status == RunStatus.ACTIVE)
+        require(run.currentStepIndex in run.steps.indices)
+        val nextIndex = (run.currentStepIndex + 1 until run.steps.size)
+            .firstOrNull { run.steps[it].status != RunStepStatus.PENDING }
+            ?: return run
+        return selectStep(run, nextIndex, nowEpochMillis)
+    }
+
+    /**
+     * Use this function when a newly entered pending task must wait for the ready transition before timing.
+     * Inputs: `run` — the active run after completion advanced to its next task; `nowEpochMillis` — the completion time;
+     * `delayMillis` — the total presentation delay before the timer starts.
+     * Dependencies: `RoutineRun`, `RunStatus`, and `RunStepStatus`.
+     */
+    fun prepareNextStep(run: RoutineRun, nowEpochMillis: Long, delayMillis: Long): RoutineRun {
+        require(delayMillis >= 0L)
+        if (run.status != RunStatus.ACTIVE || run.currentStepIndex !in run.steps.indices) return run
+        val index = run.currentStepIndex
+        val current = run.steps[index]
+        if (current.status != RunStepStatus.PENDING || current.startedAtEpochMillis != nowEpochMillis) return run
+        return run.copy(
+            steps = run.steps.replaceAt(
+                index,
+                current.copy(startedAtEpochMillis = nowEpochMillis + delayMillis),
+            ),
         )
     }
 
@@ -192,7 +242,8 @@ class RoutineRunEngine {
         val effectiveNow = step.pausedAtEpochMillis
             ?: run.confirmationStartedAtEpochMillis
             ?: nowEpochMillis
-        return seconds * MILLIS_PER_SECOND - (effectiveNow - startedAt)
+        val elapsed = (effectiveNow - startedAt).coerceAtLeast(0L)
+        return seconds * MILLIS_PER_SECOND - elapsed
     }
 
     /** Use this function before firing audio and haptics so zero feedback occurs only once. */

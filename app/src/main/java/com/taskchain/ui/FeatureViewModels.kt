@@ -25,6 +25,7 @@ import com.taskchain.domain.run.RunFeedbackEvent
 import com.taskchain.domain.run.RunFeedbackPolicy
 import com.taskchain.domain.schedule.NextTriggerCalculator
 import com.taskchain.reminder.toReminderRequest
+import com.taskchain.ui.designsystem.RunnerMotion
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -549,8 +550,13 @@ class RoutineRunnerViewModel(
     private var foreground = false
     private var foregroundSynchronized = false
     private var initialRunningFeedbackPending = false
+    private var transitionsEnabled = true
+    private var feedbackIntensity = 1f
 
     init {
+        viewModelScope.launch {
+            container.preferences.observe().collect { feedbackIntensity = it.vibrationIntensity }
+        }
         viewModelScope.launch {
             runMutex.withLock {
                 val active = container.activeRun.observeActive().first()
@@ -575,14 +581,33 @@ class RoutineRunnerViewModel(
         foregroundSynchronized = false
     }
 
+    /** Use this function when the route combines the user transition setting with the system animator gate. */
+    fun setTransitionsEnabled(enabled: Boolean) {
+        transitionsEnabled = enabled
+    }
+
     /** Use this function when Complete is pressed for the displayed task. */
-    fun complete() = transition { run, now -> container.runEngine.completeCurrent(run, now) }
+    fun complete() = transition { run, now ->
+        val completed = container.runEngine.completeCurrent(run, now)
+        if (transitionsEnabled && foreground) {
+            container.runEngine.prepareNextStep(
+                completed,
+                now,
+                RunnerMotion.completionDurationMillis.toLong() + RunnerMotion.taskReadyTransitionDurationMillis,
+            )
+        } else {
+            completed
+        }
+    }
 
     /** Use this function when Skip is pressed for the displayed task. */
     fun skip() = transition { run, now -> container.runEngine.skipCurrent(run, now) }
 
     /** Use this function when Back is pressed inside the runner. */
     fun back() = transition { run, now -> container.runEngine.back(run, now) }
+
+    /** Use this function for a right swipe to revisit the next finished task; no inputs, dependency is RoutineRunEngine. */
+    fun advanceToNextFinishedStep() = transition { run, now -> container.runEngine.advanceToNextFinishedStep(run, now) }
 
     /** Use this function when Pause is pressed for the displayed task. */
     fun pause() = transition { run, now -> container.runEngine.pauseCurrent(run, now) }
@@ -691,6 +716,7 @@ class RoutineRunnerViewModel(
                 soundEnabled = run.routineSoundEnabled && step.soundEnabled,
                 vibrateEnabled = run.routineVibrateEnabled && step.vibrateEnabled,
                 soundSettings = run.soundSettings,
+                intensity = feedbackIntensity,
             )
         }
     }
@@ -780,6 +806,7 @@ class RoutineRunnerViewModel(
                 soundEnabled = soundEnabled,
                 vibrateEnabled = vibrateEnabled,
                 soundSettings = run.soundSettings,
+                intensity = feedbackIntensity,
             )
         }
     }
@@ -836,6 +863,21 @@ class SettingsViewModel(private val container: AppContainer) : ViewModel() {
     /** Use this function when overtime behavior is toggled in Settings. */
     fun setContinuePastZero(enabled: Boolean) {
         viewModelScope.launch { container.preferences.setContinueTimerPastZero(enabled) }
+    }
+
+    /** Use this function to set press vibration strength; input is 0..1 intensity, dependency is the preference repository. */
+    fun setVibrationIntensity(intensity: Float) {
+        viewModelScope.launch { container.preferences.setVibrationIntensity(intensity) }
+    }
+
+    /** Use this function to toggle task entry effects; input is the enabled gate, dependency is the preference repository. */
+    fun setScreenTransitionsEnabled(enabled: Boolean) {
+        viewModelScope.launch { container.preferences.setScreenTransitionsEnabled(enabled) }
+    }
+
+    /** Use this function to opt into native run bubbles; input is the enabled gate, dependency is the preference repository. */
+    fun setBubbleOnMinimize(enabled: Boolean) {
+        viewModelScope.launch { container.preferences.setBubbleOnMinimize(enabled) }
     }
 
     private companion object {

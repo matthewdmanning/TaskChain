@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="settings_punch_bubble_channel_name">Active run</string>
+    <string name="settings_punch_bubble_channel_description">Shows the active run while TaskChain is minimized</string>
+    <string name="settings_punch_bubble_short_label">Active run</string>
+    <string name="settings_punch_bubble_long_label">Open the active TaskChain run</string>
+    <string name="settings_punch_bubble_content">Tap to resume</string>
+</resources>
