@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="runner_step_complete_feedback">Step complete</string>
-    <string name="runner_step_skipped_feedback">Step skipped</string>
+    <string name="runner_task_complete_feedback">Task complete</string>
+    <string name="runner_task_skipped_feedback">Task skipped</string>
     <string name="runner_progress_feedback">Routine progress</string>
 </resources>

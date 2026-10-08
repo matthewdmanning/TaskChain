@@ -2,10 +2,10 @@ package com.taskchain.ui
 
 import com.taskchain.domain.model.EntityMetadata
 import com.taskchain.domain.model.RoutineId
-import com.taskchain.domain.model.RoutineCue
-import com.taskchain.domain.model.RoutineCueId
-import com.taskchain.domain.model.RoutineStep
-import com.taskchain.domain.model.RoutineStepId
+import com.taskchain.domain.model.RoutineSubtask
+import com.taskchain.domain.model.RoutineSubtaskId
+import com.taskchain.domain.model.RoutineTask
+import com.taskchain.domain.model.RoutineTaskId
 import com.taskchain.domain.model.RoutineTemplate
 import com.taskchain.domain.model.ScheduleFrequency
 import com.taskchain.domain.model.ScheduleRule
@@ -16,18 +16,18 @@ import org.junit.Test
 
 /** Verifies routine-level builder validation and migration without Android or persistence setup. */
 class BuilderValidationTest {
-    /** Use this function to create the smallest valid step for validation scenarios. */
-    private fun step(title: String = "Task") = RoutineStep(RoutineStepId(title), title)
+    /** Use this function to create the smallest valid task for validation scenarios. */
+    private fun task(title: String = "Task") = RoutineTask(RoutineTaskId(title), title)
 
     @Test
-    fun distinguishesMissingRoutineFieldsFromAnEmptyStepList() {
+    fun distinguishesMissingRoutineFieldsFromAnEmptyTaskList() {
         assertEquals(
-            setOf(BuilderValidationError.ROUTINE_NAME_REQUIRED, BuilderValidationError.STEP_REQUIRED),
+            setOf(BuilderValidationError.ROUTINE_NAME_REQUIRED, BuilderValidationError.TASK_REQUIRED),
             validateBuilderState(BuilderState(), 1_000L),
         )
         assertEquals(
             setOf(BuilderValidationError.ROUTINE_NAME_REQUIRED),
-            validateBuilderState(BuilderState(steps = listOf(step())), 1_000L),
+            validateBuilderState(BuilderState(tasks = listOf(task())), 1_000L),
         )
     }
 
@@ -36,18 +36,18 @@ class BuilderValidationTest {
         val now = 1_000L
         val selectedDays = BuilderState(
             title = "Routine",
-            steps = listOf(step()),
+            tasks = listOf(task()),
             scheduleEnabled = true,
             scheduleFrequency = ScheduleFrequency.SELECTED_DAYS,
         )
         val onceMissing = BuilderState(
             title = "Routine",
-            steps = listOf(step()),
+            tasks = listOf(task()),
             scheduleEnabled = true,
             scheduleFrequency = ScheduleFrequency.ONCE,
         )
         val oncePast = onceMissing.copy(scheduleOneTimeEpochMillis = now)
-        val reminderPast = BuilderState(title = "Routine", steps = listOf(step()), reminderAtEpochMillis = now)
+        val reminderPast = BuilderState(title = "Routine", tasks = listOf(task()), reminderAtEpochMillis = now)
 
         assertTrue(BuilderValidationError.SELECTED_DAY_REQUIRED in validateBuilderState(selectedDays, now))
         assertTrue(BuilderValidationError.SCHEDULE_DATE_REQUIRED in validateBuilderState(onceMissing, now))
@@ -58,7 +58,7 @@ class BuilderValidationTest {
     @Test
     fun enforcesRoutineSettingExclusivityAndAcceptsFutureValues() {
         val now = 1_000L
-        val base = BuilderState(title = "Routine", steps = listOf(step()))
+        val base = BuilderState(title = "Routine", tasks = listOf(task()))
         val daily = base.copy(scheduleEnabled = true)
         val scheduleAndDeadline = daily.copy(deadlineEpochMillis = now + 1)
         val scheduleAndReminder = daily.copy(reminderAtEpochMillis = now + 1)
@@ -73,29 +73,29 @@ class BuilderValidationTest {
     }
 
     @Test
-    fun preservesInvalidStepInputWhileReportingIt() {
+    fun preservesInvalidTaskInputWhileReportingIt() {
         val original = BuilderState(
             title = "Routine",
-            steps = listOf(step()),
-            editingStepIndex = 0,
-            pendingStepTitle = "  ",
+            tasks = listOf(task()),
+            editingTaskIndex = 0,
+            pendingTaskTitle = "  ",
             pendingTimerSeconds = "0",
         )
 
         val errors = validateBuilderState(original, 1_000L)
 
-        assertTrue(BuilderValidationError.STEP_NAME_REQUIRED in errors)
-        assertTrue(BuilderValidationError.STEP_TIMER_MUST_BE_POSITIVE in errors)
-        assertEquals("  ", original.pendingStepTitle)
+        assertTrue(BuilderValidationError.TASK_NAME_REQUIRED in errors)
+        assertTrue(BuilderValidationError.TASK_TIMER_MUST_BE_POSITIVE in errors)
+        assertEquals("  ", original.pendingTaskTitle)
         assertEquals("0", original.pendingTimerSeconds)
-        assertEquals("Task", original.steps.single().title)
+        assertEquals("Task", original.tasks.single().title)
     }
 
     @Test
-    fun migratesConsistentLegacyStepSettingsWithoutClearingTheirSource() {
+    fun migratesConsistentLegacyTaskSettingsWithoutClearingTheirSource() {
         val schedule = ScheduleRule(ScheduleFrequency.SELECTED_DAYS, 8, 30, daysOfWeek = setOf(2, 4))
-        val legacyStep = step("Legacy").copy(schedule = schedule, remindEveryMinutes = 15)
-        val routine = RoutineTemplate(RoutineId("routine"), EntityMetadata(0, 0), "Routine", steps = listOf(legacyStep))
+        val legacyTask = task("Legacy").copy(schedule = schedule, remindEveryMinutes = 15)
+        val routine = RoutineTemplate(RoutineId("routine"), EntityMetadata(0, 0), "Routine", tasks = listOf(legacyTask))
 
         val draft = routine.toBuilderState()
 
@@ -108,7 +108,7 @@ class BuilderValidationTest {
             draft.scheduleOneTimeEpochMillis,
         ))
         assertEquals(15, draft.remindEveryMinutes)
-        assertEquals(schedule, draft.steps.single().schedule)
+        assertEquals(schedule, draft.tasks.single().schedule)
         assertFalse(BuilderValidationError.LEGACY_SETTINGS_CONFLICT in draft.validationErrors)
     }
 
@@ -118,7 +118,7 @@ class BuilderValidationTest {
         val reminderAt = 2_000L
         val routine = RoutineTemplate(
             RoutineId("routine"), EntityMetadata(0, 0), "Routine",
-            steps = listOf(step("Scheduled").copy(schedule = schedule), step("Reminded").copy(reminderAtEpochMillis = reminderAt)),
+            tasks = listOf(task("Scheduled").copy(schedule = schedule), task("Reminded").copy(reminderAtEpochMillis = reminderAt)),
         )
 
         val draft = routine.toBuilderState()
@@ -126,8 +126,8 @@ class BuilderValidationTest {
 
         assertTrue(BuilderValidationError.LEGACY_SETTINGS_CONFLICT in errors)
         assertTrue(BuilderValidationError.SCHEDULE_REMINDER_EXCLUSIVE in errors)
-        assertEquals(schedule, draft.steps[0].schedule)
-        assertEquals(reminderAt, draft.steps[1].reminderAtEpochMillis)
+        assertEquals(schedule, draft.tasks[0].schedule)
+        assertEquals(reminderAt, draft.tasks[1].reminderAtEpochMillis)
         assertEquals(reminderAt, draft.reminderAtEpochMillis)
     }
 
@@ -136,7 +136,7 @@ class BuilderValidationTest {
         val schedule = ScheduleRule(ScheduleFrequency.SELECTED_DAYS, 14, 45, daysOfWeek = setOf(1, 3, 5))
         val routine = RoutineTemplate(
             RoutineId("routine"), EntityMetadata(0, 0), "Custom Routine",
-            steps = listOf(step("Step 1")),
+            tasks = listOf(task("Task 1")),
             schedule = schedule,
         )
         val draft = routine.toBuilderState()
@@ -150,7 +150,7 @@ class BuilderValidationTest {
 
     @Test
     fun formatsRoutineItemCountAndTotalTime() {
-        val emptyRoutine = RoutineTemplate(RoutineId("empty"), EntityMetadata(0, 0), "Empty", steps = emptyList())
+        val emptyRoutine = RoutineTemplate(RoutineId("empty"), EntityMetadata(0, 0), "Empty", tasks = emptyList())
         assertEquals("0 Items", formatRoutineItemCount(emptyRoutine))
         assertEquals(null, formatRoutineTotalTime(emptyRoutine))
 
@@ -158,7 +158,7 @@ class BuilderValidationTest {
             RoutineId("untimed"),
             EntityMetadata(0, 0),
             "Untimed",
-            steps = listOf(step("Step 1")),
+            tasks = listOf(task("Task 1")),
         )
         assertEquals("1 Item", formatRoutineItemCount(untimedRoutine))
         assertEquals(null, formatRoutineTotalTime(untimedRoutine))
@@ -167,10 +167,10 @@ class BuilderValidationTest {
             RoutineId("timed"),
             EntityMetadata(0, 0),
             "Timed",
-            steps = listOf(
-                step("Step 1").copy(timerSeconds = 120L),
-                step("Step 2").copy(timerSeconds = 180L),
-                step("Step 3"),
+            tasks = listOf(
+                task("Task 1").copy(timerSeconds = 120L),
+                task("Task 2").copy(timerSeconds = 180L),
+                task("Task 3"),
             ),
         )
         assertEquals("3 Items", formatRoutineItemCount(timedRoutine))
@@ -180,37 +180,72 @@ class BuilderValidationTest {
             RoutineId("long"),
             EntityMetadata(0, 0),
             "Long",
-            steps = listOf(step("Step 1").copy(timerSeconds = 3665L)),
+            tasks = listOf(task("Task 1").copy(timerSeconds = 3665L)),
         )
         assertEquals("Total Time: 1:01:05", formatRoutineTotalTime(longTimedRoutine))
     }
 
-    /** Use this function to verify invalid raw cue durations and duplicate cue identities block a draft save. */
+    /** Use this function to verify invalid raw subtask durations and duplicate subtask identities block a draft save. */
     @Test
-    fun rejectsRawCueDurationAndDuplicateCueIds() {
-        val cueId = RoutineCueId("cue")
-        val first = step("First").copy(cues = listOf(RoutineCue(cueId, "Prepare", 60)))
-        val second = step("Second").copy(cues = listOf(RoutineCue(cueId, "Repeat", 60)))
+    fun rejectsRawSubtaskDurationAndDuplicateSubtaskIds() {
+        val subtaskId = RoutineSubtaskId("subtask")
+        val first = task("First").copy(subtasks = listOf(RoutineSubtask(subtaskId, "Prepare", 60)))
+        val second = task("Second").copy(subtasks = listOf(RoutineSubtask(subtaskId, "Repeat", 60)))
         val state = BuilderState(
             title = "Routine",
-            steps = listOf(first, second),
-            pendingCueDurations = mapOf("First:cue" to "not-a-number"),
+            tasks = listOf(first, second),
+            pendingSubtaskDurations = mapOf("First:subtask" to "not-a-number"),
         )
 
-        assertTrue(BuilderValidationError.CUE_FIELDS_INVALID in validateBuilderState(state, 1_000L))
-        assertEquals(setOf(cueId), state.invalidCueDurationIds)
+        val errors = validateBuilderState(state, 1_000L)
+        assertTrue(BuilderValidationError.SUBTASK_DURATION_INVALID in errors)
+        assertTrue(BuilderValidationError.SUBTASK_ID_DUPLICATED in errors)
+        assertEquals(setOf(subtaskId), state.invalidSubtaskDurationIds)
     }
 
-    /** Use this function to verify nested cues contribute duration while counting only their main task.
-     * Inputs: none. Dependencies: routine summary formatting and the cue model.
+    /** Use this function to verify a blank subtask title reports only the title error, and only on its own task. */
+    @Test
+    fun blankSubtaskTitleErrorBelongsOnlyToItsTaskAndClearsWhenTitled() {
+        val blank = task("Blank").copy(subtasks = listOf(RoutineSubtask(RoutineSubtaskId("new"), "", 60)))
+        val valid = task("Valid").copy(subtasks = listOf(RoutineSubtask(RoutineSubtaskId("ok"), "Prepare", 60)))
+        val state = BuilderState(title = "Routine", tasks = listOf(blank, valid))
+
+        assertEquals(setOf(BuilderValidationError.SUBTASK_TITLE_REQUIRED), validateBuilderState(state, 1_000L))
+        assertEquals(setOf(BuilderValidationError.SUBTASK_TITLE_REQUIRED), state.subtaskErrorsFor(blank))
+        assertTrue(state.subtaskErrorsFor(valid).isEmpty())
+
+        val titled = blank.copy(subtasks = listOf(blank.subtasks.single().copy(title = "Stretch")))
+        assertTrue(validateBuilderState(state.copy(tasks = listOf(titled, valid)), 1_000L).isEmpty())
+    }
+
+    /** Use this function to verify a failed save targets the first task with a shown error, and that errors clear when fixed. */
+    @Test
+    fun failedSaveTargetsFirstTaskWithShownErrors() {
+        val valid = task("Valid")
+        val blank = task("Blank").copy(subtasks = listOf(RoutineSubtask(RoutineSubtaskId("new"), "", 60)))
+        val draft = BuilderState(title = "Routine", tasks = listOf(valid, blank))
+
+        assertEquals(null, draft.firstTaskIndexWithErrors())
+        val failed = draft.copy(validationErrors = validateBuilderState(draft, 1_000L))
+        assertEquals(1, failed.firstTaskIndexWithErrors())
+        assertTrue(failed.taskErrorsFor(0).isEmpty())
+        assertEquals(setOf(BuilderValidationError.SUBTASK_TITLE_REQUIRED), failed.taskErrorsFor(1))
+
+        val invalidTimer = failed.copy(editingTaskIndex = 0, pendingTimerSeconds = "-5")
+            .let { it.copy(validationErrors = validateBuilderState(it, 1_000L)) }
+        assertEquals(0, invalidTimer.firstTaskIndexWithErrors())
+    }
+
+    /** Use this function to verify nested subtasks contribute duration while counting only their main task.
+     * Inputs: none. Dependencies: routine summary formatting and the subtask model.
      */
     @Test
-    fun cueRoutineSummaryCountsMainTasksAndDerivedDuration() {
+    fun subtaskRoutineSummaryCountsMainTasksAndDerivedDuration() {
         val routine = RoutineTemplate(
-            RoutineId("cues"), EntityMetadata(0, 0), "Cues",
-            steps = listOf(step("Main").copy(cues = listOf(
-                RoutineCue(RoutineCueId("one"), "One", 180),
-                RoutineCue(RoutineCueId("two"), "Two", 420),
+            RoutineId("subtasks"), EntityMetadata(0, 0), "Subtasks",
+            tasks = listOf(task("Main").copy(subtasks = listOf(
+                RoutineSubtask(RoutineSubtaskId("one"), "One", 180),
+                RoutineSubtask(RoutineSubtaskId("two"), "Two", 420),
             ))),
         )
         assertEquals("1 Item", formatRoutineItemCount(routine))

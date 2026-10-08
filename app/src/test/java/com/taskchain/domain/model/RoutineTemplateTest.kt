@@ -6,12 +6,12 @@ import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** Guards routine-level scheduling invariants and legacy step decoding. */
+/** Guards routine-level scheduling invariants and legacy task decoding. */
 class RoutineTemplateTest {
     @Test
     fun rejectsConflictingRoutineSettingsAndInvalidRepeatRules() {
-        val step = RoutineStep(RoutineStepId("step"), "Prepare")
-        val routine = RoutineTemplate(RoutineId("routine"), EntityMetadata(0, 0), "Morning", steps = listOf(step))
+        val task = RoutineTask(RoutineTaskId("task"), "Prepare")
+        val routine = RoutineTemplate(RoutineId("routine"), EntityMetadata(0, 0), "Morning", tasks = listOf(task))
         val daily = ScheduleRule(ScheduleFrequency.DAILY, 9, 0)
 
         assertThrows(IllegalArgumentException::class.java) {
@@ -39,13 +39,13 @@ class RoutineTemplateTest {
     }
 
     @Test
-    fun readsLegacyStepSettingsForBuilderMigration() {
-        val legacy = Json { ignoreUnknownKeys = true }.decodeFromString<RoutineStep>(
-            """{"id":"legacy","title":"Drink water","stackingAnchorStepId":"prior","deadlineEpochMillis":100,"reminderAtEpochMillis":200,"schedule":{"frequency":"DAILY","localHour":9,"localMinute":0,"daysOfWeek":[],"oneTimeEpochMillis":null},"remindEveryMinutes":5,"soundEnabled":false,"vibrateEnabled":false,"kind":"HABIT"}""",
+    fun readsLegacyTaskSettingsForBuilderMigration() {
+        val legacy = Json { ignoreUnknownKeys = true }.decodeFromString<RoutineTask>(
+            """{"id":"legacy","title":"Drink water","stackingAnchorTaskId":"prior","deadlineEpochMillis":100,"reminderAtEpochMillis":200,"schedule":{"frequency":"DAILY","localHour":9,"localMinute":0,"daysOfWeek":[],"oneTimeEpochMillis":null},"remindEveryMinutes":5,"soundEnabled":false,"vibrateEnabled":false,"kind":"HABIT"}""",
         )
 
         assertEquals("Drink water", legacy.title)
-        assertEquals(RoutineStepId("prior"), legacy.stackingAnchorStepId)
+        assertEquals(RoutineTaskId("prior"), legacy.stackingAnchorTaskId)
         assertEquals(100L, legacy.deadlineEpochMillis)
         assertEquals(200L, legacy.reminderAtEpochMillis)
         assertEquals(ScheduleRule(ScheduleFrequency.DAILY, 9, 0), legacy.schedule)

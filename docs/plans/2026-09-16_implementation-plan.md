@@ -34,8 +34,8 @@ This plan records the reset criteria closed during the September 2026 implementa
 
 **Success criteria:**
 
-- Add Step creates and expands a task.
-- Timer length is stored on `RoutineStep` and rendered as `[M m SS s]` when collapsed.
+- Add task creates and expands a task.
+- Timer length is stored on `RoutineTask` and rendered as `[M m SS s]` when collapsed.
 - A task schedule cannot coexist with its deadline or one-time reminder.
 - Remind Every is available only for scheduled tasks and uses a scrolling minute selector below Time.
 - Sound and Vibrate persist independently per task.
@@ -87,7 +87,7 @@ This plan records the reset criteria closed during the September 2026 implementa
 **Success criteria:**
 
 - Timer feedback is requested once from persisted timestamps.
-- Completed or skipped steps do not restart timing when revisited.
+- Completed or skipped tasks do not restart timing when revisited.
 - Completing a skipped task changes it directly to Completed and retains actual duration.
 - Complete or Skip on the final task requests confirmation and exposes unfinished tasks.
 - Back on the first task requests abort confirmation.

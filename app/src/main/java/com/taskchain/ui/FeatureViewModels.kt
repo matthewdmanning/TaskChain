@@ -6,13 +6,13 @@ import com.taskchain.AppContainer
 import com.taskchain.domain.model.CompletionEvent
 import com.taskchain.domain.model.EntityMetadata
 import com.taskchain.domain.model.RoutineId
-import com.taskchain.domain.model.RoutineCueId
-import com.taskchain.domain.model.RoutineStepId
+import com.taskchain.domain.model.RoutineSubtaskId
+import com.taskchain.domain.model.RoutineTaskId
 import com.taskchain.domain.model.RoutineRun
-import com.taskchain.domain.model.RoutineStep
+import com.taskchain.domain.model.RoutineTask
 import com.taskchain.domain.model.RoutineTemplate
 import com.taskchain.domain.model.RunStatus
-import com.taskchain.domain.model.RunStepStatus
+import com.taskchain.domain.model.RunTaskStatus
 import com.taskchain.domain.model.ScheduleFrequency
 import com.taskchain.domain.model.ScheduleRule
 import com.taskchain.domain.model.SoundToken
@@ -88,37 +88,40 @@ class RoutinesViewModel(private val container: AppContainer) : ViewModel() {
 /** Identifies a routine-builder field or persistence failure that the UI can explain. */
 enum class BuilderValidationError {
     ROUTINE_NAME_REQUIRED,
-    STEP_REQUIRED,
-    STEP_NAME_REQUIRED,
+    TASK_REQUIRED,
+    TASK_NAME_REQUIRED,
     SELECTED_DAY_REQUIRED,
     SCHEDULE_DATE_REQUIRED,
     SCHEDULE_DATE_MUST_BE_FUTURE,
     REMINDER_MUST_BE_FUTURE,
     SCHEDULE_REMINDER_EXCLUSIVE,
     LEGACY_SETTINGS_CONFLICT,
-    STEP_TIMER_MUST_BE_POSITIVE,
-    CUE_FIELDS_INVALID,
+    TASK_TIMER_MUST_BE_POSITIVE,
+    SUBTASK_TITLE_REQUIRED,
+    SUBTASK_DURATION_INVALID,
+    SUBTASK_TOTAL_TOO_LONG,
+    SUBTASK_ID_DUPLICATED,
     SAVE_FAILED,
 }
 
-private const val DEFAULT_CUE_DURATION_SECONDS = 60L
-private const val MAX_SAFE_CUE_DURATION_SECONDS = Long.MAX_VALUE / 1_000L
+private const val DEFAULT_SUBTASK_DURATION_SECONDS = 60L
+private const val MAX_SAFE_SUBTASK_DURATION_SECONDS = Long.MAX_VALUE / 1_000L
 
 /** Editable state for one routine builder route. */
 data class BuilderState(
     val title: String = "",
     val description: String = "",
-    val steps: List<RoutineStep> = emptyList(),
-    val pendingStepTitle: String = "",
+    val tasks: List<RoutineTask> = emptyList(),
+    val pendingTaskTitle: String = "",
     val pendingTimerSeconds: String = "",
-    val pendingCueDurations: Map<String, String> = emptyMap(),
+    val pendingSubtaskDurations: Map<String, String> = emptyMap(),
     val deadlineEpochMillis: Long? = null,
     val reminderAtEpochMillis: Long? = null,
     val remindEveryMinutes: Int? = null,
     val soundEnabled: Boolean = true,
     val vibrateEnabled: Boolean = true,
     val soundSettings: SoundSettings = defaultSoundSettings(),
-    val editingStepIndex: Int? = null,
+    val editingTaskIndex: Int? = null,
     val scheduleEnabled: Boolean = false,
     val scheduleFrequency: ScheduleFrequency = ScheduleFrequency.DAILY,
     val scheduleHour: Int = 9,
@@ -127,14 +130,15 @@ data class BuilderState(
     val scheduleOneTimeEpochMillis: Long? = null,
     val savedRoutineId: RoutineId? = null,
     val validationErrors: Set<BuilderValidationError> = emptySet(),
+    val failedSaveCount: Int = 0,
     val hasUnsavedChanges: Boolean = false,
     val isSaving: Boolean = false,
 ) {
-    val invalidCueDurationIds: Set<RoutineCueId>
-        get() = steps.flatMap { step ->
-            step.cues.mapNotNull { cue ->
-                val raw = pendingCueDurations["${step.id.value}:${cue.id.value}"]
-                if (raw != null && raw.trim().toLongOrNull()?.let { it in 1L..MAX_SAFE_CUE_DURATION_SECONDS } != true) cue.id else null
+    val invalidSubtaskDurationIds: Set<RoutineSubtaskId>
+        get() = tasks.flatMap { task ->
+            task.subtasks.mapNotNull { subtask ->
+                val raw = pendingSubtaskDurations["${task.id.value}:${subtask.id.value}"]
+                if (raw != null && raw.trim().toLongOrNull()?.let { it in 1L..MAX_SAFE_SUBTASK_DURATION_SECONDS } != true) subtask.id else null
             }
         }.toSet()
 }
@@ -150,16 +154,16 @@ internal fun validateBuilderState(
 ): Set<BuilderValidationError> {
     val errors = mutableSetOf<BuilderValidationError>()
     if (state.title.isBlank()) errors += BuilderValidationError.ROUTINE_NAME_REQUIRED
-    if (state.steps.isEmpty()) errors += BuilderValidationError.STEP_REQUIRED
+    if (state.tasks.isEmpty()) errors += BuilderValidationError.TASK_REQUIRED
 
-    state.editingStepIndex?.takeIf { it in state.steps.indices }?.let {
-        if (state.pendingStepTitle.isBlank()) errors += BuilderValidationError.STEP_NAME_REQUIRED
+    state.editingTaskIndex?.takeIf { it in state.tasks.indices }?.let {
+        if (state.pendingTaskTitle.isBlank()) errors += BuilderValidationError.TASK_NAME_REQUIRED
         if (state.pendingTimerSeconds.isNotBlank() &&
             state.pendingTimerSeconds.trim().toLongOrNull()?.let { seconds -> seconds > 0 } != true
-        ) errors += BuilderValidationError.STEP_TIMER_MUST_BE_POSITIVE
+        ) errors += BuilderValidationError.TASK_TIMER_MUST_BE_POSITIVE
     }
-    state.steps.forEach { step ->
-        if (step.title.isBlank()) errors += BuilderValidationError.STEP_NAME_REQUIRED
+    state.tasks.forEach { task ->
+        if (task.title.isBlank()) errors += BuilderValidationError.TASK_NAME_REQUIRED
     }
     val schedule = if (state.scheduleEnabled) ScheduleRule(
         state.scheduleFrequency, state.scheduleHour, state.scheduleMinute,
@@ -184,50 +188,70 @@ internal fun validateBuilderState(
         errors += BuilderValidationError.SCHEDULE_REMINDER_EXCLUSIVE
     }
     if (state.hasConflictingLegacyRoutineSettings()) errors += BuilderValidationError.LEGACY_SETTINGS_CONFLICT
-    val cues = state.steps.flatMap { it.cues }
-    if (cues.size != cues.map { it.id }.distinct().size || cues.any { it.title.isBlank() }) {
-        errors += BuilderValidationError.CUE_FIELDS_INVALID
-    }
-    state.steps.forEach { step ->
-        var cueTotal = 0L
-        var cueDurationOverflow = false
-        step.cues.forEach { cue ->
-            val key = "${step.id.value}:${cue.id.value}"
-            val raw = state.pendingCueDurations[key]
-            val seconds = raw?.trim()?.toLongOrNull()
-            if ((raw != null && (seconds == null || seconds !in 1L..MAX_SAFE_CUE_DURATION_SECONDS)) ||
-                cue.durationSeconds <= 0L
-            ) {
-                errors += BuilderValidationError.CUE_FIELDS_INVALID
-            }
-            if (cue.durationSeconds > MAX_SAFE_CUE_DURATION_SECONDS ||
-                (cue.durationSeconds > 0L && cueTotal > MAX_SAFE_CUE_DURATION_SECONDS - cue.durationSeconds)
-            ) {
-                cueDurationOverflow = true
-            } else if (!cueDurationOverflow) {
-                cueTotal += cue.durationSeconds
-            }
-        }
-        if (cueDurationOverflow) {
-            errors += BuilderValidationError.CUE_FIELDS_INVALID
-        }
-    }
+    state.tasks.forEach { errors += state.subtaskErrorsFor(it) }
     return errors
 }
 
+/**
+ * Use this function to list the subtask errors that belong to one task, so the builder shows each message
+ * only under the task that has the problem. Inputs: `task` — one task of the receiver draft.
+ */
+internal fun BuilderState.subtaskErrorsFor(task: RoutineTask): Set<BuilderValidationError> {
+    val errors = mutableSetOf<BuilderValidationError>()
+    val subtaskIdCounts = tasks.flatMap { it.subtasks }.groupingBy { it.id }.eachCount()
+    val invalidDurationIds = invalidSubtaskDurationIds
+    var subtaskTotal = 0L
+    var subtaskDurationOverflow = false
+    task.subtasks.forEach { subtask ->
+        if (subtask.title.isBlank()) errors += BuilderValidationError.SUBTASK_TITLE_REQUIRED
+        if ((subtaskIdCounts[subtask.id] ?: 0) > 1) errors += BuilderValidationError.SUBTASK_ID_DUPLICATED
+        if (subtask.id in invalidDurationIds || subtask.durationSeconds <= 0L) {
+            errors += BuilderValidationError.SUBTASK_DURATION_INVALID
+        }
+        if (subtask.durationSeconds > MAX_SAFE_SUBTASK_DURATION_SECONDS ||
+            (subtask.durationSeconds > 0L && subtaskTotal > MAX_SAFE_SUBTASK_DURATION_SECONDS - subtask.durationSeconds)
+        ) {
+            subtaskDurationOverflow = true
+        } else if (!subtaskDurationOverflow) {
+            subtaskTotal += subtask.durationSeconds
+        }
+    }
+    if (subtaskDurationOverflow) errors += BuilderValidationError.SUBTASK_TOTAL_TOO_LONG
+    return errors
+}
+
+/** Use this function to list the shown errors that belong to the task at `index`, including its subtasks. */
+internal fun BuilderState.taskErrorsFor(index: Int): Set<BuilderValidationError> {
+    val task = tasks.getOrNull(index) ?: return emptySet()
+    val errors = subtaskErrorsFor(task).toMutableSet()
+    if (task.title.isBlank()) errors += BuilderValidationError.TASK_NAME_REQUIRED
+    if (index == editingTaskIndex && pendingTimerSeconds.isNotBlank() &&
+        pendingTimerSeconds.trim().toLongOrNull()?.let { it > 0 } != true
+    ) errors += BuilderValidationError.TASK_TIMER_MUST_BE_POSITIVE
+    return errors intersect validationErrors
+}
+
+/**
+ * Use this function after a failed save to find the task to expand. The task with an invalid timer comes
+ * first, because the builder cannot open another task until that timer is fixed.
+ */
+internal fun BuilderState.firstTaskIndexWithErrors(): Int? =
+    editingTaskIndex?.takeIf { BuilderValidationError.TASK_TIMER_MUST_BE_POSITIVE in taskErrorsFor(it) }
+        ?: tasks.indices.firstOrNull { taskErrorsFor(it).isNotEmpty() }
+
 private fun BuilderState.hasConflictingLegacyRoutineSettings(): Boolean {
-    if (steps.none {
-        it.stackingAnchorStepId != null || it.deadlineEpochMillis != null || it.reminderAtEpochMillis != null ||
+    if (tasks.none {
+        it.stackingAnchorTaskId != null || it.deadlineEpochMillis != null || it.reminderAtEpochMillis != null ||
             it.schedule != null || it.remindEveryMinutes != null
         }
     ) return false
     val routineSchedule = if (scheduleEnabled) ScheduleRule(
         scheduleFrequency, scheduleHour, scheduleMinute, scheduleDaysOfWeek, scheduleOneTimeEpochMillis,
     ) else null
-    val schedules = listOfNotNull(routineSchedule) + steps.mapNotNull { it.schedule }
-    val deadlines = listOfNotNull(deadlineEpochMillis) + steps.mapNotNull { it.deadlineEpochMillis }
-    val reminders = listOfNotNull(reminderAtEpochMillis) + steps.mapNotNull { it.reminderAtEpochMillis }
-    val repeats = listOfNotNull(remindEveryMinutes) + steps.mapNotNull { it.remindEveryMinutes }
+    val schedules = listOfNotNull(routineSchedule) + tasks.mapNotNull { it.schedule }
+    val deadlines = listOfNotNull(deadlineEpochMillis) + tasks.mapNotNull { it.deadlineEpochMillis }
+    val reminders = listOfNotNull(reminderAtEpochMillis) + tasks.mapNotNull { it.reminderAtEpochMillis }
+    val repeats = listOfNotNull(remindEveryMinutes) + tasks.mapNotNull { it.remindEveryMinutes }
     val choiceCount = listOf(schedules, deadlines, reminders).count { it.isNotEmpty() }
     return schedules.distinct().size > 1 || deadlines.distinct().size > 1 ||
         reminders.distinct().size > 1 || repeats.distinct().size > 1 || choiceCount > 1 ||
@@ -235,7 +259,7 @@ private fun BuilderState.hasConflictingLegacyRoutineSettings(): Boolean {
 }
 
 private fun BuilderState.clearLegacyRoutineSettings(): BuilderState = copy(
-    steps = steps.map {
+    tasks = tasks.map {
         it.copy(
             deadlineEpochMillis = null,
             reminderAtEpochMillis = null,
@@ -246,21 +270,21 @@ private fun BuilderState.clearLegacyRoutineSettings(): BuilderState = copy(
 )
 
 internal fun RoutineTemplate.toBuilderState(): BuilderState {
-    val legacySchedule = steps.firstNotNullOfOrNull { it.schedule }
+    val legacySchedule = tasks.firstNotNullOfOrNull { it.schedule }
     val migratedSchedule = schedule ?: legacySchedule
-    val legacySettingsStep = steps.firstOrNull {
+    val legacySettingsTask = tasks.firstOrNull {
         it.schedule != null || it.deadlineEpochMillis != null || it.reminderAtEpochMillis != null ||
             it.remindEveryMinutes != null
     }
     val draft = BuilderState(
         title = title,
         description = description,
-        steps = steps,
-        deadlineEpochMillis = deadlineEpochMillis ?: steps.firstNotNullOfOrNull { it.deadlineEpochMillis },
-        reminderAtEpochMillis = reminderAtEpochMillis ?: steps.firstNotNullOfOrNull { it.reminderAtEpochMillis },
-        remindEveryMinutes = remindEveryMinutes ?: steps.firstNotNullOfOrNull { it.remindEveryMinutes },
-        soundEnabled = legacySettingsStep?.soundEnabled ?: soundEnabled,
-        vibrateEnabled = legacySettingsStep?.vibrateEnabled ?: vibrateEnabled,
+        tasks = tasks,
+        deadlineEpochMillis = deadlineEpochMillis ?: tasks.firstNotNullOfOrNull { it.deadlineEpochMillis },
+        reminderAtEpochMillis = reminderAtEpochMillis ?: tasks.firstNotNullOfOrNull { it.reminderAtEpochMillis },
+        remindEveryMinutes = remindEveryMinutes ?: tasks.firstNotNullOfOrNull { it.remindEveryMinutes },
+        soundEnabled = legacySettingsTask?.soundEnabled ?: soundEnabled,
+        vibrateEnabled = legacySettingsTask?.vibrateEnabled ?: vibrateEnabled,
         soundSettings = soundSettings,
         scheduleEnabled = migratedSchedule != null,
         scheduleFrequency = migratedSchedule?.frequency ?: ScheduleFrequency.DAILY,
@@ -308,93 +332,98 @@ class RoutineBuilderViewModel(
      */
     private fun BuilderState.editableContent(): BuilderState = copy(
         validationErrors = emptySet(),
+        failedSaveCount = 0,
         hasUnsavedChanges = false,
         isSaving = false,
     )
 
-    /** Use this function to add one editable cue to a task with a stable identity and safe default duration. */
-    fun addCue(stepId: RoutineStepId) {
+    /**
+     * Use this function to add one editable subtask to a task with a stable identity.
+     * The first subtask inherits the task's timer, so the task's total duration does not change.
+     */
+    fun addSubtask(taskId: RoutineTaskId) {
         mutateDraft { draft ->
-            val steps = draft.steps.map { step ->
-                if (step.id != stepId) step else step.copy(
-                    timerSeconds = if (step.cues.isEmpty()) null else step.timerSeconds,
-                    cues = step.cues + com.taskchain.domain.model.RoutineCue(
-                        id = RoutineCueId(UUID.randomUUID().toString()),
+            val tasks = draft.tasks.map { task ->
+                if (task.id != taskId) task else task.copy(
+                    timerSeconds = if (task.subtasks.isEmpty()) null else task.timerSeconds,
+                    subtasks = task.subtasks + com.taskchain.domain.model.RoutineSubtask(
+                        id = RoutineSubtaskId(UUID.randomUUID().toString()),
                         title = "",
-                        durationSeconds = DEFAULT_CUE_DURATION_SECONDS,
+                        durationSeconds = task.timerSeconds?.takeIf { task.subtasks.isEmpty() }
+                            ?: DEFAULT_SUBTASK_DURATION_SECONDS,
                     ),
                 )
             }
-            draft.copy(steps = steps)
+            draft.copy(tasks = tasks)
         }
     }
 
-    /** Use this function when a cue title changes; stepId scopes the cue mutation to its owning task. */
-    fun setCueTitle(
-        stepId: RoutineStepId,
-        cueId: RoutineCueId,
+    /** Use this function when a subtask title changes; taskId scopes the subtask mutation to its owning task. */
+    fun setSubtaskTitle(
+        taskId: RoutineTaskId,
+        subtaskId: RoutineSubtaskId,
         title: String,
     ) {
         mutateDraft { draft ->
-            draft.copy(steps = draft.steps.map { step ->
-                if (step.id != stepId) step else step.copy(cues = step.cues.map { cue ->
-                    if (cue.id == cueId) cue.copy(title = title) else cue
+            draft.copy(tasks = draft.tasks.map { task ->
+                if (task.id != taskId) task else task.copy(subtasks = task.subtasks.map { subtask ->
+                    if (subtask.id == subtaskId) subtask.copy(title = title) else subtask
                 })
             })
         }
     }
 
-    /** Use this function when a cue duration field changes, retaining raw invalid input for visible validation. */
-    fun setCueDuration(
-        stepId: RoutineStepId,
-        cueId: RoutineCueId,
+    /** Use this function when a subtask duration field changes, retaining raw invalid input for visible validation. */
+    fun setSubtaskDuration(
+        taskId: RoutineTaskId,
+        subtaskId: RoutineSubtaskId,
         value: String,
     ) {
-        if (state.value.steps.none { step -> step.id == stepId && step.cues.any { it.id == cueId } }) return
+        if (state.value.tasks.none { task -> task.id == taskId && task.subtasks.any { it.id == subtaskId } }) return
         mutateDraft { draft ->
             val seconds = value.trim().toLongOrNull()?.takeIf { it > 0L }
-            val key = "${stepId.value}:${cueId.value}"
+            val key = "${taskId.value}:${subtaskId.value}"
             draft.copy(
-                steps = draft.steps.map { step ->
-                    if (step.id != stepId || seconds == null) step else step.copy(cues = step.cues.map { cue ->
-                        if (cue.id == cueId) cue.copy(durationSeconds = seconds) else cue
+                tasks = draft.tasks.map { task ->
+                    if (task.id != taskId || seconds == null) task else task.copy(subtasks = task.subtasks.map { subtask ->
+                        if (subtask.id == subtaskId) subtask.copy(durationSeconds = seconds) else subtask
                     })
                 },
-                pendingCueDurations = draft.pendingCueDurations + (key to value),
+                pendingSubtaskDurations = draft.pendingSubtaskDurations + (key to value),
             )
         }
     }
 
-    /** Use this function when removing one cue from its owning task. */
-    fun removeCue(
-        stepId: RoutineStepId,
-        cueId: RoutineCueId,
+    /** Use this function when removing one subtask from its owning task. */
+    fun removeSubtask(
+        taskId: RoutineTaskId,
+        subtaskId: RoutineSubtaskId,
     ) {
         mutateDraft { draft ->
-            val key = "${stepId.value}:${cueId.value}"
+            val key = "${taskId.value}:${subtaskId.value}"
             draft.copy(
-                steps = draft.steps.map { step ->
-                    if (step.id == stepId) step.copy(cues = step.cues.filterNot { it.id == cueId }) else step
+                tasks = draft.tasks.map { task ->
+                    if (task.id == taskId) task.copy(subtasks = task.subtasks.filterNot { it.id == subtaskId }) else task
                 },
-                pendingCueDurations = draft.pendingCueDurations - key,
+                pendingSubtaskDurations = draft.pendingSubtaskDurations - key,
             )
         }
     }
 
-    /** Use this function to move a cue within one task while preserving the task's other fields atomically. */
-    fun moveCue(
-        stepId: RoutineStepId,
-        cueId: RoutineCueId,
+    /** Use this function to move a subtask within one task while preserving the task's other fields atomically. */
+    fun moveSubtask(
+        taskId: RoutineTaskId,
+        subtaskId: RoutineSubtaskId,
         offset: Int,
     ) {
         if (offset == 0) return
         mutateDraft { draft ->
-            draft.copy(steps = draft.steps.map { step ->
-                if (step.id != stepId) step else {
-                    val index = step.cues.indexOfFirst { it.id == cueId }
+            draft.copy(tasks = draft.tasks.map { task ->
+                if (task.id != taskId) task else {
+                    val index = task.subtasks.indexOfFirst { it.id == subtaskId }
                     val target = index.toLong() + offset.toLong()
-                    if (index < 0 || target < 0L || target >= step.cues.size) step else step.copy(
-                        cues = step.cues.toMutableList().apply { add(target.toInt(), removeAt(index)) },
+                    if (index < 0 || target < 0L || target >= task.subtasks.size) task else task.copy(
+                        subtasks = task.subtasks.toMutableList().apply { add(target.toInt(), removeAt(index)) },
                     )
                 }
             })
@@ -421,22 +450,22 @@ class RoutineBuilderViewModel(
         mutateDraft { it.copy(description = value) }
     }
 
-    /** Use this function when the expanded step title changes. */
-    fun setPendingStepTitle(value: String) {
-        val index = state.value.editingStepIndex?.takeIf { it in state.value.steps.indices } ?: return
+    /** Use this function when the expanded task title changes. */
+    fun setPendingTaskTitle(value: String) {
+        val index = state.value.editingTaskIndex?.takeIf { it in state.value.tasks.indices } ?: return
         mutateDraft { draft ->
-            val steps = draft.steps.toMutableList().apply { set(index, get(index).copy(title = value)) }
-            draft.copy(steps = steps, pendingStepTitle = value)
+            val tasks = draft.tasks.toMutableList().apply { set(index, get(index).copy(title = value)) }
+            draft.copy(tasks = tasks, pendingTaskTitle = value)
         }
     }
 
-    /** Use this function when the expanded step's optional duration changes. */
+    /** Use this function when the expanded task's optional duration changes. */
     fun setPendingTimerSeconds(value: String) {
-        val index = state.value.editingStepIndex?.takeIf { it in state.value.steps.indices } ?: return
+        val index = state.value.editingTaskIndex?.takeIf { it in state.value.tasks.indices } ?: return
         val seconds = value.trim().toLongOrNull()?.takeIf { it > 0 }
         mutateDraft { draft ->
-            val steps = draft.steps.toMutableList().apply { set(index, get(index).copy(timerSeconds = seconds)) }
-            draft.copy(steps = steps, pendingTimerSeconds = value)
+            val tasks = draft.tasks.toMutableList().apply { set(index, get(index).copy(timerSeconds = seconds)) }
+            draft.copy(tasks = tasks, pendingTimerSeconds = value)
         }
     }
 
@@ -479,32 +508,32 @@ class RoutineBuilderViewModel(
     /** Use this function when haptic routine Reminder feedback is enabled or disabled. */
     fun setVibrateEnabled(value: Boolean) { mutateDraft { it.copy(vibrateEnabled = value) } }
 
-    /** Use this function when an existing draft step should be edited in place. */
-    fun editStep(index: Int) {
+    /** Use this function when an existing draft task should be edited in place. */
+    fun editTask(index: Int) {
         val draft = state.value
-        val step = draft.steps.getOrNull(index) ?: return
-        if (draft.editingStepIndex == index) return
-        if (draft.editingStepIndex != null && draft.pendingTimerSeconds.isNotBlank() &&
+        val task = draft.tasks.getOrNull(index) ?: return
+        if (draft.editingTaskIndex == index) return
+        if (draft.editingTaskIndex != null && draft.pendingTimerSeconds.isNotBlank() &&
             draft.pendingTimerSeconds.trim().toLongOrNull()?.let { it > 0 } != true
         ) return
         state.value = draft.copy(
-            editingStepIndex = index,
-            pendingStepTitle = step.title,
-            pendingTimerSeconds = step.timerSeconds?.toString() ?: "",
+            editingTaskIndex = index,
+            pendingTaskTitle = task.title,
+            pendingTimerSeconds = task.timerSeconds?.toString() ?: "",
         )
     }
 
-    /** Use this function when Add Step should create and expand a task without requiring a prefilled name. */
-    fun addStep(defaultTitle: String) {
+    /** Use this function when Add Task should create and expand a task without requiring a prefilled name. */
+    fun addTask(defaultTitle: String) {
         val draft = state.value
-        if (draft.editingStepIndex != null && draft.pendingTimerSeconds.isNotBlank() &&
+        if (draft.editingTaskIndex != null && draft.pendingTimerSeconds.isNotBlank() &&
             draft.pendingTimerSeconds.trim().toLongOrNull()?.let { it > 0 } != true
         ) return
-        val steps = draft.steps + RoutineStep(container.newStepId(), defaultTitle)
+        val tasks = draft.tasks + RoutineTask(container.newTaskId(), defaultTitle)
         val candidate = draft.copy(
-            steps = steps,
-            editingStepIndex = steps.lastIndex,
-            pendingStepTitle = defaultTitle,
+            tasks = tasks,
+            editingTaskIndex = tasks.lastIndex,
+            pendingTaskTitle = defaultTitle,
             pendingTimerSeconds = "",
             hasUnsavedChanges = true,
         )
@@ -515,17 +544,17 @@ class RoutineBuilderViewModel(
         )
     }
 
-    /** Use this function when an ordered draft step moves by a list offset. */
-    fun moveStep(index: Int, offset: Int) {
+    /** Use this function when an ordered draft task moves by a list offset. */
+    fun moveTask(index: Int, offset: Int) {
         val target = index + offset
-        val steps = state.value.steps
-        if (index !in steps.indices || target !in steps.indices) return
-        val reordered = steps.toMutableList().apply { add(target, removeAt(index)) }
-        val editingId = state.value.editingStepIndex?.let { steps.getOrNull(it)?.id }
-        if (reordered == steps) return
+        val tasks = state.value.tasks
+        if (index !in tasks.indices || target !in tasks.indices) return
+        val reordered = tasks.toMutableList().apply { add(target, removeAt(index)) }
+        val editingId = state.value.editingTaskIndex?.let { tasks.getOrNull(it)?.id }
+        if (reordered == tasks) return
         val candidate = state.value.copy(
-            steps = reordered,
-            editingStepIndex = editingId?.let { id -> reordered.indexOfFirst { it.id == id }.takeIf { it >= 0 } },
+            tasks = reordered,
+            editingTaskIndex = editingId?.let { id -> reordered.indexOfFirst { it.id == id }.takeIf { it >= 0 } },
             hasUnsavedChanges = true,
         )
         state.value = candidate.copy(
@@ -563,23 +592,23 @@ class RoutineBuilderViewModel(
         mutateDraft { it.clearLegacyRoutineSettings().copy(scheduleOneTimeEpochMillis = value) }
     }
 
-    /** Use this function when removing one step from the current draft. */
-    fun removeStep(index: Int) {
+    /** Use this function when removing one task from the current draft. */
+    fun removeTask(index: Int) {
         val draft = state.value
-        if (index !in draft.steps.indices) return
-        val editingIndex = draft.editingStepIndex
-        val removedEditingStep = editingIndex == index
-        val removedStepId = draft.steps[index].id.value
+        if (index !in draft.tasks.indices) return
+        val editingIndex = draft.editingTaskIndex
+        val removedEditingTask = editingIndex == index
+        val removedTaskId = draft.tasks[index].id.value
         val candidate = draft.copy(
-            steps = draft.steps.filterIndexed { itemIndex, _ -> itemIndex != index },
-            pendingCueDurations = draft.pendingCueDurations.filterKeys { !it.startsWith("$removedStepId:") },
-            editingStepIndex = when {
-                removedEditingStep -> null
+            tasks = draft.tasks.filterIndexed { itemIndex, _ -> itemIndex != index },
+            pendingSubtaskDurations = draft.pendingSubtaskDurations.filterKeys { !it.startsWith("$removedTaskId:") },
+            editingTaskIndex = when {
+                removedEditingTask -> null
                 editingIndex != null && editingIndex > index -> editingIndex - 1
                 else -> editingIndex
             },
-            pendingStepTitle = if (removedEditingStep) "" else draft.pendingStepTitle,
-            pendingTimerSeconds = if (removedEditingStep) "" else draft.pendingTimerSeconds,
+            pendingTaskTitle = if (removedEditingTask) "" else draft.pendingTaskTitle,
+            pendingTimerSeconds = if (removedEditingTask) "" else draft.pendingTimerSeconds,
             hasUnsavedChanges = true,
         )
         state.value = candidate.copy(
@@ -594,13 +623,13 @@ class RoutineBuilderViewModel(
         val initial = state.value
         val initialErrors = validateBuilderState(initial, now)
         if (initialErrors.isNotEmpty()) {
-            state.value = initial.copy(validationErrors = initialErrors)
+            state.value = initial.copy(validationErrors = initialErrors, failedSaveCount = initial.failedSaveCount + 1)
             return
         }
         val draft = state.value
         val errors = validateBuilderState(draft, now)
         if (errors.isNotEmpty()) {
-            state.value = draft.copy(validationErrors = errors)
+            state.value = draft.copy(validationErrors = errors, failedSaveCount = draft.failedSaveCount + 1)
             return
         }
         state.value = draft.copy(validationErrors = emptySet(), isSaving = true)
@@ -614,10 +643,10 @@ class RoutineBuilderViewModel(
                         ?: EntityMetadata(now, now),
                     title = draft.title.trim(),
                     description = draft.description.trim(),
-                    steps = draft.steps.map { step ->
-                        step.copy(
-                        title = step.title.trim(),
-                        cues = step.cues.map { cue -> cue.copy(title = cue.title.trim()) },
+                    tasks = draft.tasks.map { task ->
+                        task.copy(
+                        title = task.title.trim(),
+                        subtasks = task.subtasks.map { subtask -> subtask.copy(title = subtask.title.trim()) },
                         deadlineEpochMillis = null,
                         reminderAtEpochMillis = null,
                             schedule = null,
@@ -644,7 +673,7 @@ class RoutineBuilderViewModel(
                         ?: throw IllegalArgumentException("Routine schedule is not in the future")
                 } ?: routine.reminderAtEpochMillis
                 container.routines.save(routine)
-                previous?.steps?.forEach { step -> container.reminders.cancel("step:${step.id.value}".hashCode()) }
+                previous?.tasks?.forEach { task -> container.reminders.cancel("step:${task.id.value}".hashCode()) }
                 if (trigger != null) {
                     container.reminders.schedule(routine.toReminderRequest(trigger))
                 }
@@ -725,10 +754,10 @@ class RoutineRunnerViewModel(
     /** Use this function when Complete is pressed for the displayed task. */
     fun complete() = transition { run, now ->
         val completed = container.runEngine.completeCurrent(run, now)
-        val completedMain = completed.steps.getOrNull(run.currentStepIndex)?.status == RunStepStatus.COMPLETED &&
-            run.steps.getOrNull(run.currentStepIndex)?.status != RunStepStatus.COMPLETED
-        if (transitionsEnabled && foreground && completedMain && completed.currentStepIndex != run.currentStepIndex) {
-            container.runEngine.prepareNextStep(
+        val completedMain = completed.tasks.getOrNull(run.currentTaskIndex)?.status == RunTaskStatus.COMPLETED &&
+            run.tasks.getOrNull(run.currentTaskIndex)?.status != RunTaskStatus.COMPLETED
+        if (transitionsEnabled && foreground && completedMain && completed.currentTaskIndex != run.currentTaskIndex) {
+            container.runEngine.prepareNextTask(
                 completed,
                 now,
                 RunnerMotion.completionDurationMillis.toLong() + RunnerMotion.taskReadyTransitionDurationMillis,
@@ -745,7 +774,7 @@ class RoutineRunnerViewModel(
     fun back() = transition { run, now -> container.runEngine.back(run, now) }
 
     /** Use this function for a right swipe to revisit the next finished task; no inputs, dependency is RoutineRunEngine. */
-    fun advanceToNextFinishedStep() = transition { run, now -> container.runEngine.advanceToNextFinishedStep(run, now) }
+    fun advanceToNextFinishedTask() = transition { run, now -> container.runEngine.advanceToNextFinishedTask(run, now) }
 
     /** Use this function when Pause is pressed for the displayed task. */
     fun pause() = transition { run, now -> container.runEngine.pauseCurrent(run, now) }
@@ -757,7 +786,7 @@ class RoutineRunnerViewModel(
     fun continueRun() = transition { run, now -> container.runEngine.continueRun(run, now) }
 
     /** Use this function when the user selects an unfinished task from the finish dialog. */
-    fun selectStep(index: Int) = transition { run, now -> container.runEngine.selectStep(run, index, now) }
+    fun selectTask(index: Int) = transition { run, now -> container.runEngine.selectTask(run, index, now) }
 
     /** Use this function when the user confirms a completed run. */
     fun confirmComplete() = finish { run, now -> container.runEngine.confirmComplete(run, now) }
@@ -819,8 +848,8 @@ class RoutineRunnerViewModel(
         if (!foreground || run.status != RunStatus.ACTIVE || run.finishConfirmationRequested || run.abortConfirmationRequested) {
             return@withLock
         }
-        val current = run.steps.getOrNull(run.currentStepIndex) ?: return@withLock
-        if (current.status != RunStepStatus.PENDING || current.pausedAtEpochMillis != null) return@withLock
+        val current = run.tasks.getOrNull(run.currentTaskIndex) ?: return@withLock
+        if (current.status != RunTaskStatus.PENDING || current.pausedAtEpochMillis != null) return@withLock
 
         val nudge = RunFeedbackPolicy.evaluateNudge(
             run,
@@ -837,11 +866,11 @@ class RoutineRunnerViewModel(
             state.value = state.value.copy(run = nudge.run)
             run = nudge.run
             if (nudge.shouldFire) {
-                fireFeedback(run, RunFeedbackEvent(SoundToken.TaskNudge, run.currentStepIndex))
+                fireFeedback(run, RunFeedbackEvent(SoundToken.TaskNudge, run.currentTaskIndex))
             }
         }
         if (container.runEngine.needsTimerFeedback(run, now)) {
-            val step = run.steps[run.currentStepIndex].source
+            val task = run.tasks[run.currentTaskIndex].source
             val acknowledged = container.runEngine.acknowledgeTimerFeedback(run, now)
             try {
                 container.activeRun.saveActive(acknowledged)
@@ -851,8 +880,8 @@ class RoutineRunnerViewModel(
             state.value = state.value.copy(run = acknowledged)
             if (!foreground) return@withLock
             container.timerFeedback.fire(
-                soundEnabled = run.routineSoundEnabled && step.soundEnabled,
-                vibrateEnabled = run.routineVibrateEnabled && step.vibrateEnabled,
+                soundEnabled = run.routineSoundEnabled && task.soundEnabled,
+                vibrateEnabled = run.routineVibrateEnabled && task.vibrateEnabled,
                 soundSettings = run.soundSettings,
                 intensity = feedbackIntensity,
             )
@@ -865,9 +894,9 @@ class RoutineRunnerViewModel(
         viewModelScope.launch {
             runMutex.withLock {
                 val run = state.value.run ?: return@withLock
-                if (run.status != RunStatus.ACTIVE || run.currentStepIndex != expected.currentStepIndex ||
-                    run.steps.getOrNull(run.currentStepIndex)?.activeCueId !=
-                    expected.steps.getOrNull(expected.currentStepIndex)?.activeCueId ||
+                if (run.status != RunStatus.ACTIVE || run.currentTaskIndex != expected.currentTaskIndex ||
+                    run.tasks.getOrNull(run.currentTaskIndex)?.activeSubtaskId !=
+                    expected.tasks.getOrNull(expected.currentTaskIndex)?.activeSubtaskId ||
                     run.finishConfirmationRequested != expected.finishConfirmationRequested ||
                     run.abortConfirmationRequested != expected.abortConfirmationRequested
                 ) return@withLock
@@ -890,7 +919,7 @@ class RoutineRunnerViewModel(
         viewModelScope.launch {
             runMutex.withLock {
                 val run = state.value.run ?: return@withLock
-                if (run.status != RunStatus.ACTIVE || run.currentStepIndex != expected.currentStepIndex ||
+                if (run.status != RunStatus.ACTIVE || run.currentTaskIndex != expected.currentTaskIndex ||
                     run.finishConfirmationRequested != expected.finishConfirmationRequested ||
                     run.abortConfirmationRequested != expected.abortConfirmationRequested
                 ) return@withLock
@@ -936,10 +965,10 @@ class RoutineRunnerViewModel(
     /** Use this function to pass one semantic event through independent sound and haptic gates. */
     private fun fireFeedback(run: RoutineRun, event: RunFeedbackEvent) {
         if (!foreground) return
-        val step = run.steps.getOrNull(event.stepIndex) ?: return
-        val soundEnabled = run.routineSoundEnabled && step.source.soundEnabled && run.soundSettings[event.token].enabled
+        val task = run.tasks.getOrNull(event.taskIndex) ?: return
+        val soundEnabled = run.routineSoundEnabled && task.source.soundEnabled && run.soundSettings[event.token].enabled
         val vibrateEnabled = event.token == SoundToken.TaskNudge &&
-            run.routineVibrateEnabled && step.source.vibrateEnabled
+            run.routineVibrateEnabled && task.source.vibrateEnabled
         runCatching {
             container.taskFeedback.fire(
                 token = event.token,
@@ -1021,9 +1050,9 @@ class SettingsViewModel(private val container: AppContainer) : ViewModel() {
         viewModelScope.launch { container.preferences.setBubbleOnMinimize(enabled) }
     }
 
-    /** Use this function when cue countdown visibility is toggled in Settings. */
-    fun setShowCueTimeRemaining(enabled: Boolean) {
-        viewModelScope.launch { container.preferences.setShowCueTimeRemaining(enabled) }
+    /** Use this function when subtask countdown visibility is toggled in Settings. */
+    fun setShowSubtaskTimeRemaining(enabled: Boolean) {
+        viewModelScope.launch { container.preferences.setShowSubtaskTimeRemaining(enabled) }
     }
 
     private companion object {

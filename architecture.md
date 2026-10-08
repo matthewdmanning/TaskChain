@@ -9,7 +9,7 @@ UI routes/screens -> feature ViewModels -> domain services -> repository interfa
                                       Android adapters <- file/DataStore storage
 ```
 
-- `domain/model` defines routines, immutable run snapshots, completion events, routine scheduling and reminder settings, and step timer settings.
+- `domain/model` defines routines, immutable run snapshots, completion events, routine scheduling and reminder settings, and task timer settings.
 - `domain/schedule` owns platform-neutral recurrence and next-trigger calculation.
 - `domain/run` owns run transitions, timing, skip/complete rules, confirmation, feedback eligibility, and invariants.
 - `data` exposes repository interfaces and local JSON/DataStore implementations.
@@ -37,8 +37,8 @@ cyberpunkAndroid supplies UI components, theme tokens, and effects through the p
 
 ## Runner feature composition
 
-The Run route owns ViewModel creation, lifecycle-aware observation, navigation, and completion/readiness presentation. `RoutineRunnerScreen` receives immutable state, derived timer values, and callbacks; nested cues and runner visuals compose within that screen. No runner feature observes repository emissions to infer navigation or starts an independent polling clock.
+The Run route owns ViewModel creation, lifecycle-aware observation, navigation, and completion/readiness presentation. `RoutineRunnerScreen` receives immutable state, derived timer values, and callbacks; nested subtasks and runner visuals compose within that screen. No runner feature observes repository emissions to infer navigation or starts an independent polling clock.
 
-`RoutineRunEngine` owns cue advancement, frozen elapsed time, and behind-schedule policy. Cue definitions live inside `RoutineStep`; persisted active identity and advancement markers live inside `RoutineRunStep`. All run sequence indexes and completion/progress summaries refer to main tasks. The existing ViewModel persists transitions before semantic feedback dispatch, including `CueAdvanced`.
+`RoutineRunEngine` owns subtask advancement, frozen elapsed time, and behind-schedule policy. Subtask definitions live inside `RoutineTask`; persisted active identity and advancement markers live inside `RoutineRunTask`. All run sequence indexes and completion/progress summaries refer to main tasks. The existing ViewModel persists transitions before semantic feedback dispatch, including `subtaskAdvanced`.
 
-The Screen displays only the current cue. Cue rims, next-up main tasks, segmented main progress and transient feedback use that same run snapshot and sampled time. Gesture detection and drag feedback stay in Compose; they emit existing ViewModel intents and preserve accessibility actions. Font-sensitive action rows wrap, and shared typography is configured at the theme boundary.
+The Screen displays only the current subtask. Subtask rims, next-up main tasks, segmented main progress and transient feedback use that same run snapshot and sampled time. Gesture detection and drag feedback stay in Compose; they emit existing ViewModel intents and preserve accessibility actions. Font-sensitive action rows wrap, and shared typography is configured at the theme boundary.

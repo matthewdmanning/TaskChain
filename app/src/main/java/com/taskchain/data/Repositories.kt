@@ -63,6 +63,6 @@ interface UserPreferenceRepository {
     /** Use this function when minimize bubble behavior changes. */
     suspend fun setBubbleOnMinimize(enabled: Boolean)
 
-    /** Use this function when Settings toggles cue countdown visibility in the runner. */
-    suspend fun setShowCueTimeRemaining(enabled: Boolean)
+    /** Use this function when Settings toggles subtask countdown visibility in the runner. */
+    suspend fun setShowSubtaskTimeRemaining(enabled: Boolean)
 }

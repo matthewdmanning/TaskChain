@@ -3,11 +3,11 @@ package com.taskchain.domain.run
 import com.taskchain.domain.model.EntityMetadata
 import com.taskchain.domain.model.RoutineId
 import com.taskchain.domain.model.RoutineRunId
-import com.taskchain.domain.model.RoutineStep
-import com.taskchain.domain.model.RoutineStepId
+import com.taskchain.domain.model.RoutineTask
+import com.taskchain.domain.model.RoutineTaskId
 import com.taskchain.domain.model.RoutineTemplate
 import com.taskchain.domain.model.RunStatus
-import com.taskchain.domain.model.RunStepStatus
+import com.taskchain.domain.model.RunTaskStatus
 import com.taskchain.domain.model.SoundSetting
 import com.taskchain.domain.model.SoundSettings
 import com.taskchain.domain.model.SoundToken
@@ -24,9 +24,9 @@ class RoutineRunEngineTest {
         id = RoutineId("routine"),
         metadata = EntityMetadata(0, 0),
         title = "Morning",
-        steps = listOf(
-            RoutineStep(RoutineStepId("one"), "One", timerSeconds = timerSeconds),
-            RoutineStep(RoutineStepId("two"), "Two"),
+        tasks = listOf(
+            RoutineTask(RoutineTaskId("one"), "One", timerSeconds = timerSeconds),
+            RoutineTask(RoutineTaskId("two"), "Two"),
         ),
     )
 
@@ -41,7 +41,7 @@ class RoutineRunEngineTest {
         val continued = engine.continueRun(confirming, 42_000)
         val resumed = engine.resumeCurrent(continued, 61_000)
 
-        assertEquals(41_000L, resumed.steps.first().startedAtEpochMillis)
+        assertEquals(41_000L, resumed.tasks.first().startedAtEpochMillis)
         assertEquals(100_000L, engine.remainingMillis(resumed, 61_000))
     }
 
@@ -53,23 +53,23 @@ class RoutineRunEngineTest {
             id = RoutineId("routine"),
             metadata = EntityMetadata(0, 0),
             title = "Morning",
-            steps = listOf(
-                RoutineStep(RoutineStepId("one"), "One", timerSeconds = 10),
-                RoutineStep(RoutineStepId("two"), "Two"),
+            tasks = listOf(
+                RoutineTask(RoutineTaskId("one"), "One", timerSeconds = 10),
+                RoutineTask(RoutineTaskId("two"), "Two"),
             ),
         )
 
         val started = engine.start(routine, RoutineRunId("run"), nowEpochMillis = 1_000)
         val skipped = engine.skipCurrent(started, nowEpochMillis = 4_000)
         val back = engine.back(skipped, nowEpochMillis = 5_000)
-        val revisited = engine.selectStep(back, index = 1, nowEpochMillis = 6_000)
+        val revisited = engine.selectTask(back, index = 1, nowEpochMillis = 6_000)
         val requested = engine.completeCurrent(revisited, nowEpochMillis = 7_000)
 
-        assertEquals(RunStepStatus.SKIPPED, back.steps.first().status)
-        assertEquals(3_000L, back.steps.first().actualDurationMillis)
-        assertFalse(back.steps.first().startedAtEpochMillis == 5_000L)
+        assertEquals(RunTaskStatus.SKIPPED, back.tasks.first().status)
+        assertEquals(3_000L, back.tasks.first().actualDurationMillis)
+        assertFalse(back.tasks.first().startedAtEpochMillis == 5_000L)
         assertTrue(requested.finishConfirmationRequested)
-        assertEquals(listOf(0), engine.unfinishedStepIndexes(requested))
+        assertEquals(listOf(0), engine.unfinishedTaskIndexes(requested))
         assertEquals(RunStatus.COMPLETED, engine.confirmComplete(requested, 8_000).status)
     }
 
@@ -78,37 +78,37 @@ class RoutineRunEngineTest {
     fun transitionsRequireAnActiveRun() {
         val engine = RoutineRunEngine()
         val started = engine.start(routine(), RoutineRunId("run"), 1_000)
-        val requested = engine.completeCurrent(engine.selectStep(started, 1, 2_000), 2_000)
+        val requested = engine.completeCurrent(engine.selectTask(started, 1, 2_000), 2_000)
         val completed = engine.confirmComplete(requested, 3_000)
 
-        engine.selectStep(completed, 0, 4_000)
+        engine.selectTask(completed, 0, 4_000)
     }
 
-    /** Use this function to verify that selecting an out-of-range step fails before mutation. */
+    /** Use this function to verify that selecting an out-of-range task fails before mutation. */
     @Test(expected = IllegalArgumentException::class)
-    fun rejectsInvalidStepIndex() {
-        RoutineRunEngine().selectStep(
+    fun rejectsInvalidTaskIndex() {
+        RoutineRunEngine().selectTask(
             RoutineRunEngine().start(routine(), RoutineRunId("run"), 1_000),
             2,
             2_000,
         )
     }
 
-    /** Use this function to verify that completing a skipped step preserves its recorded timing. */
+    /** Use this function to verify that completing a skipped task preserves its recorded timing. */
     @Test
-    fun completingSkippedStepChangesOnlyItsStatus() {
+    fun completingSkippedTaskChangesOnlyItsStatus() {
         val engine = RoutineRunEngine()
         val started = engine.start(routine(timerSeconds = 10), RoutineRunId("run"), 1_000)
         val skipped = engine.skipCurrent(started, 4_000)
-        val revisited = engine.selectStep(skipped, 0, 9_000)
+        val revisited = engine.selectTask(skipped, 0, 9_000)
         val completed = engine.completeCurrent(revisited, 10_000)
-        val step = completed.steps.first()
+        val task = completed.tasks.first()
 
-        assertEquals(RunStepStatus.COMPLETED, step.status)
-        assertEquals(1_000L, step.startedAtEpochMillis)
-        assertEquals(4_000L, step.finishedAtEpochMillis)
-        assertEquals(10_000L, step.completedAtEpochMillis)
-        assertEquals(3_000L, step.actualDurationMillis)
+        assertEquals(RunTaskStatus.COMPLETED, task.status)
+        assertEquals(1_000L, task.startedAtEpochMillis)
+        assertEquals(4_000L, task.finishedAtEpochMillis)
+        assertEquals(10_000L, task.completedAtEpochMillis)
+        assertEquals(3_000L, task.actualDurationMillis)
     }
 
     /** Use this function to verify explicit pause and resume preserve elapsed timer time. */
@@ -118,18 +118,18 @@ class RoutineRunEngineTest {
         val started = engine.start(routine(timerSeconds = 10), RoutineRunId("run"), 1_000)
 
         val paused = engine.pauseCurrent(started, 4_000)
-        assertEquals(4_000L, paused.steps.first().pausedAtEpochMillis)
+        assertEquals(4_000L, paused.tasks.first().pausedAtEpochMillis)
         assertEquals(7_000L, engine.remainingMillis(paused, 9_000))
 
         val resumed = engine.resumeCurrent(paused, 9_000)
-        assertEquals(null, resumed.steps.first().pausedAtEpochMillis)
-        assertEquals(6_000L, resumed.steps.first().startedAtEpochMillis)
+        assertEquals(null, resumed.tasks.first().pausedAtEpochMillis)
+        assertEquals(6_000L, resumed.tasks.first().startedAtEpochMillis)
         assertEquals(6_000L, engine.remainingMillis(resumed, 10_000))
     }
 
     /**
      * Use this function to verify that explicitly resuming a skipped paused task preserves elapsed time.
-     * Inputs: none; the test builds an active run with a paused then skipped current step.
+     * Inputs: none; the test builds an active run with a paused then skipped current task.
      * Dependencies: `RoutineRunEngine`, `routine`, and JUnit assertions.
      */
     @Test
@@ -141,56 +141,56 @@ class RoutineRunEngineTest {
         val revisited = engine.back(skipped, 6_000)
         val resumed = engine.resumeCurrent(revisited, 9_000)
 
-        assertEquals(RunStepStatus.SKIPPED, revisited.steps.first().status)
-        assertEquals(1_000L, revisited.steps.first().startedAtEpochMillis)
-        assertEquals(RunStepStatus.PENDING, resumed.steps.first().status)
-        assertEquals(6_000L, resumed.steps.first().startedAtEpochMillis)
-        assertEquals(null, resumed.steps.first().pausedAtEpochMillis)
+        assertEquals(RunTaskStatus.SKIPPED, revisited.tasks.first().status)
+        assertEquals(1_000L, revisited.tasks.first().startedAtEpochMillis)
+        assertEquals(RunTaskStatus.PENDING, resumed.tasks.first().status)
+        assertEquals(6_000L, resumed.tasks.first().startedAtEpochMillis)
+        assertEquals(null, resumed.tasks.first().pausedAtEpochMillis)
         assertEquals(7_000L, engine.remainingMillis(resumed, 9_000))
     }
 
     /**
      * Use this function to verify right-swipe navigation selects only the next finished task.
-     * Inputs: none; the test builds active runs with completed and skipped candidates after the current step.
+     * Inputs: none; the test builds active runs with completed and skipped candidates after the current task.
      * Dependencies: `RoutineRunEngine`, `routine`, and JUnit assertions.
      */
     @Test
     fun advancesToNextCompletedOrSkippedTaskOnly() {
         val engine = RoutineRunEngine()
-        listOf(RunStepStatus.COMPLETED, RunStepStatus.SKIPPED).forEach { finishedStatus ->
+        listOf(RunTaskStatus.COMPLETED, RunTaskStatus.SKIPPED).forEach { finishedStatus ->
             val startedRun = engine.start(routine(), RoutineRunId("run-$finishedStatus"), 1_000)
             val started = startedRun.copy(
-                steps = startedRun.steps.mapIndexed { index, step ->
-                    if (index == 1) step.copy(status = finishedStatus) else step
+                tasks = startedRun.tasks.mapIndexed { index, task ->
+                    if (index == 1) task.copy(status = finishedStatus) else task
                 },
             )
-            val advanced = engine.advanceToNextFinishedStep(started, 2_000)
+            val advanced = engine.advanceToNextFinishedTask(started, 2_000)
 
-            assertEquals(1, advanced.currentStepIndex)
-            assertEquals(finishedStatus, advanced.steps[1].status)
-            assertEquals(advanced, engine.advanceToNextFinishedStep(advanced, 3_000))
+            assertEquals(1, advanced.currentTaskIndex)
+            assertEquals(finishedStatus, advanced.tasks[1].status)
+            assertEquals(advanced, engine.advanceToNextFinishedTask(advanced, 3_000))
         }
     }
 
     /**
      * Use this function to verify that a newly entered timer waits for the presentation delay without changing persisted completion time.
-     * Inputs: none; the test builds a two-step timed run and completes the first step.
+     * Inputs: none; the test builds a two-task timed run and completes the first task.
      * Dependencies: `RoutineRunEngine`, `RoutineTemplate`, and JUnit assertions.
      */
     @Test
-    fun preparedNextStepStartsAfterReadyTransition() {
+    fun preparedNextTaskStartsAfterReadyTransition() {
         val engine = RoutineRunEngine()
         val baseRoutine = routine(timerSeconds = 10)
-        val timedRoutine = baseRoutine.copy(steps = baseRoutine.steps.map { it.copy(timerSeconds = 10) })
+        val timedRoutine = baseRoutine.copy(tasks = baseRoutine.tasks.map { it.copy(timerSeconds = 10) })
         val started = engine.start(timedRoutine, RoutineRunId("run"), 1_000)
         val completed = engine.completeCurrent(started, 2_000)
-        val prepared = engine.prepareNextStep(completed, 2_000, 5_350)
+        val prepared = engine.prepareNextTask(completed, 2_000, 5_350)
 
-        assertEquals(2_000L, prepared.steps.first().finishedAtEpochMillis)
-        assertEquals(7_350L, prepared.steps.last().startedAtEpochMillis)
+        assertEquals(2_000L, prepared.tasks.first().finishedAtEpochMillis)
+        assertEquals(7_350L, prepared.tasks.last().startedAtEpochMillis)
         assertEquals(10_000L, engine.remainingMillis(prepared, 2_000))
         assertEquals(10_000L, engine.remainingMillis(prepared, 7_350))
-        assertEquals(prepared, engine.prepareNextStep(prepared, 3_000, 5_350))
+        assertEquals(prepared, engine.prepareNextTask(prepared, 3_000, 5_350))
     }
 
     /** Use this function to verify that zero-time feedback is acknowledged idempotently. */
@@ -204,7 +204,7 @@ class RoutineRunEngineTest {
         val repeated = engine.acknowledgeTimerFeedback(acknowledged, 3_000)
 
         assertFalse(engine.needsTimerFeedback(repeated, 3_000))
-        assertEquals(2_000L, repeated.steps.first().timerFeedbackAtEpochMillis)
+        assertEquals(2_000L, repeated.tasks.first().timerFeedbackAtEpochMillis)
     }
 
     /** Use this function to verify active runs retain sound policy after the reusable routine is edited. */
@@ -244,17 +244,17 @@ class RoutineRunEngineTest {
     fun cancelledFinalCompleteRestoresPendingBeforeSkip() {
         val engine = RoutineRunEngine()
         val started = engine.start(routine(), RoutineRunId("run"), 1_000)
-        val finalStep = engine.selectStep(started, 1, 2_000)
-        val firstRequest = engine.completeCurrent(finalStep, 3_000)
+        val finalTask = engine.selectTask(started, 1, 2_000)
+        val firstRequest = engine.completeCurrent(finalTask, 3_000)
         val continued = engine.continueRun(firstRequest, 3_500)
         val secondRequest = engine.skipCurrent(continued, 4_000)
 
-        assertEquals(RunStepStatus.SKIPPED, secondRequest.steps.last().status)
+        assertEquals(RunTaskStatus.SKIPPED, secondRequest.tasks.last().status)
         assertTrue(secondRequest.finishConfirmationRequested)
-        assertEquals(4_000L, secondRequest.steps.last().finishedAtEpochMillis)
+        assertEquals(4_000L, secondRequest.tasks.last().finishedAtEpochMillis)
     }
 
-    /** Use this function to verify cancelling final Skip restores an untimed pending step without timing it. */
+    /** Use this function to verify cancelling final Skip restores an untimed pending task without timing it. */
     @Test
     fun cancellingFinalUntimedSkipRestoresPendingWithoutStartingTiming() {
         val engine = RoutineRunEngine()
@@ -262,22 +262,22 @@ class RoutineRunEngineTest {
             id = RoutineId("routine"),
             metadata = EntityMetadata(0, 0),
             title = "Morning",
-            steps = listOf(RoutineStep(RoutineStepId("one"), "One")),
+            tasks = listOf(RoutineTask(RoutineTaskId("one"), "One")),
         )
         val started = engine.start(routine, RoutineRunId("run"), 1_000)
 
         val requested = engine.skipCurrent(started, 2_000)
         val continued = engine.continueRun(requested, 9_000)
-        val step = continued.steps.single()
+        val task = continued.tasks.single()
 
-        assertEquals(RunStepStatus.PENDING, step.status)
-        assertEquals(8_000L, step.startedAtEpochMillis)
-        assertEquals(null, step.finishedAtEpochMillis)
-        assertEquals(null, step.actualDurationMillis)
+        assertEquals(RunTaskStatus.PENDING, task.status)
+        assertEquals(8_000L, task.startedAtEpochMillis)
+        assertEquals(null, task.finishedAtEpochMillis)
+        assertEquals(null, task.actualDurationMillis)
         assertEquals(null, engine.remainingMillis(continued, 9_000))
     }
 
-    /** Use this function to verify completing a timed final step ends the run without confirmation. */
+    /** Use this function to verify completing a timed final task ends the run without confirmation. */
     @Test
     fun completingFinalTimedTaskEndsImmediately() {
         val engine = RoutineRunEngine()
@@ -285,18 +285,18 @@ class RoutineRunEngineTest {
             id = RoutineId("routine"),
             metadata = EntityMetadata(0, 0),
             title = "Morning",
-            steps = listOf(RoutineStep(RoutineStepId("one"), "One", timerSeconds = 10)),
+            tasks = listOf(RoutineTask(RoutineTaskId("one"), "One", timerSeconds = 10)),
         )
         val started = engine.start(routine, RoutineRunId("run"), 1_000)
 
         val completed = engine.completeCurrent(started, 5_000)
-        val step = completed.steps.single()
+        val task = completed.tasks.single()
 
         assertEquals(RunStatus.COMPLETED, completed.status)
         assertFalse(completed.finishConfirmationRequested)
-        assertEquals(RunStepStatus.COMPLETED, step.status)
-        assertEquals(5_000L, step.finishedAtEpochMillis)
-        assertEquals(4_000L, step.actualDurationMillis)
+        assertEquals(RunTaskStatus.COMPLETED, task.status)
+        assertEquals(5_000L, task.finishedAtEpochMillis)
+        assertEquals(4_000L, task.actualDurationMillis)
     }
 
     /** Use this function to verify a pending timer freezes while an abort dialog is open. */
@@ -309,22 +309,22 @@ class RoutineRunEngineTest {
 
         assertEquals(6_000L, engine.remainingMillis(requested, 9_000))
         val continued = engine.continueRun(requested, 9_000)
-        assertEquals(5_000L, continued.steps.first().startedAtEpochMillis)
+        assertEquals(5_000L, continued.tasks.first().startedAtEpochMillis)
         assertEquals(6_000L, engine.remainingMillis(continued, 9_000))
     }
 
     /** Use this function to verify final Skip confirms and exposes pending and skipped tasks. */
     @Test
-    fun skippingPendingFinalStepRequestsConfirmationWithAllUnfinishedTasks() {
+    fun skippingPendingFinalTaskRequestsConfirmationWithAllUnfinishedTasks() {
         val engine = RoutineRunEngine()
         val started = engine.start(routine(), RoutineRunId("run"), 1_000)
-        val finalStep = engine.selectStep(started, 1, 2_000)
-        val requested = engine.skipCurrent(finalStep, 3_000)
+        val finalTask = engine.selectTask(started, 1, 2_000)
+        val requested = engine.skipCurrent(finalTask, 3_000)
 
         assertTrue(requested.finishConfirmationRequested)
-        assertEquals(listOf(0, 1), engine.unfinishedStepIndexes(requested))
-        assertEquals(RunStepStatus.PENDING, requested.steps.first().status)
-        assertEquals(RunStepStatus.SKIPPED, requested.steps.last().status)
+        assertEquals(listOf(0, 1), engine.unfinishedTaskIndexes(requested))
+        assertEquals(RunTaskStatus.PENDING, requested.tasks.first().status)
+        assertEquals(RunTaskStatus.SKIPPED, requested.tasks.last().status)
     }
 
     /** Use this function to verify final completion keeps its timestamp without a confirmation or animation delay. */
@@ -346,8 +346,8 @@ class RoutineRunEngineTest {
     fun terminalConfirmationProducesAccurateEvent() {
         val engine = RoutineRunEngine()
         val started = engine.start(routine(), RoutineRunId("run"), 1_000)
-        val finalStep = engine.selectStep(started, 1, 2_000)
-        val requested = engine.completeCurrent(finalStep, 3_000)
+        val finalTask = engine.selectTask(started, 1, 2_000)
+        val requested = engine.completeCurrent(finalTask, 3_000)
         val completed = engine.confirmComplete(requested, 4_000)
         val event = engine.toCompletionEvent(completed)
 
@@ -359,52 +359,52 @@ class RoutineRunEngineTest {
         assertEquals(4_000L, completed.endedAtEpochMillis)
     }
 
-    /** Use this function to verify transition pause/resume behavior without counting time spent on other steps. */
+    /** Use this function to verify transition pause/resume behavior without counting time spent on other tasks. */
     @Test
-    fun backPausesUnfinishedStepAndRevisitingResumesRemainingTime() {
+    fun backPausesUnfinishedTaskAndRevisitingResumesRemainingTime() {
         val engine = RoutineRunEngine()
         val routine = RoutineTemplate(
             id = RoutineId("routine"),
             metadata = EntityMetadata(0, 0),
             title = "Test Routine",
-            steps = listOf(
-                RoutineStep(RoutineStepId("step1"), "Step 1", timerSeconds = 10),
-                RoutineStep(RoutineStepId("step2"), "Step 2", timerSeconds = 15),
+            tasks = listOf(
+                RoutineTask(RoutineTaskId("task1"), "Task 1", timerSeconds = 10),
+                RoutineTask(RoutineTaskId("task2"), "Task 2", timerSeconds = 15),
             ),
         )
 
-        // Start on step 0 at t = 1,000
+        // Start on task 0 at t = 1,000
         val started = engine.start(routine, RoutineRunId("run"), 1_000L)
         assertEquals(10_000L, engine.remainingMillis(started, 1_000L))
 
-        // Navigate to step 1 at t = 3,000 (step 0 ran for 2s, 8s remaining)
-        val onStep1 = engine.selectStep(started, 1, 3_000L)
-        assertEquals(15_000L, engine.remainingMillis(onStep1, 3_000L))
+        // Navigate to task 1 at t = 3,000 (task 0 ran for 2s, 8s remaining)
+        val onTask1 = engine.selectTask(started, 1, 3_000L)
+        assertEquals(15_000L, engine.remainingMillis(onTask1, 3_000L))
 
-        // Spend 4s on step 1 (from 3,000 to 7,000; remaining on step 1 is 11s)
-        assertEquals(11_000L, engine.remainingMillis(onStep1, 7_000L))
+        // Spend 4s on task 1 (from 3,000 to 7,000; remaining on task 1 is 11s)
+        assertEquals(11_000L, engine.remainingMillis(onTask1, 7_000L))
 
-        // Back to step 0 at t = 7,000. Step 1 is paused.
-        val backToStep0 = engine.back(onStep1, 7_000L)
-        assertEquals(0, backToStep0.currentStepIndex)
-        // Step 0 was paused at 3,000 with 2s elapsed. It resumes at 7,000 so remaining is still 8s.
-        assertEquals(8_000L, engine.remainingMillis(backToStep0, 7_000L))
+        // Back to task 0 at t = 7,000. Task 1 is paused.
+        val backToTask0 = engine.back(onTask1, 7_000L)
+        assertEquals(0, backToTask0.currentTaskIndex)
+        // Task 0 was paused at 3,000 with 2s elapsed. It resumes at 7,000 so remaining is still 8s.
+        assertEquals(8_000L, engine.remainingMillis(backToTask0, 7_000L))
 
-        // Stay on step 0 for 5s until t = 12,000. Remaining on step 0 becomes 3s.
-        assertEquals(3_000L, engine.remainingMillis(backToStep0, 12_000L))
+        // Stay on task 0 for 5s until t = 12,000. Remaining on task 0 becomes 3s.
+        assertEquals(3_000L, engine.remainingMillis(backToTask0, 12_000L))
 
-        // Return to step 1 at t = 12,000.
-        val backToStep1 = engine.selectStep(backToStep0, 1, 12_000L)
-        assertEquals(1, backToStep1.currentStepIndex)
-        // Step 1 had 4s elapsed before pause. Resuming at 12,000, remaining must still be 11s (15s - 4s).
-        assertEquals(11_000L, engine.remainingMillis(backToStep1, 12_000L))
+        // Return to task 1 at t = 12,000.
+        val backToTask1 = engine.selectTask(backToTask0, 1, 12_000L)
+        assertEquals(1, backToTask1.currentTaskIndex)
+        // Task 1 had 4s elapsed before pause. Resuming at 12,000, remaining must still be 11s (15s - 4s).
+        assertEquals(11_000L, engine.remainingMillis(backToTask1, 12_000L))
 
-        // Complete step 1 at t = 15,000 (3s additional on step 1; total actual duration = 4s + 3s = 7s).
-        val completedStep1 = engine.completeCurrent(backToStep1, 15_000L)
-        val step1 = completedStep1.steps[1]
-        assertEquals(RunStepStatus.COMPLETED, step1.status)
-        assertEquals(7_000L, step1.actualDurationMillis)
+        // Complete task 1 at t = 15,000 (3s additional on task 1; total actual duration = 4s + 3s = 7s).
+        val completedTask1 = engine.completeCurrent(backToTask1, 15_000L)
+        val task1 = completedTask1.tasks[1]
+        assertEquals(RunTaskStatus.COMPLETED, task1.status)
+        assertEquals(7_000L, task1.actualDurationMillis)
         // Duration does not grow after completion
-        assertEquals(8_000L, engine.remainingMillis(completedStep1.copy(currentStepIndex = 1), 20_000L))
+        assertEquals(8_000L, engine.remainingMillis(completedTask1.copy(currentTaskIndex = 1), 20_000L))
     }
 }

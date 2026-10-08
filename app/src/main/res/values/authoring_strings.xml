@@ -1,8 +1,8 @@
 <resources>
-    <string name="authoring_new_task_default">New step</string>
-    <string name="authoring_step_duration">%1$02d:%2$02d</string>
-    <string name="authoring_steps">Steps</string>
-    <string name="authoring_drag_handle">Reorder step</string>
+    <string name="authoring_new_task_default">New task</string>
+    <string name="authoring_task_duration">%1$02d:%2$02d</string>
+    <string name="authoring_tasks">Tasks</string>
+    <string name="authoring_drag_handle">Reorder task</string>
     <string name="authoring_duration">Duration</string>
     <string name="authoring_duration_value">Duration: %1$02d:%2$02d</string>
     <string name="authoring_duration_compact">%1$02d:%2$02d</string>
@@ -22,7 +22,7 @@
     <string name="authoring_reminder_set">Reminder set</string>
     <string name="authoring_clear_reminder">Clear reminder</string>
     <string name="authoring_stack_after">Stack after %1$s</string>
-    <string name="authoring_stack_first">Stack after first step</string>
+    <string name="authoring_stack_first">Stack after first task</string>
     <string name="authoring_clear_stack">Clear stack anchor</string>
     <string name="authoring_move_up">Up</string>
     <string name="authoring_move_down">Down</string>
@@ -33,8 +33,8 @@
     <string name="authoring_set_schedule_date">Set date</string>
     <string name="authoring_schedule_date_value">Date: %1$s</string>
     <string name="authoring_schedule_date_set">Date set</string>
-    <string name="authoring_update_step">Update step</string>
-    <string name="authoring_edit_step">Edit</string>
+    <string name="authoring_update_task">Update task</string>
+    <string name="authoring_edit_task">Edit</string>
     <string name="authoring_invalid_draft">Complete the required fields before saving.</string>
     <string name="authoring_frequency_once">Once</string>
     <string name="authoring_frequency_daily">Daily</string>

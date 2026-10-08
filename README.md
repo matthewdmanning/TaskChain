@@ -1,6 +1,6 @@
 # TaskChain
 
-TaskChain is a local-only Android routine builder and step-by-step runner. It combines reusable tasks, habits, goals, optional timers, scheduling, reminders, and progress history without a database or network service.
+TaskChain is a local-only Android routine builder and task-by-step runner. It combines reusable tasks, habits, goals, optional timers, scheduling, reminders, and progress history without a database or network service.
 
 The app is intentionally a single Android module. Source and resources live under `app/src/`; architecture and domain terminology are documented in `architecture.md` and `CONTEXT.md`.
 

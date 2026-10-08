@@ -13,7 +13,7 @@ import com.example.cyberpunkandroid.components.CyberCard
 import com.example.cyberpunkandroid.theme.CyberTheme
 import com.taskchain.R
 import com.taskchain.domain.model.RoutineRun
-import com.taskchain.domain.model.RunStepStatus
+import com.taskchain.domain.model.RunTaskStatus
 
 /** Use this function to preview pending main tasks from the same snapshot displayed by the runner.
  * Inputs: run snapshot. Dependencies: RoutineRun and the configured preview-count resource.
@@ -21,14 +21,14 @@ import com.taskchain.domain.model.RunStepStatus
 @Composable
 internal fun RunnerNextUpPreview(run: RoutineRun) {
     val count = integerResource(R.integer.runner_next_up_preview_count).coerceAtLeast(0)
-    val upcoming = run.steps.withIndex().drop(run.currentStepIndex + 1)
-        .filter { it.value.status == RunStepStatus.PENDING }.take(count)
+    val upcoming = run.tasks.withIndex().drop(run.currentTaskIndex + 1)
+        .filter { it.value.status == RunTaskStatus.PENDING }.take(count)
     if (upcoming.isEmpty()) return
     CyberCard(Modifier.fillMaxWidth()) {
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(stringResource(R.string.runner_next_up_label), style = CyberTheme.typography.terminal)
-            upcoming.forEach { (index, step) ->
-                Text(stringResource(R.string.runner_next_up_step, index + 1, step.source.title),
+            upcoming.forEach { (index, task) ->
+                Text(stringResource(R.string.runner_next_up_task, index + 1, task.source.title),
                     style = CyberTheme.typography.body)
             }
         }

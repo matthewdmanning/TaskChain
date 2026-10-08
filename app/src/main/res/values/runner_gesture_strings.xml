@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="runner_gesture_complete">Complete current step</string>
-    <string name="runner_gesture_skip">Skip current step</string>
+    <string name="runner_gesture_complete">Complete current task</string>
+    <string name="runner_gesture_skip">Skip current task</string>
     <string name="runner_gesture_pause">Pause timer</string>
     <string name="runner_gesture_resume">Resume timer</string>
 </resources>

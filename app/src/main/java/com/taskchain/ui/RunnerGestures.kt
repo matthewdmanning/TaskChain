@@ -26,7 +26,7 @@ import kotlin.math.absoluteValue
  * Adds runner-wide horizontal swipe and long-press actions while leaving the existing CyberButton controls
  * available for discoverability and accessibility.
  *
- * @param paused Whether the active step timer is currently paused.
+ * @param paused Whether the active task timer is currently paused.
  * @param onAdvance Invoked after a committed right swipe.
  * @param onSkip Invoked after a committed left swipe.
  * @param onPause Invoked after a long press while running.

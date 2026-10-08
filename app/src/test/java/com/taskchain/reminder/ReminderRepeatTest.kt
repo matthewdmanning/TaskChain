@@ -5,12 +5,12 @@ import com.taskchain.domain.model.EntityMetadata
 import com.taskchain.domain.model.RoutineId
 import com.taskchain.domain.model.RoutineRun
 import com.taskchain.domain.model.RoutineRunId
-import com.taskchain.domain.model.RoutineRunStep
-import com.taskchain.domain.model.RoutineStep
-import com.taskchain.domain.model.RoutineStepId
+import com.taskchain.domain.model.RoutineRunTask
+import com.taskchain.domain.model.RoutineTask
+import com.taskchain.domain.model.RoutineTaskId
 import com.taskchain.domain.model.RoutineTemplate
 import com.taskchain.domain.model.RunStatus
-import com.taskchain.domain.model.RunStepStatus
+import com.taskchain.domain.model.RunTaskStatus
 import com.taskchain.domain.model.ScheduleFrequency
 import com.taskchain.domain.model.ScheduleRule
 import org.junit.Assert.assertEquals
@@ -28,7 +28,7 @@ class ReminderRepeatTest {
             id = RoutineId("routine"),
             metadata = EntityMetadata(0, 0),
             title = "Morning",
-            steps = listOf(RoutineStep(RoutineStepId("step"), "Work")),
+            tasks = listOf(RoutineTask(RoutineTaskId("task"), "Work")),
             schedule = schedule,
             remindEveryMinutes = 15,
             soundEnabled = false,
@@ -54,19 +54,19 @@ class ReminderRepeatTest {
     /** Use this function to verify active and historical completions stop repeats without hiding a new occurrence. */
     @Test
     fun completedTaskStopsOnlyItsCurrentCycle() {
-        val step = RoutineRunStep(
-            source = RoutineStep(RoutineStepId("step"), "Work"),
-            status = RunStepStatus.COMPLETED,
+        val task = RoutineRunTask(
+            source = RoutineTask(RoutineTaskId("task"), "Work"),
+            status = RunTaskStatus.COMPLETED,
             finishedAtEpochMillis = 20,
             completedAtEpochMillis = 30,
         )
-        val active = RoutineRun(RoutineRunId("run"), RoutineId("routine"), "Morning", listOf(step), 0, 10)
-        val event = CompletionEvent(active.id, active.routineId, active.routineTitle, 10, 40, RunStatus.COMPLETED, listOf(step))
+        val active = RoutineRun(RoutineRunId("run"), RoutineId("routine"), "Morning", listOf(task), 0, 10)
+        val event = CompletionEvent(active.id, active.routineId, active.routineTitle, 10, 40, RunStatus.COMPLETED, listOf(task))
 
-        assertTrue(completedSinceCycle("routine", "step", 15, active, emptyList()))
-        assertTrue(completedSinceCycle("routine", "step", 15, null, listOf(event)))
-        assertTrue(completedSinceCycle("routine", "step", 25, active, listOf(event)))
-        assertFalse(completedSinceCycle("routine", "step", 35, active, listOf(event)))
-        assertFalse(completedSinceCycle("another", "step", 15, active, listOf(event)))
+        assertTrue(completedSinceCycle("routine", "task", 15, active, emptyList()))
+        assertTrue(completedSinceCycle("routine", "task", 15, null, listOf(event)))
+        assertTrue(completedSinceCycle("routine", "task", 25, active, listOf(event)))
+        assertFalse(completedSinceCycle("routine", "task", 35, active, listOf(event)))
+        assertFalse(completedSinceCycle("another", "task", 15, active, listOf(event)))
     }
 }

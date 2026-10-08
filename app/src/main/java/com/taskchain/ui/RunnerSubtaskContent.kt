@@ -14,33 +14,33 @@ import androidx.compose.ui.semantics.stateDescription
 import com.example.cyberpunkandroid.config.CyberPrimitives
 import com.example.cyberpunkandroid.theme.CyberTheme
 import com.taskchain.R
-import com.taskchain.domain.model.RoutineRunStep
+import com.taskchain.domain.model.RoutineRunTask
 
-/** Use this function to display the current cue beneath its main task.
- * Inputs: step snapshot, derived active-cue remaining time, and the display preference.
- * Dependencies: RoutineRunStep, CyberPrimitives, and the existing semantic theme and timer formatter.
+/** Use this function to display the current subtask beneath its main task.
+ * Inputs: task snapshot, derived active-subtask remaining time, and the display preference.
+ * Dependencies: RoutineRunTask, CyberPrimitives, and the existing semantic theme and timer formatter.
  */
 @Composable
-internal fun RunnerCueList(step: RoutineRunStep, remainingMillis: Long?, showRemaining: Boolean) {
-    if (step.source.cues.isEmpty()) return
-    val cue = step.activeCueId?.let { activeCueId ->
-        step.source.cues.firstOrNull { it.id == activeCueId }
-    } ?: step.source.cues.lastOrNull().takeIf {
-        step.cueAdvancements.size >= step.source.cues.size
+internal fun RunnerSubtaskList(task: RoutineRunTask, remainingMillis: Long?, showRemaining: Boolean) {
+    if (task.source.subtasks.isEmpty()) return
+    val subtask = task.activeSubtaskId?.let { activeSubtaskId ->
+        task.source.subtasks.firstOrNull { it.id == activeSubtaskId }
+    } ?: task.source.subtasks.lastOrNull().takeIf {
+        task.subtaskAdvancements.size >= task.source.subtasks.size
     } ?: return
-    val active = cue.id == step.activeCueId
-    val advanced = step.cueAdvancements.any { it.cueId == cue.id }
-    val cueState = stringResource(if (advanced) R.string.cue_advanced else R.string.cue_active)
+    val active = subtask.id == task.activeSubtaskId
+    val advanced = task.subtaskAdvancements.any { it.subtaskId == subtask.id }
+    val subtaskState = stringResource(if (advanced) R.string.subtask_advanced else R.string.subtask_active)
     Column(
         Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(CyberPrimitives.Spacing.dp8),
     ) {
         Text(
-            text = cue.title,
+            text = subtask.title,
             style = MaterialTheme.typography.headlineMedium,
             color = if (advanced) CyberTheme.semantics.colors.success else CyberTheme.colors.secondary,
             textAlign = TextAlign.Center,
-            modifier = Modifier.fillMaxWidth().semantics { stateDescription = cueState },
+            modifier = Modifier.fillMaxWidth().semantics { stateDescription = subtaskState },
         )
         if (active && showRemaining) {
             Text(

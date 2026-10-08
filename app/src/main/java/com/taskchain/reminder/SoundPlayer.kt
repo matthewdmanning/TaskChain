@@ -23,7 +23,7 @@ class AndroidAssetSoundPlayer(private val context: Context) : SoundPlayer {
         if (settings.assetPath == null) {
             val toneType = when (token) {
                 SoundToken.TimerExpired -> ToneGenerator.TONE_PROP_BEEP
-                SoundToken.CueAdvanced -> ToneGenerator.TONE_PROP_ACK
+                SoundToken.SubtaskAdvanced -> ToneGenerator.TONE_PROP_ACK
                 else -> return
             }
             runCatching {

@@ -4,7 +4,7 @@ import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
-/** Step-entry values for the runner's title-to-countdown handoff. */
+/** Task-entry values for the runner's title-to-countdown handoff. */
 object RunnerMotion {
     val titleStartSize = 40.sp
     val titleEndSize = 28.sp

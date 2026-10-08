@@ -61,17 +61,17 @@ data class Spacing(
 
 /** Provides configured spacing to feature UI through the design-system boundary. */
 object TaskChainDesignSystem {
-    /** Semantic seed for the ordered cue palette; configure its theme mapping here. */
-    val cueColorSeed: Color
+    /** Semantic seed for the ordered subtask palette; configure its theme mapping here. */
+    val subtaskColorSeed: Color
         @Composable get() = CyberTheme.semantics.colors.info
 
-    /** Use this function to generate a stable sequential cue color from the design-system seed.
-     * Inputs: ordered cue index. Dependencies: cueColorSeed and native HSV color conversion.
+    /** Use this function to generate a stable sequential subtask color from the design-system seed.
+     * Inputs: ordered subtask index. Dependencies: subtaskColorSeed and native HSV color conversion.
      */
     @Composable
-    fun cueColor(index: Int): Color {
+    fun subtaskColor(index: Int): Color {
         val hsv = FloatArray(3)
-        android.graphics.Color.colorToHSV(cueColorSeed.toArgb(), hsv)
+        android.graphics.Color.colorToHSV(subtaskColorSeed.toArgb(), hsv)
         return Color.hsv((hsv[0] + index * 47f) % 360f, hsv[1], hsv[2])
     }
 

@@ -5,8 +5,8 @@ import com.taskchain.domain.model.EntityMetadata
 import com.taskchain.domain.model.RoutineId
 import com.taskchain.domain.model.RoutineRun
 import com.taskchain.domain.model.RoutineRunId
-import com.taskchain.domain.model.RoutineStep
-import com.taskchain.domain.model.RoutineStepId
+import com.taskchain.domain.model.RoutineTask
+import com.taskchain.domain.model.RoutineTaskId
 import com.taskchain.domain.model.RoutineTemplate
 import com.taskchain.domain.run.RoutineRunEngine
 import kotlinx.coroutines.flow.Flow
@@ -24,7 +24,7 @@ class RunRecoveryTest {
         val engine = RoutineRunEngine()
         val routine = RoutineTemplate(
             RoutineId("routine"), EntityMetadata(0, 0), "Morning",
-            steps = listOf(RoutineStep(RoutineStepId("step"), "Work")),
+            tasks = listOf(RoutineTask(RoutineTaskId("task"), "Work")),
         )
         val terminal = engine.completeCurrent(engine.start(routine, RoutineRunId("run"), 1_000), 2_000)
         val active = object : RoutineRunRepository {
