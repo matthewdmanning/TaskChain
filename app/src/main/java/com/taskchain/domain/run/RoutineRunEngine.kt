@@ -162,6 +162,13 @@ class RoutineRunEngine {
         )
     }
 
+    /** Use this function for a swipe to the previous task; the first task stays put and never requests abort. */
+    fun previousTask(run: RoutineRun, nowEpochMillis: Long): RoutineRun {
+        require(run.status == RunStatus.ACTIVE)
+        require(run.currentTaskIndex in run.tasks.indices)
+        return if (run.currentTaskIndex == 0) run else selectTask(run, run.currentTaskIndex - 1, nowEpochMillis)
+    }
+
     /** Use this function when Back is pressed so the first task can request abort confirmation. */
     fun back(run: RoutineRun, nowEpochMillis: Long): RoutineRun {
         require(run.status == RunStatus.ACTIVE)

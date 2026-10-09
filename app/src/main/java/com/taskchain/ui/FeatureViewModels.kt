@@ -836,8 +836,8 @@ class RoutineRunnerViewModel(
     /** Use this function when Back is pressed inside the runner. */
     fun back() = transition { run, now -> container.runEngine.back(run, now) }
 
-    /** Use this function for a right swipe to revisit the next finished task; no inputs, dependency is RoutineRunEngine. */
-    fun advanceToNextFinishedTask() = transition { run, now -> container.runEngine.advanceToNextFinishedTask(run, now) }
+    /** Use this function for a right swipe to return to the previous task; no-op on the first task. */
+    fun goToPreviousTask() = transition { run, now -> container.runEngine.previousTask(run, now) }
 
     /** Use this function when Pause is pressed for the displayed task. */
     fun pause() = transition { run, now -> container.runEngine.pauseCurrent(run, now) }

@@ -14,7 +14,7 @@ This is the source of truth for TaskChain's domain vocabulary, behavior invarian
 - Editing a routine never changes an existing run because the run owns a snapshot of its tasks.
 - Completed or skipped tasks never restart their timer when revisited.
 - Explicitly resuming a skipped task reopens it as pending and retains its prior active duration, including when it was paused before being skipped.
-- A right swipe visits the next completed or skipped task without changing its status; when no such task exists, it does nothing.
+- A right swipe returns to the previous task without changing its status; on the first task it does nothing and never requests abort confirmation. A left swipe skips the current task. A double tap on the dial pauses or resumes.
 - Timer state is derived from persisted timestamps, not an in-memory counter.
 - Completing a skipped task changes it directly to completed.
 - Completing the final task ends the run directly when no task remains unfinished. If any tasks remain pending or skipped, finishing requests confirmation and shows the unfinished tasks.
