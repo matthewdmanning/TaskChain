@@ -10,13 +10,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.lerp
-import androidx.compose.ui.res.dimensionResource
 import com.example.cyberpunkandroid.components.CyberGlowIcon
 import com.example.cyberpunkandroid.icons.CyberIcon
 import com.example.cyberpunkandroid.icons.CyberIcons
 import com.example.cyberpunkandroid.icons.SemanticIcons
 import com.example.cyberpunkandroid.theme.CyberTheme
-import com.taskchain.R
+import com.taskchain.ui.designsystem.RunnerGestureTokens
 
 /** Fraction of full opacity the swipe symbol reaches at the commit distance. */
 private const val SWIPE_CUE_MAX_ALPHA = 0.5f
@@ -38,7 +37,7 @@ internal fun BoxScope.RunnerSwipeCue(state: RunnerGestureState) {
         iconRes = if (previous) CyberIcons.ArrowLeft else SemanticIcons.Caution,
         contentDescription = null,
         tint = if (previous) CyberTheme.colors.secondary else CyberTheme.semantics.colors.warning,
-        size = dimensionResource(R.dimen.runner_swipe_cue_icon_size),
+        size = RunnerGestureTokens.swipeCueIconSize.current(),
         modifier = Modifier
             .align(Alignment.Center)
             .graphicsLayer {
@@ -68,7 +67,7 @@ internal fun BoxScope.RunnerToggleFlash(state: RunnerGestureState) {
             contentDescription = null,
             color = lerp(Color.Black, color, TOGGLE_FLASH_BODY_BRIGHTNESS),
             glowColor = color,
-            radius = dimensionResource(R.dimen.runner_toggle_flash_glow_radius),
+            radius = RunnerGestureTokens.toggleFlashGlowRadius.current(),
             modifier = Modifier
                 .align(Alignment.Center)
                 .size(minOf(maxWidth, maxHeight / 2))

@@ -26,12 +26,12 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalViewConfiguration
-import androidx.compose.ui.res.dimensionResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.semantics
 import com.taskchain.R
+import com.taskchain.ui.designsystem.RunnerGestureTokens
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
@@ -101,7 +101,7 @@ internal class RunnerGestureState(
 @Composable
 internal fun rememberRunnerGestureState(): RunnerGestureState {
     val scope = rememberCoroutineScope()
-    val commitPx = with(LocalDensity.current) { dimensionResource(R.dimen.runner_swipe_commit_distance).toPx() }
+    val commitPx = with(LocalDensity.current) { RunnerGestureTokens.swipeCommitDistance.current().toPx() }
     return remember(scope, commitPx) { RunnerGestureState(scope, commitPx) }
 }
 

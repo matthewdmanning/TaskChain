@@ -8,7 +8,4 @@
     <dimen name="repeated_path_example_extent">48dp</dimen>
     <dimen name="repeated_path_radial_extent">20dp</dimen>
     <dimen name="repeated_path_radial_radius">96dp</dimen>
-    <dimen name="runner_swipe_commit_distance">72dp</dimen>
-    <dimen name="runner_swipe_cue_icon_size">192dp</dimen>
-    <dimen name="runner_toggle_flash_glow_radius">40dp</dimen>
 </resources>
