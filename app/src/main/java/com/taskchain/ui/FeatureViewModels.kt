@@ -925,7 +925,28 @@ class RoutineRunnerViewModel(
     }
 
     /** Use this function to persist one ordinary active-run transition. */
-    private fun transition(change: (RoutineRun, Long) -> RoutineRun) {
+    private fun transition(change: (RoutineRun, Long) -> RoutineRun) = withCurrentRun { run ->
+        val updated = change(run, container.now())
+        if (updated.status != RunStatus.ACTIVE) {
+            if (persistTerminalRun(updated) && foreground) fireStateFeedback(run, updated)
+        } else {
+            container.activeRun.saveActive(updated)
+            state.value = state.value.copy(run = updated)
+            if (updated != run) initialRunningFeedbackPending = false
+            if (foreground) fireStateFeedback(run, updated)
+        }
+    }
+
+    /** Use this function to record a terminal run before clearing active-session storage. */
+    private fun finish(change: (RoutineRun, Long) -> RoutineRun) = withCurrentRun { run ->
+        persistTerminalRun(change(run, container.now()))
+    }
+
+    /**
+     * Use this function to run `action` under the run lock only if the run still matches the snapshot the user
+     * acted on. A stale action, for example a second tap after the task changed, does nothing.
+     */
+    private fun withCurrentRun(action: suspend (RoutineRun) -> Unit) {
         val expected = state.value.run ?: return
         viewModelScope.launch {
             runMutex.withLock {
@@ -936,31 +957,7 @@ class RoutineRunnerViewModel(
                     run.finishConfirmationRequested != expected.finishConfirmationRequested ||
                     run.abortConfirmationRequested != expected.abortConfirmationRequested
                 ) return@withLock
-                val updated = change(run, container.now())
-                if (updated.status != RunStatus.ACTIVE) {
-                    if (persistTerminalRun(updated) && foreground) fireStateFeedback(run, updated)
-                } else {
-                    container.activeRun.saveActive(updated)
-                    state.value = state.value.copy(run = updated)
-                    if (updated != run) initialRunningFeedbackPending = false
-                    if (foreground) fireStateFeedback(run, updated)
-                }
-            }
-        }
-    }
-
-    /** Use this function to record a terminal run before clearing active-session storage. */
-    private fun finish(change: (RoutineRun, Long) -> RoutineRun) {
-        val expected = state.value.run ?: return
-        viewModelScope.launch {
-            runMutex.withLock {
-                val run = state.value.run ?: return@withLock
-                if (run.status != RunStatus.ACTIVE || run.currentTaskIndex != expected.currentTaskIndex ||
-                    run.finishConfirmationRequested != expected.finishConfirmationRequested ||
-                    run.abortConfirmationRequested != expected.abortConfirmationRequested
-                ) return@withLock
-                val terminal = change(run, container.now())
-                persistTerminalRun(terminal)
+                action(run)
             }
         }
     }
