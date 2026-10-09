@@ -32,6 +32,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
@@ -75,8 +76,43 @@ class RoutinesViewModel(private val container: AppContainer) : ViewModel() {
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_TIMEOUT_MILLIS), RoutinesState())
 
+    /** The saved run that is still in progress, or null. */
+    val activeRun: StateFlow<RoutineRun?> = container.activeRun.observeActive()
+        .map { run -> run?.takeIf { it.status == RunStatus.ACTIVE } }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_TIMEOUT_MILLIS), null)
+
+    private val mutableBlockedRoutine = MutableStateFlow<RoutineTemplate?>(null)
+
+    /** The routine that cannot start because a different run is active; the screen explains the conflict while set. */
+    val blockedRoutine: StateFlow<RoutineTemplate?> = mutableBlockedRoutine.asStateFlow()
+
     init {
         viewModelScope.launch { builtIns.value = container.builtInLibrary.load(container.now()) }
+    }
+
+    private val mutablePendingStart = MutableStateFlow<RoutineTemplate?>(null)
+
+    /** The routine whose runner the screen opens next; the screen calls `startHandled` after it navigates. */
+    val pendingStart: StateFlow<RoutineTemplate?> = mutablePendingStart.asStateFlow()
+
+    /** Use this function when the user starts a routine. It sets either `pendingStart` or `blockedRoutine`. */
+    fun requestStart(routine: RoutineTemplate) {
+        val run = activeRun.value
+        if (run != null && run.routineId != routine.id) {
+            mutableBlockedRoutine.value = routine
+        } else {
+            mutablePendingStart.value = routine
+        }
+    }
+
+    /** Use this function after the screen opens the runner for `pendingStart`. */
+    fun startHandled() {
+        mutablePendingStart.value = null
+    }
+
+    /** Use this function when the user closes the active-run conflict dialog. */
+    fun dismissBlockedStart() {
+        mutableBlockedRoutine.value = null
     }
 
     private companion object {

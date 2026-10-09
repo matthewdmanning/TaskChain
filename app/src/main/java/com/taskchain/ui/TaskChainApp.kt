@@ -260,16 +260,16 @@ private fun HomeShell(
     val routinesViewModel: RoutinesViewModel = viewModel { RoutinesViewModel(container) }
     val progressViewModel: ProgressViewModel = viewModel { ProgressViewModel(container) }
     val settingsViewModel: SettingsViewModel = viewModel { SettingsViewModel(container) }
-    val activeRun by container.activeRun.observeActive().collectAsStateWithLifecycle(null)
-    var blockedRoutine by remember { mutableStateOf<RoutineTemplate?>(null) }
-    val startOrExplain: (RoutineTemplate) -> Unit = { routine ->
-        val currentRun = activeRun?.takeIf { it.status == RunStatus.ACTIVE }
-        if (currentRun != null && currentRun.routineId != routine.id) {
-            blockedRoutine = routine
-        } else {
-            onStart(routine)
+    val activeRun by routinesViewModel.activeRun.collectAsStateWithLifecycle()
+    val blockedRoutine by routinesViewModel.blockedRoutine.collectAsStateWithLifecycle()
+    val pendingStart by routinesViewModel.pendingStart.collectAsStateWithLifecycle()
+    LaunchedEffect(pendingStart) {
+        pendingStart?.let {
+            onStart(it)
+            routinesViewModel.startHandled()
         }
     }
+    val startOrExplain: (RoutineTemplate) -> Unit = routinesViewModel::requestStart
     val screen: @Composable () -> Unit = {
         Scaffold(
             contentWindowInsets = WindowInsets.safeDrawing,
@@ -295,7 +295,7 @@ private fun HomeShell(
                     todayListState,
                     onCreate,
                     startOrExplain,
-                    activeRun?.takeIf { it.status == RunStatus.ACTIVE },
+                    activeRun,
                     onResume = { run -> onResume(run.routineId) },
                 )
                 HomeTab.ROUTINES -> RoutinesRoute(routinesViewModel, padding, routinesListState, onCreate, onEdit, startOrExplain)
@@ -304,22 +304,22 @@ private fun HomeShell(
             }
         }
         blockedRoutine?.let {
-            val run = activeRun?.takeIf { current -> current.status == RunStatus.ACTIVE }
+            val run = activeRun
             if (run != null) {
                 AlertDialog(
-                    onDismissRequest = { blockedRoutine = null },
+                    onDismissRequest = routinesViewModel::dismissBlockedStart,
                     title = { Text(stringResource(R.string.active_run_in_progress_title)) },
                     text = { Text(stringResource(R.string.active_run_in_progress_message, run.routineTitle)) },
                     confirmButton = {
                         Button(onClick = {
-                            blockedRoutine = null
+                            routinesViewModel.dismissBlockedStart()
                             onResume(run.routineId)
                         }) {
                             Text(stringResource(R.string.resume_routine, run.routineTitle))
                         }
                     },
                     dismissButton = {
-                        TextButton(onClick = { blockedRoutine = null }) {
+                        TextButton(onClick = routinesViewModel::dismissBlockedStart) {
                             Text(stringResource(R.string.keep_browsing))
                         }
                     },
