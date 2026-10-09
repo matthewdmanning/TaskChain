@@ -56,7 +56,6 @@
     <string name="validation_schedule_date_required">Choose a schedule date.</string>
     <string name="validation_schedule_date_future">Choose a future schedule date.</string>
     <string name="validation_reminder_future">Choose a future reminder time.</string>
-    <string name="validation_timer_positive">Choose a duration greater than zero, or clear it.</string>
     <string name="validation_routine_setting_exclusive">Choose only one: Schedule, deadline, or Reminder.</string>
     <string name="validation_legacy_settings_conflict">Choose new routine settings to replace conflicting saved task settings.</string>
     <string name="validation_save_failed">Couldn’t save routine. Try again.</string>

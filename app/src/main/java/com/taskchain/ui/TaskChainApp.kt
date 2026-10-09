@@ -922,25 +922,22 @@ private fun RoutineBuilderRoute(
                         val seconds = task.durationSeconds ?: 0L
                         val duration = routineDurationParts(seconds)
                         CyberButton(
-                            modifier = Modifier.fillMaxWidth().heightIn(min = CyberPrimitives.IconSizes.dp48)
-                                .fieldError(
-                                    stringResource(R.string.validation_timer_positive)
-                                        .takeIf { BuilderValidationError.TASK_TIMER_MUST_BE_POSITIVE in taskErrors },
-                                ),
+                            modifier = Modifier.fillMaxWidth().heightIn(min = CyberPrimitives.IconSizes.dp48),
                             enabled = task.subtasks.isEmpty(),
                             onClick = {
-                                val currentMinutes = (seconds / SECONDS_PER_MINUTE)
+                                val pickerSeconds = task.timerSeconds ?: DEFAULT_TASK_TIMER_SECONDS
+                                val currentMinutes = (pickerSeconds / SECONDS_PER_MINUTE)
                                     .coerceIn(0L, Int.MAX_VALUE.toLong())
                                     .toInt()
                                 val minutesPicker = NumberPicker(context).apply {
                                     minValue = 0
-                                    maxValue = maxOf(1440, currentMinutes)
+                                    maxValue = maxOf(TASK_TIMER_MAX_MINUTES, currentMinutes)
                                     value = currentMinutes
                                 }
                                 val secondsPicker = NumberPicker(context).apply {
                                     minValue = 0
                                     maxValue = (SECONDS_PER_MINUTE - 1).toInt()
-                                    value = (seconds % SECONDS_PER_MINUTE).toInt()
+                                    value = (pickerSeconds % SECONDS_PER_MINUTE).toInt()
                                 }
                                 val pickers = android.widget.LinearLayout(context).apply {
                                     orientation = android.widget.LinearLayout.HORIZONTAL
@@ -952,8 +949,7 @@ private fun RoutineBuilderRoute(
                                     .setView(pickers)
                                     .setNegativeButton(android.R.string.cancel, null)
                                     .setPositiveButton(android.R.string.ok) { _, _ ->
-                                        val totalSeconds = minutesPicker.value * SECONDS_PER_MINUTE + secondsPicker.value
-                                        viewModel.setTaskTimer(task.id, totalSeconds)
+                                        viewModel.setTaskTimer(task.id, taskTimerFromPicker(minutesPicker.value, secondsPicker.value))
                                     }
                                     .show()
                             },
@@ -962,9 +958,6 @@ private fun RoutineBuilderRoute(
                         ) {
                             Text(stringResource(R.string.authoring_duration_value, duration.first, duration.second))
                         }
-                    }
-                    if (BuilderValidationError.TASK_TIMER_MUST_BE_POSITIVE in state.validationErrors && state.editingTaskIndex == index) {
-                        BuilderErrorText(stringResource(R.string.validation_timer_positive))
                     }
                     BuilderSubtaskEditor(
                         subtasks = task.subtasks,

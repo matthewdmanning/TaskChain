@@ -79,15 +79,12 @@ class BuilderValidationTest {
             tasks = listOf(task()),
             editingTaskIndex = 0,
             pendingTaskTitle = "  ",
-            pendingTimerSeconds = "0",
         )
 
         val errors = validateBuilderState(original, 1_000L)
 
         assertTrue(BuilderValidationError.TASK_NAME_REQUIRED in errors)
-        assertTrue(BuilderValidationError.TASK_TIMER_MUST_BE_POSITIVE in errors)
         assertEquals("  ", original.pendingTaskTitle)
-        assertEquals("0", original.pendingTimerSeconds)
         assertEquals("Task", original.tasks.single().title)
     }
 
@@ -230,10 +227,6 @@ class BuilderValidationTest {
         assertEquals(1, failed.firstTaskIndexWithErrors())
         assertTrue(failed.taskErrorsFor(0).isEmpty())
         assertEquals(setOf(BuilderValidationError.SUBTASK_TITLE_REQUIRED), failed.taskErrorsFor(1))
-
-        val invalidTimer = failed.copy(editingTaskIndex = 0, pendingTimerSeconds = "-5")
-            .let { it.copy(validationErrors = validateBuilderState(it, 1_000L)) }
-        assertEquals(0, invalidTimer.firstTaskIndexWithErrors())
     }
 
     /** Use this function to verify a failed save expands the failing task, opens its name field, and sets the scroll target. */
@@ -256,16 +249,20 @@ class BuilderValidationTest {
         )
     }
 
-    /** Use this function to verify another task cannot expand while the edited task has invalid timer text. */
+    /** Use this function to verify that every duration picker selection gives no timer or a timer the domain accepts. */
     @Test
-    fun invalidPendingTimerBlocksExpandingAnotherTask() {
-        val first = task("First")
-        val second = task("Second")
-        val draft = BuilderState(tasks = listOf(first, second), editingTaskIndex = 0, pendingTimerSeconds = "-5")
-
-        assertEquals(null, draft.expandingTask(second.id))
-        assertEquals(first.id, draft.expandingTask(first.id)?.expandedTaskId)
-        assertEquals(second.id, draft.copy(pendingTimerSeconds = "30").expandingTask(second.id)?.expandedTaskId)
+    fun durationPickerCannotReturnAnInvalidTimer() {
+        for (minutes in 0..TASK_TIMER_MAX_MINUTES) {
+            for (seconds in 0..59) {
+                val timer = taskTimerFromPicker(minutes, seconds) ?: continue
+                RoutineTemplate(
+                    RoutineId("picker"), EntityMetadata(0, 0), "Picker",
+                    tasks = listOf(task().copy(timerSeconds = timer)),
+                ).requireRunnable()
+            }
+        }
+        assertEquals(null, taskTimerFromPicker(0, 0))
+        assertEquals(DEFAULT_TASK_TIMER_SECONDS, taskTimerFromPicker(5, 0))
     }
 
     /** Use this function to verify nested subtasks contribute duration while counting only their main task.

@@ -132,7 +132,6 @@ enum class BuilderValidationError {
     REMINDER_MUST_BE_FUTURE,
     SCHEDULE_REMINDER_EXCLUSIVE,
     LEGACY_SETTINGS_CONFLICT,
-    TASK_TIMER_MUST_BE_POSITIVE,
     SUBTASK_TITLE_REQUIRED,
     SUBTASK_DURATION_INVALID,
     SUBTASK_TOTAL_TOO_LONG,
@@ -142,6 +141,16 @@ enum class BuilderValidationError {
 
 private const val DEFAULT_SUBTASK_DURATION_SECONDS = 60L
 private const val MAX_SAFE_SUBTASK_DURATION_SECONDS = Long.MAX_VALUE / 1_000L
+
+/** Timer of a new task, and the picker's start value for a task without a timer. */
+internal const val DEFAULT_TASK_TIMER_SECONDS = 300L
+
+/** Largest minute value that the task duration picker offers. */
+internal const val TASK_TIMER_MAX_MINUTES = 1440
+
+/** Use this function to convert a duration picker selection to a task timer. 0:00 means no timer; any other result is positive. */
+internal fun taskTimerFromPicker(minutes: Int, seconds: Int): Long? =
+    (minutes.toLong() * 60L + seconds).takeIf { it > 0L }
 
 private val ROUTINE_SETTINGS_ERRORS = setOf(
     BuilderValidationError.SELECTED_DAY_REQUIRED,
@@ -166,7 +175,6 @@ data class BuilderState(
     val description: String = "",
     val tasks: List<RoutineTask> = emptyList(),
     val pendingTaskTitle: String = "",
-    val pendingTimerSeconds: String = "",
     val pendingSubtaskDurations: Map<String, String> = emptyMap(),
     val deadlineEpochMillis: Long? = null,
     val reminderAtEpochMillis: Long? = null,
@@ -190,10 +198,6 @@ data class BuilderState(
     val hasUnsavedChanges: Boolean = false,
     val isSaving: Boolean = false,
 ) {
-    /** True when the edited task's raw timer text is not blank and is not a positive number of seconds. */
-    val pendingTimerInvalid: Boolean
-        get() = pendingTimerSeconds.isNotBlank() && pendingTimerSeconds.trim().toLongOrNull()?.let { it > 0 } != true
-
     val invalidSubtaskDurationIds: Set<RoutineSubtaskId>
         get() = tasks.flatMap { task ->
             task.subtasks.mapNotNull { subtask ->
@@ -218,7 +222,6 @@ internal fun validateBuilderState(
 
     state.editingTaskIndex?.takeIf { it in state.tasks.indices }?.let {
         if (state.pendingTaskTitle.isBlank()) errors += BuilderValidationError.TASK_NAME_REQUIRED
-        if (state.pendingTimerInvalid) errors += BuilderValidationError.TASK_TIMER_MUST_BE_POSITIVE
     }
     state.tasks.forEach { task ->
         if (task.title.isBlank()) errors += BuilderValidationError.TASK_NAME_REQUIRED
@@ -283,37 +286,18 @@ internal fun BuilderState.taskErrorsFor(index: Int): Set<BuilderValidationError>
     val task = tasks.getOrNull(index) ?: return emptySet()
     val errors = subtaskErrorsFor(task).toMutableSet()
     if (task.title.isBlank()) errors += BuilderValidationError.TASK_NAME_REQUIRED
-    if (index == editingTaskIndex && pendingTimerInvalid) errors += BuilderValidationError.TASK_TIMER_MUST_BE_POSITIVE
     return errors intersect validationErrors
 }
 
-/**
- * Use this function after a failed save to find the task to expand. The task with an invalid timer comes
- * first, because the builder cannot open another task until that timer is fixed.
- */
+/** Use this function after a failed save to find the first task with a shown error. */
 internal fun BuilderState.firstTaskIndexWithErrors(): Int? =
-    editingTaskIndex?.takeIf { BuilderValidationError.TASK_TIMER_MUST_BE_POSITIVE in taskErrorsFor(it) }
-        ?: tasks.indices.firstOrNull { taskErrorsFor(it).isNotEmpty() }
+    tasks.indices.firstOrNull { taskErrorsFor(it).isNotEmpty() }
 
-/**
- * Use this function to make `taskId` the edited task. Returns null when the task is missing, or when the
- * currently edited task has invalid timer text, because the user must fix that timer first.
- */
-internal fun BuilderState.editingTask(taskId: RoutineTaskId): BuilderState? {
+/** Use this function to expand `taskId` for editing. Returns null when the task is missing. */
+internal fun BuilderState.expandingTask(taskId: RoutineTaskId): BuilderState? {
     val index = tasks.indexOfFirst { it.id == taskId }.takeIf { it >= 0 } ?: return null
-    if (editingTaskIndex == index) return this
-    if (editingTaskIndex != null && pendingTimerInvalid) return null
-    val task = tasks[index]
-    return copy(
-        editingTaskIndex = index,
-        pendingTaskTitle = task.title,
-        pendingTimerSeconds = task.timerSeconds?.toString() ?: "",
-    )
+    return copy(editingTaskIndex = index, pendingTaskTitle = tasks[index].title, expandedTaskId = taskId, editingNameTaskId = null)
 }
-
-/** Use this function to expand `taskId` for editing. Returns null under the same rules as `editingTask`. */
-internal fun BuilderState.expandingTask(taskId: RoutineTaskId): BuilderState? =
-    editingTask(taskId)?.copy(expandedTaskId = taskId, editingNameTaskId = null)
 
 /**
  * Use this function after a failed save. It expands the first task with errors, opens its name field when
@@ -557,18 +541,10 @@ class RoutineBuilderViewModel(
         }
     }
 
-    /** Use this function when the duration picker returns `totalSeconds` for a task; zero clears the timer. */
-    fun setTaskTimer(taskId: RoutineTaskId, totalSeconds: Long) {
-        state.value = state.value.editingTask(taskId) ?: return
-        setPendingTimerSeconds(if (totalSeconds == 0L) "" else totalSeconds.toString())
-    }
-
-    private fun setPendingTimerSeconds(value: String) {
-        val index = state.value.editingTaskIndex?.takeIf { it in state.value.tasks.indices } ?: return
-        val seconds = value.trim().toLongOrNull()?.takeIf { it > 0 }
+    /** Use this function when the duration picker returns a task timer; null means the task has no timer. */
+    fun setTaskTimer(taskId: RoutineTaskId, timerSeconds: Long?) {
         mutateDraft { draft ->
-            val tasks = draft.tasks.toMutableList().apply { set(index, get(index).copy(timerSeconds = seconds)) }
-            draft.copy(tasks = tasks, pendingTimerSeconds = value)
+            draft.copy(tasks = draft.tasks.map { if (it.id == taskId) it.copy(timerSeconds = timerSeconds) else it })
         }
     }
 
@@ -611,7 +587,7 @@ class RoutineBuilderViewModel(
     /** Use this function when haptic routine Reminder feedback is enabled or disabled. */
     fun setVibrateEnabled(value: Boolean) { mutateDraft { it.copy(vibrateEnabled = value) } }
 
-    /** Use this function when the user expands a task. The task stays closed while the open task's timer is invalid. */
+    /** Use this function when the user expands a task. */
     fun expandTask(taskId: RoutineTaskId) {
         state.value = state.value.expandingTask(taskId) ?: return
     }
@@ -629,8 +605,7 @@ class RoutineBuilderViewModel(
 
     /** Use this function when Add Task should create and expand a task without requiring a prefilled name. */
     fun addTask(defaultTitle: String) {
-        if (state.value.editingTaskIndex != null && state.value.pendingTimerInvalid) return
-        val task = RoutineTask(container.newTaskId(), defaultTitle)
+        val task = RoutineTask(container.newTaskId(), defaultTitle, timerSeconds = DEFAULT_TASK_TIMER_SECONDS)
         mutateDraft { draft ->
             val tasks = draft.tasks + task
             draft.copy(
@@ -638,7 +613,6 @@ class RoutineBuilderViewModel(
                 editingTaskIndex = tasks.lastIndex,
                 expandedTaskId = task.id,
                 pendingTaskTitle = defaultTitle,
-                pendingTimerSeconds = "",
             )
         }
     }
@@ -706,7 +680,6 @@ class RoutineBuilderViewModel(
                 expandedTaskId = draft.expandedTaskId.takeIf { it != taskId },
                 editingNameTaskId = draft.editingNameTaskId.takeIf { it != taskId },
                 pendingTaskTitle = if (removedEditingTask) "" else draft.pendingTaskTitle,
-                pendingTimerSeconds = if (removedEditingTask) "" else draft.pendingTimerSeconds,
             )
         }
     }
