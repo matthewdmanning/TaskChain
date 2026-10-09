@@ -236,6 +236,38 @@ class BuilderValidationTest {
         assertEquals(0, invalidTimer.firstTaskIndexWithErrors())
     }
 
+    /** Use this function to verify a failed save expands the failing task, opens its name field, and sets the scroll target. */
+    @Test
+    fun failedSaveRevealExpandsFirstTaskWithErrors() {
+        val valid = task("Valid")
+        val unnamed = RoutineTask(RoutineTaskId("unnamed"), "")
+        val draft = BuilderState(title = "Routine", tasks = listOf(valid, unnamed))
+        val revealed = draft.copy(validationErrors = validateBuilderState(draft, 1_000L)).revealingFirstError()
+
+        assertEquals(unnamed.id, revealed.expandedTaskId)
+        assertEquals(unnamed.id, revealed.editingNameTaskId)
+        assertEquals(1, revealed.editingTaskIndex)
+        assertEquals(BuilderRevealTarget.Task(1), revealed.revealTarget)
+
+        val noName = BuilderState(tasks = listOf(valid))
+        assertEquals(
+            BuilderRevealTarget.RoutineName,
+            noName.copy(validationErrors = validateBuilderState(noName, 1_000L)).revealingFirstError().revealTarget,
+        )
+    }
+
+    /** Use this function to verify another task cannot expand while the edited task has invalid timer text. */
+    @Test
+    fun invalidPendingTimerBlocksExpandingAnotherTask() {
+        val first = task("First")
+        val second = task("Second")
+        val draft = BuilderState(tasks = listOf(first, second), editingTaskIndex = 0, pendingTimerSeconds = "-5")
+
+        assertEquals(null, draft.expandingTask(second.id))
+        assertEquals(first.id, draft.expandingTask(first.id)?.expandedTaskId)
+        assertEquals(second.id, draft.copy(pendingTimerSeconds = "30").expandingTask(second.id)?.expandedTaskId)
+    }
+
     /** Use this function to verify nested subtasks contribute duration while counting only their main task.
      * Inputs: none. Dependencies: routine summary formatting and the subtask model.
      */

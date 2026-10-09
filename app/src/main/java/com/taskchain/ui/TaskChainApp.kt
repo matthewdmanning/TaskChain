@@ -697,31 +697,18 @@ private fun RoutineBuilderRoute(
     val context = LocalContext.current
     val addTaskDescription = stringResource(R.string.add_task)
     var showDiscardDialog by rememberSaveable { mutableStateOf(false) }
-    var expandedTaskId by rememberSaveable { mutableStateOf<String?>(null) }
-    var editingNameTaskId by rememberSaveable { mutableStateOf<String?>(null) }
     val listState = rememberLazyListState()
     LaunchedEffect(state.savedRoutineId) { if (state.savedRoutineId != null) onSaved() }
-    // After a failed save, open the first task with an error and scroll to the first error from the top.
+    // After a failed save, scroll to the section that the ViewModel chose to reveal.
     LaunchedEffect(state.failedSaveCount) {
-        if (state.failedSaveCount == 0) return@LaunchedEffect
-        val failed = viewModel.state.value
-        val taskIndex = failed.firstTaskIndexWithErrors()
-        taskIndex?.let { index ->
-            val task = failed.tasks[index]
-            viewModel.editTask(index)
-            if (viewModel.state.value.editingTaskIndex == index) {
-                expandedTaskId = task.id.value
-                if (BuilderValidationError.TASK_NAME_REQUIRED in failed.taskErrorsFor(index)) editingNameTaskId = task.id.value
-            }
+        val targetItem = when (val target = state.revealTarget) {
+            null -> return@LaunchedEffect
+            BuilderRevealTarget.RoutineName -> BUILDER_ROUTINE_ITEM
+            BuilderRevealTarget.RoutineSettings -> BUILDER_SETTINGS_ITEM
+            BuilderRevealTarget.TaskHeader -> BUILDER_TASK_HEADER_ITEM
+            is BuilderRevealTarget.Task -> BUILDER_FIRST_TASK_ITEM + target.index
         }
-        val errors = failed.validationErrors
-        val targetItem = when {
-            BuilderValidationError.ROUTINE_NAME_REQUIRED in errors -> BUILDER_ROUTINE_ITEM
-            errors.any { it in ROUTINE_SETTINGS_ERRORS } -> BUILDER_SETTINGS_ITEM
-            BuilderValidationError.TASK_REQUIRED in errors -> BUILDER_TASK_HEADER_ITEM
-            else -> taskIndex?.let { BUILDER_FIRST_TASK_ITEM + it }
-        }
-        targetItem?.let { listState.animateScrollToItem(it) }
+        listState.animateScrollToItem(targetItem)
     }
     val requestClose = {
         if (state.hasUnsavedChanges) showDiscardDialog = true else onClose()
@@ -809,7 +796,7 @@ private fun RoutineBuilderRoute(
         itemsIndexed(state.tasks, key = { _, task -> task.id.value }) { index, task ->
             var dragOffset by remember(task.id) { mutableStateOf(0f) }
             var isDragging by remember(task.id) { mutableStateOf(false) }
-            val expanded = expandedTaskId == task.id.value
+            val expanded = state.expandedTaskId == task.id
             val taskErrors = state.taskErrorsFor(index)
             val dragScale by animateFloatAsState(
                 if (isDragging) 1.03f else 1f,
@@ -824,19 +811,7 @@ private fun RoutineBuilderRoute(
             val moveUp = stringResource(R.string.authoring_move_up)
             val moveDown = stringResource(R.string.authoring_move_down)
             val changeExpansion: (Boolean) -> Unit = { shouldExpand ->
-                if (shouldExpand) {
-                    val currentIndex = viewModel.state.value.tasks.indexOfFirst { it.id == task.id }
-                    if (currentIndex >= 0) {
-                        viewModel.editTask(currentIndex)
-                        if (viewModel.state.value.editingTaskIndex == currentIndex) {
-                            expandedTaskId = task.id.value
-                            editingNameTaskId = null
-                        }
-                    }
-                } else if (expandedTaskId == task.id.value) {
-                    expandedTaskId = null
-                    editingNameTaskId = null
-                }
+                if (shouldExpand) viewModel.expandTask(task.id) else viewModel.collapseTask(task.id)
             }
             com.example.cyberpunkandroid.components.CyberAccordion(
                 title = task.title.ifBlank { stringResource(R.string.task_name) },
@@ -853,8 +828,8 @@ private fun RoutineBuilderRoute(
                     }
                     .semantics {
                         customActions = buildList {
-                            if (index > 0) add(CustomAccessibilityAction(moveUp) { viewModel.moveTask(index, -1); true })
-                            if (index < state.tasks.lastIndex) add(CustomAccessibilityAction(moveDown) { viewModel.moveTask(index, 1); true })
+                            if (index > 0) add(CustomAccessibilityAction(moveUp) { viewModel.moveTask(task.id, -1); true })
+                            if (index < state.tasks.lastIndex) add(CustomAccessibilityAction(moveDown) { viewModel.moveTask(task.id, 1); true })
                         }
                     },
                 borderColor = when {
@@ -884,12 +859,7 @@ private fun RoutineBuilderRoute(
                                         change.consume()
                                         dragOffset += amount.y
                                         if (dragOffset.absoluteValue >= DRAG_REORDER_THRESHOLD_PX) {
-                                            val currentIndex = viewModel.state.value.tasks.indexOfFirst {
-                                                it.id.value == task.id.value
-                                            }
-                                            if (currentIndex >= 0) {
-                                                viewModel.moveTask(currentIndex, if (dragOffset > 0) 1 else -1)
-                                            }
+                                            viewModel.moveTask(task.id, if (dragOffset > 0) 1 else -1)
                                             dragOffset = 0f
                                         }
                                     },
@@ -897,7 +867,7 @@ private fun RoutineBuilderRoute(
                             },
                     )
                     Box(Modifier.weight(1f)) {
-                    if (isExpanded && editingNameTaskId == task.id.value) {
+                    if (isExpanded && state.editingNameTaskId == task.id) {
                         val nameError = stringResource(R.string.validation_task_name_required)
                             .takeIf { BuilderValidationError.TASK_NAME_REQUIRED in state.taskErrorsFor(index) }
                         com.example.cyberpunkandroid.components.CyberTextField(
@@ -913,7 +883,7 @@ private fun RoutineBuilderRoute(
                             style = CyberTheme.typography.body,
                             color = if (task.title.isBlank()) CyberTheme.colors.textSecondary else CyberTheme.colors.textPrimary,
                             modifier = if (isExpanded) {
-                                Modifier.wrapContentWidth().clickable { editingNameTaskId = task.id.value }
+                                Modifier.wrapContentWidth().clickable { viewModel.startTaskNameEdit(task.id) }
                             } else {
                                 Modifier
                             },
@@ -983,13 +953,7 @@ private fun RoutineBuilderRoute(
                                     .setNegativeButton(android.R.string.cancel, null)
                                     .setPositiveButton(android.R.string.ok) { _, _ ->
                                         val totalSeconds = minutesPicker.value * SECONDS_PER_MINUTE + secondsPicker.value
-                                        val currentIndex = viewModel.state.value.tasks.indexOfFirst { it.id.value == task.id.value }
-                                        if (currentIndex >= 0) {
-                                            viewModel.editTask(currentIndex)
-                                            if (viewModel.state.value.editingTaskIndex == currentIndex) {
-                                                viewModel.setPendingTimerSeconds(if (totalSeconds == 0L) "" else totalSeconds.toString())
-                                            }
-                                        }
+                                        viewModel.setTaskTimer(task.id, totalSeconds)
                                     }
                                     .show()
                             },
@@ -1023,10 +987,7 @@ private fun RoutineBuilderRoute(
                     }
                     CyberButton(
                         modifier = Modifier.fillMaxWidth().heightIn(min = CyberPrimitives.IconSizes.dp48),
-                        onClick = {
-                            viewModel.removeTask(index)
-                            if (expandedTaskId == task.id.value) expandedTaskId = null
-                        },
+                        onClick = { viewModel.removeTask(task.id) },
                         style = CyberButtonStyle.Outline,
                         size = CyberButtonSize.Small,
                     ) {
@@ -1038,10 +999,7 @@ private fun RoutineBuilderRoute(
         item {
             CyberButton(
                 modifier = Modifier.fillMaxWidth().heightIn(min = CyberPrimitives.IconSizes.dp48),
-                onClick = {
-                    viewModel.addTask("")
-                    expandedTaskId = viewModel.state.value.tasks.lastOrNull()?.id?.value
-                },
+                onClick = { viewModel.addTask("") },
                 style = CyberButtonStyle.Outline,
                 size = CyberButtonSize.Large,
             ) {
@@ -2056,15 +2014,6 @@ private const val BUILDER_ROUTINE_ITEM = 0
 private const val BUILDER_SETTINGS_ITEM = 1
 private const val BUILDER_TASK_HEADER_ITEM = 2
 private const val BUILDER_FIRST_TASK_ITEM = 3
-
-private val ROUTINE_SETTINGS_ERRORS = setOf(
-    BuilderValidationError.SELECTED_DAY_REQUIRED,
-    BuilderValidationError.SCHEDULE_DATE_REQUIRED,
-    BuilderValidationError.SCHEDULE_DATE_MUST_BE_FUTURE,
-    BuilderValidationError.REMINDER_MUST_BE_FUTURE,
-    BuilderValidationError.SCHEDULE_REMINDER_EXCLUSIVE,
-    BuilderValidationError.LEGACY_SETTINGS_CONFLICT,
-)
 
 /** Errors that have their own message next to Save instead of a highlighted field. */
 private val SAVE_AREA_ERRORS = setOf(

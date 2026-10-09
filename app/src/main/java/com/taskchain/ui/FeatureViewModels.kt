@@ -143,6 +143,23 @@ enum class BuilderValidationError {
 private const val DEFAULT_SUBTASK_DURATION_SECONDS = 60L
 private const val MAX_SAFE_SUBTASK_DURATION_SECONDS = Long.MAX_VALUE / 1_000L
 
+private val ROUTINE_SETTINGS_ERRORS = setOf(
+    BuilderValidationError.SELECTED_DAY_REQUIRED,
+    BuilderValidationError.SCHEDULE_DATE_REQUIRED,
+    BuilderValidationError.SCHEDULE_DATE_MUST_BE_FUTURE,
+    BuilderValidationError.REMINDER_MUST_BE_FUTURE,
+    BuilderValidationError.SCHEDULE_REMINDER_EXCLUSIVE,
+    BuilderValidationError.LEGACY_SETTINGS_CONFLICT,
+)
+
+/** Identifies the builder section that the screen scrolls to after a failed save. */
+sealed interface BuilderRevealTarget {
+    data object RoutineName : BuilderRevealTarget
+    data object RoutineSettings : BuilderRevealTarget
+    data object TaskHeader : BuilderRevealTarget
+    data class Task(val index: Int) : BuilderRevealTarget
+}
+
 /** Editable state for one routine builder route. */
 data class BuilderState(
     val title: String = "",
@@ -158,6 +175,8 @@ data class BuilderState(
     val vibrateEnabled: Boolean = true,
     val soundSettings: SoundSettings = defaultSoundSettings(),
     val editingTaskIndex: Int? = null,
+    val expandedTaskId: RoutineTaskId? = null,
+    val editingNameTaskId: RoutineTaskId? = null,
     val scheduleEnabled: Boolean = false,
     val scheduleFrequency: ScheduleFrequency = ScheduleFrequency.DAILY,
     val scheduleHour: Int = 9,
@@ -167,9 +186,14 @@ data class BuilderState(
     val savedRoutineId: RoutineId? = null,
     val validationErrors: Set<BuilderValidationError> = emptySet(),
     val failedSaveCount: Int = 0,
+    val revealTarget: BuilderRevealTarget? = null,
     val hasUnsavedChanges: Boolean = false,
     val isSaving: Boolean = false,
 ) {
+    /** True when the edited task's raw timer text is not blank and is not a positive number of seconds. */
+    val pendingTimerInvalid: Boolean
+        get() = pendingTimerSeconds.isNotBlank() && pendingTimerSeconds.trim().toLongOrNull()?.let { it > 0 } != true
+
     val invalidSubtaskDurationIds: Set<RoutineSubtaskId>
         get() = tasks.flatMap { task ->
             task.subtasks.mapNotNull { subtask ->
@@ -194,9 +218,7 @@ internal fun validateBuilderState(
 
     state.editingTaskIndex?.takeIf { it in state.tasks.indices }?.let {
         if (state.pendingTaskTitle.isBlank()) errors += BuilderValidationError.TASK_NAME_REQUIRED
-        if (state.pendingTimerSeconds.isNotBlank() &&
-            state.pendingTimerSeconds.trim().toLongOrNull()?.let { seconds -> seconds > 0 } != true
-        ) errors += BuilderValidationError.TASK_TIMER_MUST_BE_POSITIVE
+        if (state.pendingTimerInvalid) errors += BuilderValidationError.TASK_TIMER_MUST_BE_POSITIVE
     }
     state.tasks.forEach { task ->
         if (task.title.isBlank()) errors += BuilderValidationError.TASK_NAME_REQUIRED
@@ -261,9 +283,7 @@ internal fun BuilderState.taskErrorsFor(index: Int): Set<BuilderValidationError>
     val task = tasks.getOrNull(index) ?: return emptySet()
     val errors = subtaskErrorsFor(task).toMutableSet()
     if (task.title.isBlank()) errors += BuilderValidationError.TASK_NAME_REQUIRED
-    if (index == editingTaskIndex && pendingTimerSeconds.isNotBlank() &&
-        pendingTimerSeconds.trim().toLongOrNull()?.let { it > 0 } != true
-    ) errors += BuilderValidationError.TASK_TIMER_MUST_BE_POSITIVE
+    if (index == editingTaskIndex && pendingTimerInvalid) errors += BuilderValidationError.TASK_TIMER_MUST_BE_POSITIVE
     return errors intersect validationErrors
 }
 
@@ -274,6 +294,48 @@ internal fun BuilderState.taskErrorsFor(index: Int): Set<BuilderValidationError>
 internal fun BuilderState.firstTaskIndexWithErrors(): Int? =
     editingTaskIndex?.takeIf { BuilderValidationError.TASK_TIMER_MUST_BE_POSITIVE in taskErrorsFor(it) }
         ?: tasks.indices.firstOrNull { taskErrorsFor(it).isNotEmpty() }
+
+/**
+ * Use this function to make `taskId` the edited task. Returns null when the task is missing, or when the
+ * currently edited task has invalid timer text, because the user must fix that timer first.
+ */
+internal fun BuilderState.editingTask(taskId: RoutineTaskId): BuilderState? {
+    val index = tasks.indexOfFirst { it.id == taskId }.takeIf { it >= 0 } ?: return null
+    if (editingTaskIndex == index) return this
+    if (editingTaskIndex != null && pendingTimerInvalid) return null
+    val task = tasks[index]
+    return copy(
+        editingTaskIndex = index,
+        pendingTaskTitle = task.title,
+        pendingTimerSeconds = task.timerSeconds?.toString() ?: "",
+    )
+}
+
+/** Use this function to expand `taskId` for editing. Returns null under the same rules as `editingTask`. */
+internal fun BuilderState.expandingTask(taskId: RoutineTaskId): BuilderState? =
+    editingTask(taskId)?.copy(expandedTaskId = taskId, editingNameTaskId = null)
+
+/**
+ * Use this function after a failed save. It expands the first task with errors, opens its name field when
+ * the name is missing, and sets the section that the screen scrolls to.
+ */
+internal fun BuilderState.revealingFirstError(): BuilderState {
+    val taskIndex = firstTaskIndexWithErrors()
+    val revealed = taskIndex?.let { index ->
+        val taskId = tasks[index].id
+        expandingTask(taskId)?.copy(
+            editingNameTaskId = taskId.takeIf { BuilderValidationError.TASK_NAME_REQUIRED in taskErrorsFor(index) },
+        )
+    } ?: this
+    return revealed.copy(
+        revealTarget = when {
+            BuilderValidationError.ROUTINE_NAME_REQUIRED in validationErrors -> BuilderRevealTarget.RoutineName
+            validationErrors.any { it in ROUTINE_SETTINGS_ERRORS } -> BuilderRevealTarget.RoutineSettings
+            BuilderValidationError.TASK_REQUIRED in validationErrors -> BuilderRevealTarget.TaskHeader
+            else -> taskIndex?.let(BuilderRevealTarget::Task)
+        },
+    )
+}
 
 private fun BuilderState.hasConflictingLegacyRoutineSettings(): Boolean {
     if (tasks.none {
@@ -495,8 +557,13 @@ class RoutineBuilderViewModel(
         }
     }
 
-    /** Use this function when the expanded task's optional duration changes. */
-    fun setPendingTimerSeconds(value: String) {
+    /** Use this function when the duration picker returns `totalSeconds` for a task; zero clears the timer. */
+    fun setTaskTimer(taskId: RoutineTaskId, totalSeconds: Long) {
+        state.value = state.value.editingTask(taskId) ?: return
+        setPendingTimerSeconds(if (totalSeconds == 0L) "" else totalSeconds.toString())
+    }
+
+    private fun setPendingTimerSeconds(value: String) {
         val index = state.value.editingTaskIndex?.takeIf { it in state.value.tasks.indices } ?: return
         val seconds = value.trim().toLongOrNull()?.takeIf { it > 0 }
         mutateDraft { draft ->
@@ -544,58 +611,51 @@ class RoutineBuilderViewModel(
     /** Use this function when haptic routine Reminder feedback is enabled or disabled. */
     fun setVibrateEnabled(value: Boolean) { mutateDraft { it.copy(vibrateEnabled = value) } }
 
-    /** Use this function when an existing draft task should be edited in place. */
-    fun editTask(index: Int) {
-        val draft = state.value
-        val task = draft.tasks.getOrNull(index) ?: return
-        if (draft.editingTaskIndex == index) return
-        if (draft.editingTaskIndex != null && draft.pendingTimerSeconds.isNotBlank() &&
-            draft.pendingTimerSeconds.trim().toLongOrNull()?.let { it > 0 } != true
-        ) return
-        state.value = draft.copy(
-            editingTaskIndex = index,
-            pendingTaskTitle = task.title,
-            pendingTimerSeconds = task.timerSeconds?.toString() ?: "",
-        )
+    /** Use this function when the user expands a task. The task stays closed while the open task's timer is invalid. */
+    fun expandTask(taskId: RoutineTaskId) {
+        state.value = state.value.expandingTask(taskId) ?: return
+    }
+
+    /** Use this function when the user collapses a task. */
+    fun collapseTask(taskId: RoutineTaskId) {
+        if (state.value.expandedTaskId != taskId) return
+        state.value = state.value.copy(expandedTaskId = null, editingNameTaskId = null)
+    }
+
+    /** Use this function when the user taps the title of the expanded task to rename it. */
+    fun startTaskNameEdit(taskId: RoutineTaskId) {
+        state.value = state.value.copy(editingNameTaskId = taskId)
     }
 
     /** Use this function when Add Task should create and expand a task without requiring a prefilled name. */
     fun addTask(defaultTitle: String) {
-        val draft = state.value
-        if (draft.editingTaskIndex != null && draft.pendingTimerSeconds.isNotBlank() &&
-            draft.pendingTimerSeconds.trim().toLongOrNull()?.let { it > 0 } != true
-        ) return
-        val tasks = draft.tasks + RoutineTask(container.newTaskId(), defaultTitle)
-        val candidate = draft.copy(
-            tasks = tasks,
-            editingTaskIndex = tasks.lastIndex,
-            pendingTaskTitle = defaultTitle,
-            pendingTimerSeconds = "",
-            hasUnsavedChanges = true,
-        )
-        state.value = candidate.copy(
-            validationErrors = candidate.validationErrors
-                .minus(BuilderValidationError.SAVE_FAILED)
-                .intersect(validateBuilderState(candidate, container.now())),
-        )
+        if (state.value.editingTaskIndex != null && state.value.pendingTimerInvalid) return
+        val task = RoutineTask(container.newTaskId(), defaultTitle)
+        mutateDraft { draft ->
+            val tasks = draft.tasks + task
+            draft.copy(
+                tasks = tasks,
+                editingTaskIndex = tasks.lastIndex,
+                expandedTaskId = task.id,
+                pendingTaskTitle = defaultTitle,
+                pendingTimerSeconds = "",
+            )
+        }
     }
 
-    /** Use this function when an ordered draft task moves by a list offset. */
-    fun moveTask(index: Int, offset: Int) {
-        val target = index + offset
-        val tasks = state.value.tasks
-        if (index !in tasks.indices || target !in tasks.indices) return
-        val reordered = tasks.toMutableList().apply { add(target, removeAt(index)) }
-        val editingId = state.value.editingTaskIndex?.let { tasks.getOrNull(it)?.id }
-        if (reordered == tasks) return
-        val candidate = state.value.copy(
-            tasks = reordered,
-            editingTaskIndex = editingId?.let { id -> reordered.indexOfFirst { it.id == id }.takeIf { it >= 0 } },
-            hasUnsavedChanges = true,
-        )
-        state.value = candidate.copy(
-            validationErrors = candidate.validationErrors.intersect(validateBuilderState(candidate, container.now())),
-        )
+    /** Use this function when a draft task moves by a list offset. */
+    fun moveTask(taskId: RoutineTaskId, offset: Int) {
+        mutateDraft { draft ->
+            val index = draft.tasks.indexOfFirst { it.id == taskId }
+            val target = index + offset
+            if (index < 0 || target !in draft.tasks.indices) return@mutateDraft draft
+            val reordered = draft.tasks.toMutableList().apply { add(target, removeAt(index)) }
+            val editingId = draft.editingTaskIndex?.let { draft.tasks.getOrNull(it)?.id }
+            draft.copy(
+                tasks = reordered,
+                editingTaskIndex = editingId?.let { id -> reordered.indexOfFirst { it.id == id }.takeIf { it >= 0 } },
+            )
+        }
     }
 
     /** Use this function when routine scheduling is enabled or disabled. */
@@ -629,43 +689,37 @@ class RoutineBuilderViewModel(
     }
 
     /** Use this function when removing one task from the current draft. */
-    fun removeTask(index: Int) {
-        val draft = state.value
-        if (index !in draft.tasks.indices) return
-        val editingIndex = draft.editingTaskIndex
-        val removedEditingTask = editingIndex == index
-        val removedTaskId = draft.tasks[index].id.value
-        val candidate = draft.copy(
-            tasks = draft.tasks.filterIndexed { itemIndex, _ -> itemIndex != index },
-            pendingSubtaskDurations = draft.pendingSubtaskDurations.filterKeys { !it.startsWith("$removedTaskId:") },
-            editingTaskIndex = when {
-                removedEditingTask -> null
-                editingIndex != null && editingIndex > index -> editingIndex - 1
-                else -> editingIndex
-            },
-            pendingTaskTitle = if (removedEditingTask) "" else draft.pendingTaskTitle,
-            pendingTimerSeconds = if (removedEditingTask) "" else draft.pendingTimerSeconds,
-            hasUnsavedChanges = true,
-        )
-        state.value = candidate.copy(
-            validationErrors = candidate.validationErrors.intersect(validateBuilderState(candidate, container.now())),
-        )
+    fun removeTask(taskId: RoutineTaskId) {
+        mutateDraft { draft ->
+            val index = draft.tasks.indexOfFirst { it.id == taskId }
+            if (index < 0) return@mutateDraft draft
+            val editingIndex = draft.editingTaskIndex
+            val removedEditingTask = editingIndex == index
+            draft.copy(
+                tasks = draft.tasks.filterNot { it.id == taskId },
+                pendingSubtaskDurations = draft.pendingSubtaskDurations.filterKeys { !it.startsWith("${taskId.value}:") },
+                editingTaskIndex = when {
+                    removedEditingTask -> null
+                    editingIndex != null && editingIndex > index -> editingIndex - 1
+                    else -> editingIndex
+                },
+                expandedTaskId = draft.expandedTaskId.takeIf { it != taskId },
+                editingNameTaskId = draft.editingNameTaskId.takeIf { it != taskId },
+                pendingTaskTitle = if (removedEditingTask) "" else draft.pendingTaskTitle,
+                pendingTimerSeconds = if (removedEditingTask) "" else draft.pendingTimerSeconds,
+            )
+        }
     }
 
     /** Use this function when Save is pressed for a valid routine draft. */
     fun save() {
         if (state.value.isSaving) return
         val now = container.now()
-        val initial = state.value
-        val initialErrors = validateBuilderState(initial, now)
-        if (initialErrors.isNotEmpty()) {
-            state.value = initial.copy(validationErrors = initialErrors, failedSaveCount = initial.failedSaveCount + 1)
-            return
-        }
         val draft = state.value
         val errors = validateBuilderState(draft, now)
         if (errors.isNotEmpty()) {
             state.value = draft.copy(validationErrors = errors, failedSaveCount = draft.failedSaveCount + 1)
+                .revealingFirstError()
             return
         }
         state.value = draft.copy(validationErrors = emptySet(), isSaving = true)
