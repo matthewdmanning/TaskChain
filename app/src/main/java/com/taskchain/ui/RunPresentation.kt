@@ -9,7 +9,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import com.taskchain.domain.model.RoutineRun
-import com.taskchain.domain.model.RunStepStatus
+import com.taskchain.domain.model.RunTaskStatus
 import com.taskchain.ui.designsystem.RunnerMotion
 import kotlinx.coroutines.delay
 
@@ -22,7 +22,7 @@ internal data class RunnerPresentation(
 )
 
 /**
- * Use this function when the VM advances a completed step so the completed snapshot stays visible during its effect.
+ * Use this function when the VM advances a completed task so the completed snapshot stays visible during its effect.
  *
  * @param run Latest persisted run state from the runner ViewModel.
  * @param animationsEnabled Whether system animator settings permit the visual hold.
@@ -91,30 +91,30 @@ internal fun rememberRunnerPresentation(
 }
 
 /**
- * Use this function to identify an active-run transition that completed the displayed step.
+ * Use this function to identify an active-run transition that completed the displayed task.
  *
  * @param previous Snapshot currently shown by the route.
  * @param next Latest snapshot after the domain transition.
- * @return True only when the same run completed the previous current step.
+ * @return True only when the same run completed the previous current task.
  */
 internal fun shouldHoldCompletedPresentation(previous: RoutineRun?, next: RoutineRun?): Boolean {
     if (previous == null || next == null || previous.id != next.id || previous.routineId != next.routineId) return false
-    val previousStep = previous.steps.getOrNull(previous.currentStepIndex) ?: return false
-    val nextStep = next.steps.getOrNull(previous.currentStepIndex) ?: return false
-    return previousStep.status != RunStepStatus.COMPLETED && nextStep.status == RunStepStatus.COMPLETED
+    val previousTask = previous.tasks.getOrNull(previous.currentTaskIndex) ?: return false
+    val nextTask = next.tasks.getOrNull(previous.currentTaskIndex) ?: return false
+    return previousTask.status != RunTaskStatus.COMPLETED && nextTask.status == RunTaskStatus.COMPLETED
 }
 
-/** Use this function to derive the completed-step identity that owns one visual hold from two run snapshots. */
+/** Use this function to derive the completed-task identity that owns one visual hold from two run snapshots. */
 private fun completionPresentationKey(previous: RoutineRun?, next: RoutineRun?): String? {
     if (!shouldHoldCompletedPresentation(previous, next)) return null
-    val step = next!!.steps[previous!!.currentStepIndex]
-    return "${next.id.value}:${previous.currentStepIndex}:${step.finishedAtEpochMillis}"
+    val task = next!!.tasks[previous!!.currentTaskIndex]
+    return "${next.id.value}:${previous.currentTaskIndex}:${task.finishedAtEpochMillis}"
 }
 
-/** Use this function to display the just-completed step while the next step remains persisted and ready. */
+/** Use this function to display the just-completed task while the next task remains persisted and ready. */
 private fun completedSnapshot(previous: RoutineRun?, next: RoutineRun?): RoutineRun? {
     if (!shouldHoldCompletedPresentation(previous, next)) return null
-    return next!!.copy(currentStepIndex = previous!!.currentStepIndex)
+    return next!!.copy(currentTaskIndex = previous!!.currentTaskIndex)
 }
 
 private const val TASK_READY_TICK_MILLIS = 50L

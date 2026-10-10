@@ -9,7 +9,7 @@ UI routes/screens -> feature ViewModels -> domain services -> repository interfa
                                       Android adapters <- file/DataStore storage
 ```
 
-- `domain/model` defines routines, immutable run snapshots, completion events, routine scheduling and reminder settings, and step timer settings.
+- `domain/model` defines routines, immutable run snapshots, completion events, routine scheduling and reminder settings, and task timer settings.
 - `domain/schedule` owns platform-neutral recurrence and next-trigger calculation.
 - `domain/run` owns run transitions, timing, skip/complete rules, confirmation, feedback eligibility, and invariants.
 - `data` exposes repository interfaces and local JSON/DataStore implementations.
@@ -33,4 +33,12 @@ The initial app is Android-only, offline-only, and database-free. Repository int
 
 ## UI library dependency
 
-cyberpunkAndroid is a separate project dependency that supplies UI components, theme tokens, and effects. Do not describe or manage it as a Git submodule. Verify the configured dependency location before running Gradle.
+cyberpunkAndroid supplies UI components, theme tokens, and effects through the published `com.github.matthewdmanning:cyberpunkAndroid:v1.0.8` dependency. TaskChain has no `third_party` source checkout, submodule, or Gradle project inclusion for it.
+
+## Runner feature composition
+
+The Run route owns ViewModel creation, lifecycle-aware observation, navigation, and completion/readiness presentation. `RoutineRunnerScreen` receives immutable state, derived timer values, and callbacks; nested subtasks and runner visuals compose within that screen. No runner feature observes repository emissions to infer navigation or starts an independent polling clock.
+
+`RoutineRunEngine` owns subtask advancement, frozen elapsed time, and behind-schedule policy. Subtask definitions live inside `RoutineTask`; persisted active identity and advancement markers live inside `RoutineRunTask`. All run sequence indexes and completion/progress summaries refer to main tasks. The existing ViewModel persists transitions before semantic feedback dispatch, including `subtaskAdvanced`.
+
+The Screen displays only the current subtask. Subtask rims, next-up main tasks, segmented main progress and transient feedback use that same run snapshot and sampled time. Gesture detection and drag feedback stay in Compose (`ui/RunnerGestures.kt` for detection and state, `ui/RunnerGestureCues.kt` for visuals); they emit existing ViewModel intents and preserve accessibility actions. Gesture distances and glow radii are screen-relative semantic tokens in `ui/designsystem/RunnerGestureTokens.kt`, not borrowed library sizes. Font-sensitive action rows wrap, and shared typography is configured at the theme boundary.

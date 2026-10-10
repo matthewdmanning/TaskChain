@@ -14,7 +14,7 @@ Punchlist
 12. Routine builder: Accordian button target area should be the entire width of the item. Editing the name should require a second tap on the name -- target should shrink to the length of the name.
 13. The duration shows a double up arrow instead of the correct value.
 14. The duration editing popup is text entry instead of the dial entry.
-15. The duration of the step should be on the right edge of the unexpanded accordion item and move down when expanded.
+15. The duration of the task should be on the right edge of the unexpanded accordion item and move down when expanded.
 16. The "New Routine" button in Routines tab should be placed under all existing routines. It is currently at just below the page header.
 17. The page / screen headers should have appropriate semantic size tokens -- much larger.
 18. Remove the "Your routines" header.

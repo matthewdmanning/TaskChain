@@ -41,6 +41,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CenterAlignedTopAppBar
@@ -122,7 +123,7 @@ import com.taskchain.R
 import com.taskchain.domain.model.RoutineId
 import com.taskchain.domain.model.RoutineTemplate
 import com.taskchain.domain.model.RunStatus
-import com.taskchain.domain.model.RunStepStatus
+import com.taskchain.domain.model.RunTaskStatus
 import com.taskchain.domain.model.ScheduleFrequency
 import com.taskchain.domain.model.UserPreferences
 import com.taskchain.ui.designsystem.TaskChainDesignSystem
@@ -259,16 +260,16 @@ private fun HomeShell(
     val routinesViewModel: RoutinesViewModel = viewModel { RoutinesViewModel(container) }
     val progressViewModel: ProgressViewModel = viewModel { ProgressViewModel(container) }
     val settingsViewModel: SettingsViewModel = viewModel { SettingsViewModel(container) }
-    val activeRun by container.activeRun.observeActive().collectAsStateWithLifecycle(null)
-    var blockedRoutine by remember { mutableStateOf<RoutineTemplate?>(null) }
-    val startOrExplain: (RoutineTemplate) -> Unit = { routine ->
-        val currentRun = activeRun?.takeIf { it.status == RunStatus.ACTIVE }
-        if (currentRun != null && currentRun.routineId != routine.id) {
-            blockedRoutine = routine
-        } else {
-            onStart(routine)
+    val activeRun by routinesViewModel.activeRun.collectAsStateWithLifecycle()
+    val blockedRoutine by routinesViewModel.blockedRoutine.collectAsStateWithLifecycle()
+    val pendingStart by routinesViewModel.pendingStart.collectAsStateWithLifecycle()
+    LaunchedEffect(pendingStart) {
+        pendingStart?.let {
+            onStart(it)
+            routinesViewModel.startHandled()
         }
     }
+    val startOrExplain: (RoutineTemplate) -> Unit = routinesViewModel::requestStart
     val screen: @Composable () -> Unit = {
         Scaffold(
             contentWindowInsets = WindowInsets.safeDrawing,
@@ -280,7 +281,8 @@ private fun HomeShell(
                             selected = selectedTab == tab,
                             onClick = { onSelectedTabChange(tab) },
                             icon = {},
-                            label = { Text(stringResource(tab.label)) },
+                            label = { Text(stringResource(tab.label), style = MaterialTheme.typography.labelSmall,
+                                softWrap = false) },
                         )
                     }
                 }
@@ -293,7 +295,7 @@ private fun HomeShell(
                     todayListState,
                     onCreate,
                     startOrExplain,
-                    activeRun?.takeIf { it.status == RunStatus.ACTIVE },
+                    activeRun,
                     onResume = { run -> onResume(run.routineId) },
                 )
                 HomeTab.ROUTINES -> RoutinesRoute(routinesViewModel, padding, routinesListState, onCreate, onEdit, startOrExplain)
@@ -302,22 +304,22 @@ private fun HomeShell(
             }
         }
         blockedRoutine?.let {
-            val run = activeRun?.takeIf { current -> current.status == RunStatus.ACTIVE }
+            val run = activeRun
             if (run != null) {
                 AlertDialog(
-                    onDismissRequest = { blockedRoutine = null },
+                    onDismissRequest = routinesViewModel::dismissBlockedStart,
                     title = { Text(stringResource(R.string.active_run_in_progress_title)) },
                     text = { Text(stringResource(R.string.active_run_in_progress_message, run.routineTitle)) },
                     confirmButton = {
                         Button(onClick = {
-                            blockedRoutine = null
+                            routinesViewModel.dismissBlockedStart()
                             onResume(run.routineId)
                         }) {
                             Text(stringResource(R.string.resume_routine, run.routineTitle))
                         }
                     },
                     dismissButton = {
-                        TextButton(onClick = { blockedRoutine = null }) {
+                        TextButton(onClick = routinesViewModel::dismissBlockedStart) {
                             Text(stringResource(R.string.keep_browsing))
                         }
                     },
@@ -621,8 +623,9 @@ private fun RoutineCard(routine: RoutineTemplate, onEdit: (() -> Unit)?, onStart
 
 /** Use this function to format the total time of a routine template, or null if untimed. */
 internal fun formatRoutineTotalTime(routine: RoutineTemplate): String? {
-    if (routine.steps.none { it.timerSeconds != null }) return null
-    val totalSeconds = routine.steps.mapNotNull { it.timerSeconds }.sum()
+    if (routine.tasks.none { it.durationSeconds != null }) return null
+    val totalSeconds = routine.tasks.mapNotNull { it.durationSeconds }
+        .fold(0L) { total, seconds -> total + seconds.coerceIn(0L, Long.MAX_VALUE - total) }
     return if (totalSeconds >= 3600) {
         val hours = totalSeconds / 3600
         val minutes = (totalSeconds % 3600) / 60
@@ -637,10 +640,10 @@ internal fun formatRoutineTotalTime(routine: RoutineTemplate): String? {
 
 /** Use this function to format the item count of a routine template. */
 internal fun formatRoutineItemCount(routine: RoutineTemplate): String {
-    return "${routine.steps.size} ${if (routine.steps.size == 1) "Item" else "Items"}"
+    return "${routine.tasks.size} ${if (routine.tasks.size == 1) "Item" else "Items"}"
 }
 
-/** Use this function to split a non-negative step duration into minutes and seconds for builder display.
+/** Use this function to split a non-negative task duration into minutes and seconds for builder display.
  * Inputs: `totalSeconds` — the persisted duration in seconds.
  * Dependencies: `SECONDS_PER_MINUTE`.
  */
@@ -692,11 +695,21 @@ private fun RoutineBuilderRoute(
     val state by viewModel.state.collectAsStateWithLifecycle()
     val spacing = TaskChainDesignSystem.spacing()
     val context = LocalContext.current
-    val addStepDescription = stringResource(R.string.add_step)
+    val addTaskDescription = stringResource(R.string.add_task)
     var showDiscardDialog by rememberSaveable { mutableStateOf(false) }
-    var expandedStepId by rememberSaveable { mutableStateOf<String?>(null) }
-    var editingNameStepId by rememberSaveable { mutableStateOf<String?>(null) }
+    val listState = rememberLazyListState()
     LaunchedEffect(state.savedRoutineId) { if (state.savedRoutineId != null) onSaved() }
+    // After a failed save, scroll to the section that the ViewModel chose to reveal.
+    LaunchedEffect(state.failedSaveCount) {
+        val targetItem = when (val target = state.revealTarget) {
+            null -> return@LaunchedEffect
+            BuilderRevealTarget.RoutineName -> BUILDER_ROUTINE_ITEM
+            BuilderRevealTarget.RoutineSettings -> BUILDER_SETTINGS_ITEM
+            BuilderRevealTarget.TaskHeader -> BUILDER_TASK_HEADER_ITEM
+            is BuilderRevealTarget.Task -> BUILDER_FIRST_TASK_ITEM + target.index
+        }
+        listState.animateScrollToItem(targetItem)
+    }
     val requestClose = {
         if (state.hasUnsavedChanges) showDiscardDialog = true else onClose()
     }
@@ -715,6 +728,7 @@ private fun RoutineBuilderRoute(
         contentAlignment = Alignment.TopCenter,
     ) {
     LazyColumn(
+        state = listState,
         modifier = Modifier.widthIn(max = dimensionResource(R.dimen.content_max_width)).fillMaxSize(),
         contentPadding = PaddingValues(
             start = spacing.medium,
@@ -738,6 +752,9 @@ private fun RoutineBuilderRoute(
                             value = state.title,
                             onValueChange = viewModel::setTitle,
                             isError = isError,
+                            modifier = Modifier.fieldError(
+                                stringResource(R.string.validation_routine_name_required).takeIf { isError },
+                            ),
                         )
                     }
                     com.example.cyberpunkandroid.components.CyberField(
@@ -768,47 +785,36 @@ private fun RoutineBuilderRoute(
         }
         item {
             Text(
-                stringResource(R.string.authoring_steps),
+                stringResource(R.string.authoring_tasks),
                 style = CyberTheme.typography.display,
                 color = CyberTheme.colors.textPrimary,
             )
-            if (BuilderValidationError.STEP_REQUIRED in state.validationErrors) {
-                Text(stringResource(R.string.validation_step_required), color = CyberTheme.semantics.colors.danger)
+            if (BuilderValidationError.TASK_REQUIRED in state.validationErrors) {
+                BuilderErrorText(stringResource(R.string.validation_task_required))
             }
         }
-        itemsIndexed(state.steps, key = { _, step -> step.id.value }) { index, step ->
-            var dragOffset by remember(step.id) { mutableStateOf(0f) }
-            var isDragging by remember(step.id) { mutableStateOf(false) }
-            val expanded = expandedStepId == step.id.value
+        itemsIndexed(state.tasks, key = { _, task -> task.id.value }) { index, task ->
+            var dragOffset by remember(task.id) { mutableStateOf(0f) }
+            var isDragging by remember(task.id) { mutableStateOf(false) }
+            val expanded = state.expandedTaskId == task.id
+            val taskErrors = state.taskErrorsFor(index)
             val dragScale by animateFloatAsState(
                 if (isDragging) 1.03f else 1f,
                 animationSpec = tween(DRAG_TRANSITION_MILLIS, easing = FastOutSlowInEasing),
-                label = "StepDragScale",
+                label = "TaskDragScale",
             )
             val dragElevation by animateDpAsState(
                 if (isDragging) spacing.small else 0.dp,
                 animationSpec = tween(DRAG_TRANSITION_MILLIS, easing = FastOutSlowInEasing),
-                label = "StepDragElevation",
+                label = "TaskDragElevation",
             )
             val moveUp = stringResource(R.string.authoring_move_up)
             val moveDown = stringResource(R.string.authoring_move_down)
             val changeExpansion: (Boolean) -> Unit = { shouldExpand ->
-                if (shouldExpand) {
-                    val currentIndex = viewModel.state.value.steps.indexOfFirst { it.id == step.id }
-                    if (currentIndex >= 0) {
-                        viewModel.editStep(currentIndex)
-                        if (viewModel.state.value.editingStepIndex == currentIndex) {
-                            expandedStepId = step.id.value
-                            editingNameStepId = null
-                        }
-                    }
-                } else if (expandedStepId == step.id.value) {
-                    expandedStepId = null
-                    editingNameStepId = null
-                }
+                if (shouldExpand) viewModel.expandTask(task.id) else viewModel.collapseTask(task.id)
             }
             com.example.cyberpunkandroid.components.CyberAccordion(
-                title = step.title.ifBlank { stringResource(R.string.step_name) },
+                title = task.title.ifBlank { stringResource(R.string.task_name) },
                 expanded = expanded,
                 modifier = Modifier
                     .fillMaxWidth()
@@ -822,49 +828,21 @@ private fun RoutineBuilderRoute(
                     }
                     .semantics {
                         customActions = buildList {
-                            if (index > 0) add(CustomAccessibilityAction(moveUp) { viewModel.moveStep(index, -1); true })
-                            if (index < state.steps.lastIndex) add(CustomAccessibilityAction(moveDown) { viewModel.moveStep(index, 1); true })
+                            if (index > 0) add(CustomAccessibilityAction(moveUp) { viewModel.moveTask(task.id, -1); true })
+                            if (index < state.tasks.lastIndex) add(CustomAccessibilityAction(moveDown) { viewModel.moveTask(task.id, 1); true })
                         }
                     },
-                borderColor = if (isDragging) CyberTheme.colors.primary else CyberTheme.colors.border,
+                borderColor = when {
+                    isDragging -> CyberTheme.colors.primary
+                    taskErrors.isNotEmpty() -> CyberTheme.semantics.colors.danger
+                    else -> CyberTheme.colors.border
+                },
                 headerContent = { isExpanded ->
                     Row(
                         modifier = Modifier.fillMaxWidth().heightIn(min = CyberPrimitives.IconSizes.dp48)
                             .clickable(role = Role.Button) { changeExpansion(!isExpanded) },
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                    Box(Modifier.weight(1f)) {
-                    if (isExpanded && editingNameStepId == step.id.value) {
-                        com.example.cyberpunkandroid.components.CyberTextField(
-                            value = state.pendingStepTitle,
-                            placeholder = stringResource(R.string.step_name),
-                            isError = BuilderValidationError.STEP_NAME_REQUIRED in state.validationErrors,
-                            onValueChange = viewModel::setPendingStepTitle,
-                        )
-                    } else {
-                        Text(
-                            text = step.title.ifBlank { stringResource(R.string.step_name) },
-                            style = CyberTheme.typography.body,
-                            color = if (step.title.isBlank()) CyberTheme.colors.textSecondary else CyberTheme.colors.textPrimary,
-                            modifier = if (isExpanded) {
-                                Modifier.wrapContentWidth().clickable { editingNameStepId = step.id.value }
-                            } else {
-                                Modifier
-                            },
-                        )
-                    }
-                    }
-                    if (!isExpanded) {
-                        val duration = routineDurationParts(step.timerSeconds ?: 0L)
-                        Text(
-                            stringResource(
-                                R.string.authoring_duration_value,
-                                duration.first,
-                                duration.second,
-                            ),
-                            color = CyberTheme.colors.textSecondary,
-                        )
-                    }
                     CyberIcon(
                         iconRes = CyberIcons.Drag,
                         contentDescription = stringResource(R.string.authoring_drag_handle),
@@ -872,7 +850,7 @@ private fun RoutineBuilderRoute(
                         size = CyberPrimitives.IconSizes.dp48,
                         modifier = Modifier
                             .widthIn(min = CyberPrimitives.IconSizes.dp48)
-                            .pointerInput(step.id.value) {
+                            .pointerInput(task.id.value) {
                                 detectDragGesturesAfterLongPress(
                                     onDragStart = { isDragging = true },
                                     onDragEnd = { dragOffset = 0f; isDragging = false },
@@ -881,18 +859,50 @@ private fun RoutineBuilderRoute(
                                         change.consume()
                                         dragOffset += amount.y
                                         if (dragOffset.absoluteValue >= DRAG_REORDER_THRESHOLD_PX) {
-                                            val currentIndex = viewModel.state.value.steps.indexOfFirst {
-                                                it.id.value == step.id.value
-                                            }
-                                            if (currentIndex >= 0) {
-                                                viewModel.moveStep(currentIndex, if (dragOffset > 0) 1 else -1)
-                                            }
+                                            viewModel.moveTask(task.id, if (dragOffset > 0) 1 else -1)
                                             dragOffset = 0f
                                         }
                                     },
                                 )
                             },
                     )
+                    Box(Modifier.weight(1f)) {
+                    if (isExpanded && state.editingNameTaskId == task.id) {
+                        val nameError = stringResource(R.string.validation_task_name_required)
+                            .takeIf { BuilderValidationError.TASK_NAME_REQUIRED in state.taskErrorsFor(index) }
+                        com.example.cyberpunkandroid.components.CyberTextField(
+                            value = state.pendingTaskTitle,
+                            placeholder = stringResource(R.string.task_name_required_placeholder),
+                            isError = nameError != null,
+                            modifier = Modifier.fieldError(nameError),
+                            onValueChange = viewModel::setPendingTaskTitle,
+                        )
+                    } else {
+                        Text(
+                            text = task.title.ifBlank { stringResource(R.string.task_name) },
+                            style = CyberTheme.typography.body,
+                            color = if (task.title.isBlank()) CyberTheme.colors.textSecondary else CyberTheme.colors.textPrimary,
+                            modifier = if (isExpanded) {
+                                Modifier.wrapContentWidth().clickable { viewModel.startTaskNameEdit(task.id) }
+                            } else {
+                                Modifier
+                            },
+                        )
+                    }
+                    }
+                    if (!isExpanded && taskErrors.isNotEmpty()) {
+                        BuilderErrorText(stringResource(R.string.validation_task_has_errors))
+                    } else if (!isExpanded) task.durationSeconds?.let { seconds ->
+                        val duration = routineDurationParts(seconds)
+                        Text(
+                            stringResource(
+                                R.string.authoring_duration_compact,
+                                duration.first,
+                                duration.second,
+                            ),
+                            color = CyberTheme.colors.textSecondary,
+                        )
+                    }
                     }
                 },
                 onExpandedChange = changeExpansion,
@@ -901,31 +911,33 @@ private fun RoutineBuilderRoute(
                     modifier = Modifier.fillMaxWidth(),
                     verticalArrangement = Arrangement.spacedBy(spacing.medium),
                 ) {
-                    if (BuilderValidationError.STEP_NAME_REQUIRED in state.validationErrors && state.editingStepIndex == index) {
-                        Text(stringResource(R.string.validation_step_name_required), color = CyberTheme.semantics.colors.danger)
+                    if (BuilderValidationError.TASK_NAME_REQUIRED in state.validationErrors && state.editingTaskIndex == index) {
+                        BuilderErrorText(stringResource(R.string.validation_task_name_required))
                     }
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(spacing.small),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        val seconds = step.timerSeconds ?: 0L
+                        val seconds = task.durationSeconds ?: 0L
                         val duration = routineDurationParts(seconds)
                         CyberButton(
                             modifier = Modifier.fillMaxWidth().heightIn(min = CyberPrimitives.IconSizes.dp48),
+                            enabled = task.subtasks.isEmpty(),
                             onClick = {
-                                val currentMinutes = (seconds / SECONDS_PER_MINUTE)
+                                val pickerSeconds = task.timerSeconds ?: DEFAULT_TASK_TIMER_SECONDS
+                                val currentMinutes = (pickerSeconds / SECONDS_PER_MINUTE)
                                     .coerceIn(0L, Int.MAX_VALUE.toLong())
                                     .toInt()
                                 val minutesPicker = NumberPicker(context).apply {
                                     minValue = 0
-                                    maxValue = maxOf(1440, currentMinutes)
+                                    maxValue = maxOf(TASK_TIMER_MAX_MINUTES, currentMinutes)
                                     value = currentMinutes
                                 }
                                 val secondsPicker = NumberPicker(context).apply {
                                     minValue = 0
                                     maxValue = (SECONDS_PER_MINUTE - 1).toInt()
-                                    value = (seconds % SECONDS_PER_MINUTE).toInt()
+                                    value = (pickerSeconds % SECONDS_PER_MINUTE).toInt()
                                 }
                                 val pickers = android.widget.LinearLayout(context).apply {
                                     orientation = android.widget.LinearLayout.HORIZONTAL
@@ -937,14 +949,7 @@ private fun RoutineBuilderRoute(
                                     .setView(pickers)
                                     .setNegativeButton(android.R.string.cancel, null)
                                     .setPositiveButton(android.R.string.ok) { _, _ ->
-                                        val totalSeconds = minutesPicker.value * SECONDS_PER_MINUTE + secondsPicker.value
-                                        val currentIndex = viewModel.state.value.steps.indexOfFirst { it.id.value == step.id.value }
-                                        if (currentIndex >= 0) {
-                                            viewModel.editStep(currentIndex)
-                                            if (viewModel.state.value.editingStepIndex == currentIndex) {
-                                                viewModel.setPendingTimerSeconds(if (totalSeconds == 0L) "" else totalSeconds.toString())
-                                            }
-                                        }
+                                        viewModel.setTaskTimer(task.id, taskTimerFromPicker(minutesPicker.value, secondsPicker.value))
                                     }
                                     .show()
                             },
@@ -954,19 +959,32 @@ private fun RoutineBuilderRoute(
                             Text(stringResource(R.string.authoring_duration_value, duration.first, duration.second))
                         }
                     }
-                    if (BuilderValidationError.STEP_TIMER_MUST_BE_POSITIVE in state.validationErrors && state.editingStepIndex == index) {
-                        Text(stringResource(R.string.validation_timer_positive), color = CyberTheme.semantics.colors.danger)
+                    BuilderSubtaskEditor(
+                        subtasks = task.subtasks,
+                        durationText = { subtask -> state.pendingSubtaskDurations["${task.id.value}:${subtask.id.value}"]
+                            ?: subtask.durationSeconds.toString() },
+                        durationErrorIds = state.invalidSubtaskDurationIds,
+                        showTitleErrors = BuilderValidationError.SUBTASK_TITLE_REQUIRED in state.validationErrors,
+                        onTitleChange = { subtaskId, title -> viewModel.setSubtaskTitle(task.id, subtaskId, title) },
+                        onDurationChange = { subtaskId, value -> viewModel.setSubtaskDuration(task.id, subtaskId, value) },
+                        onAddSubtask = { viewModel.addSubtask(task.id) },
+                        onRemoveSubtask = { viewModel.removeSubtask(task.id, it) },
+                        onMoveSubtask = { subtaskId, offset -> viewModel.moveSubtask(task.id, subtaskId, offset) },
+                    )
+                    val shownSubtaskErrors = state.subtaskErrorsFor(task) intersect state.validationErrors
+                    if (BuilderValidationError.SUBTASK_TOTAL_TOO_LONG in shownSubtaskErrors) {
+                        BuilderErrorText(stringResource(R.string.subtask_total_too_long))
+                    }
+                    if (BuilderValidationError.SUBTASK_ID_DUPLICATED in shownSubtaskErrors) {
+                        BuilderErrorText(stringResource(R.string.subtask_id_duplicated))
                     }
                     CyberButton(
                         modifier = Modifier.fillMaxWidth().heightIn(min = CyberPrimitives.IconSizes.dp48),
-                        onClick = {
-                            viewModel.removeStep(index)
-                            if (expandedStepId == step.id.value) expandedStepId = null
-                        },
+                        onClick = { viewModel.removeTask(task.id) },
                         style = CyberButtonStyle.Outline,
                         size = CyberButtonSize.Small,
                     ) {
-                        Text(stringResource(R.string.remove_step))
+                        Text(stringResource(R.string.remove_task))
                     }
                 }
             }
@@ -974,10 +992,7 @@ private fun RoutineBuilderRoute(
         item {
             CyberButton(
                 modifier = Modifier.fillMaxWidth().heightIn(min = CyberPrimitives.IconSizes.dp48),
-                onClick = {
-                    viewModel.addStep("")
-                    expandedStepId = viewModel.state.value.steps.lastOrNull()?.id?.value
-                },
+                onClick = { viewModel.addTask("") },
                 style = CyberButtonStyle.Outline,
                 size = CyberButtonSize.Large,
             ) {
@@ -986,30 +1001,23 @@ private fun RoutineBuilderRoute(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     CyberIcon(iconRes = CyberIcons.Plus, contentDescription = null)
-                    Text(addStepDescription)
+                    Text(addTaskDescription)
                 }
             }
         }
         item {
-            val missingHighlighted = state.validationErrors.any {
-                it in setOf(
-                    BuilderValidationError.ROUTINE_NAME_REQUIRED,
-                    BuilderValidationError.STEP_NAME_REQUIRED,
-                    BuilderValidationError.SELECTED_DAY_REQUIRED,
-                    BuilderValidationError.SCHEDULE_DATE_REQUIRED,
-                )
-            }
+            val missingHighlighted = state.validationErrors.any { it !in SAVE_AREA_ERRORS }
             if (missingHighlighted) {
-                Text(stringResource(R.string.validation_fix_fields), color = CyberTheme.semantics.colors.danger)
+                BuilderErrorText(stringResource(R.string.validation_fix_fields))
             }
             if (BuilderValidationError.SCHEDULE_REMINDER_EXCLUSIVE in state.validationErrors) {
-                Text(stringResource(R.string.validation_routine_setting_exclusive), color = CyberTheme.semantics.colors.danger)
+                BuilderErrorText(stringResource(R.string.validation_routine_setting_exclusive))
             }
             if (BuilderValidationError.LEGACY_SETTINGS_CONFLICT in state.validationErrors) {
-                Text(stringResource(R.string.validation_legacy_settings_conflict), color = CyberTheme.semantics.colors.danger)
+                BuilderErrorText(stringResource(R.string.validation_legacy_settings_conflict))
             }
             if (BuilderValidationError.SAVE_FAILED in state.validationErrors) {
-                Text(stringResource(R.string.validation_save_failed), color = CyberTheme.semantics.colors.danger)
+                BuilderErrorText(stringResource(R.string.validation_save_failed))
             }
             Row(
                 modifier = Modifier.fillMaxWidth().padding(top = spacing.small),
@@ -1098,7 +1106,7 @@ private fun ScheduleEditor(state: BuilderState, viewModel: RoutineBuilderViewMod
                     },
                 )
                 if (BuilderValidationError.SELECTED_DAY_REQUIRED in state.validationErrors) {
-                    Text(stringResource(R.string.validation_selected_day_required), color = CyberTheme.semantics.colors.danger)
+                    BuilderErrorText(stringResource(R.string.validation_selected_day_required))
                 }
             }
             Row(
@@ -1150,7 +1158,7 @@ internal fun LabeledSwitchRow(label: String, checked: Boolean, onCheckedChange: 
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(label)
+        Text(label, modifier = Modifier.weight(1f).padding(end = CyberPrimitives.Spacing.dp8))
         Switch(checked = checked, onCheckedChange = null, modifier = Modifier.clearAndSetSemantics {})
     }
 }
@@ -1281,6 +1289,67 @@ private fun RoutineRunnerRoute(
     LaunchedEffect(state.finished, presentation.holdingCompletion) {
         if (state.finished && !presentation.holdingCompletion) onFinished()
     }
+    val animationsEnabled = preferences.screenTransitionsEnabled && runnerAnimationsEnabled(LocalContext.current)
+    LaunchedEffect(animationsEnabled) { viewModel.setTransitionsEnabled(animationsEnabled) }
+    RoutineRunnerScreen(
+        state = state,
+        preferences = preferences,
+        presentation = presentation,
+        foreground = foreground,
+        animationsEnabled = animationsEnabled,
+        remaining = presentation.run?.let { container.runEngine.remainingMillis(it, state.nowEpochMillis) },
+        subtaskRemaining = presentation.run?.let { container.runEngine.subtaskRemainingMillis(it, state.nowEpochMillis) },
+        subtaskElapsed = presentation.run?.let { run ->
+            run.tasks[run.currentTaskIndex].source.subtasks.map { subtask ->
+                container.runEngine.subtaskElapsedMillis(run, subtask.id, state.nowEpochMillis)
+            }
+        }.orEmpty(),
+        behindSubtaskSchedule = presentation.run?.let {
+            container.runEngine.isBehindSubtaskSchedule(it, state.nowEpochMillis)
+        } ?: false,
+        unfinishedTaskIndexes = presentation.run?.let(container.runEngine::unfinishedTaskIndexes).orEmpty(),
+        onComplete = { viewModel.complete() },
+        onSkip = { viewModel.skip() },
+        onBack = { viewModel.back() },
+        onPrevious = { viewModel.goToPreviousTask() },
+        onPause = { viewModel.pause() },
+        onResume = { viewModel.resume() },
+        onContinue = { viewModel.continueRun() },
+        onSelectTask = { viewModel.selectTask(it) },
+        onConfirmComplete = { viewModel.confirmComplete() },
+        onAbort = { viewModel.abort() },
+        onRetryHistorySave = viewModel::retryHistorySave,
+    )
+}
+
+/** Use this function to render the runner from immutable VM/presentation state and emit user intent.
+ * Inputs: state and presentation snapshots, preferences, lifecycle/motion gates, derived timer/unfinished tasks,
+ * and action callbacks. Dependencies: RunnerState, RunnerPresentation, RunCountdownDial, and runnerGestures.
+ */
+@Composable
+private fun RoutineRunnerScreen(
+    state: RunnerState,
+    preferences: UserPreferences,
+    presentation: RunnerPresentation,
+    foreground: Boolean,
+    animationsEnabled: Boolean,
+    remaining: Long?,
+    subtaskRemaining: Long?,
+    subtaskElapsed: List<Long>,
+    behindSubtaskSchedule: Boolean,
+    unfinishedTaskIndexes: List<Int>,
+    onComplete: () -> Unit,
+    onSkip: () -> Unit,
+    onBack: () -> Unit,
+    onPrevious: () -> Unit,
+    onPause: () -> Unit,
+    onResume: () -> Unit,
+    onContinue: () -> Unit,
+    onSelectTask: (Int) -> Unit,
+    onConfirmComplete: () -> Unit,
+    onAbort: () -> Unit,
+    onRetryHistorySave: () -> Unit,
+) {
     val run = presentation.run
     if (run == null) {
         Scaffold(
@@ -1296,25 +1365,23 @@ private fun RoutineRunnerRoute(
     BackHandler(enabled = run.status == RunStatus.ACTIVE || presentation.holdingCompletion) {
         if (!presentation.holdingCompletion) {
             if (run.abortConfirmationRequested || run.finishConfirmationRequested) {
-                viewModel.continueRun()
+                onContinue()
             } else {
-                viewModel.back()
+                onBack()
             }
         }
     }
 
     val spacing = TaskChainDesignSystem.spacing()
-    val current = run.steps[run.currentStepIndex]
-    val remaining = container.runEngine.remainingMillis(run, state.nowEpochMillis)
+    val current = run.tasks[run.currentTaskIndex]
     val configuration = LocalConfiguration.current
-    val animationsEnabled = preferences.screenTransitionsEnabled && runnerAnimationsEnabled(LocalContext.current)
-    LaunchedEffect(animationsEnabled) { viewModel.setTransitionsEnabled(animationsEnabled) }
     val smallerDimensionDp = minOf(configuration.screenWidthDp, configuration.screenHeightDp).dp
+    val controlMinWidth = 112.dp * androidx.compose.ui.platform.LocalDensity.current.fontScale
     val dialDiameter = (smallerDimensionDp - CyberPrimitives.Spacing.dp32 * 2)
         .coerceAtLeast(CyberPrimitives.IconSizes.dp48)
         .coerceAtMost(RunnerMotion.dialDiameter)
-    val entrance = remember(run.currentStepIndex) { Animatable(0f) }
-    LaunchedEffect(run.currentStepIndex, animationsEnabled) {
+    val entrance = remember(run.currentTaskIndex) { Animatable(0f) }
+    LaunchedEffect(run.currentTaskIndex, animationsEnabled) {
         if (animationsEnabled) {
             entrance.animateTo(1f, tween(RunnerMotion.durationMillis, easing = RunnerMotion.easing))
         } else {
@@ -1322,13 +1389,33 @@ private fun RoutineRunnerRoute(
         }
     }
 
-    val hasTimer = current.source.timerSeconds != null
+    val hasTimer = current.source.durationSeconds != null
     val timerString = if (hasTimer) {
         formatRunnerTimer(remaining, current.actualDurationMillis, preferences.continueTimerPastZero)
     } else {
         ""
     }
     val transitionColor = CyberTheme.semantics.colors.warning
+    val gestureState = rememberRunnerGestureState()
+    val gesturePaused = current.pausedAtEpochMillis != null || current.status == RunTaskStatus.SKIPPED
+    val gestureActions = Modifier.runnerGestureActions(
+        paused = gesturePaused,
+        onPrevious = { if (!presentation.holdingCompletion) onPrevious() },
+        onSkip = { if (!presentation.holdingCompletion) onSkip() },
+        onPause = { if (!presentation.holdingCompletion) onPause() },
+        onResume = { if (!presentation.holdingCompletion) onResume() },
+    )
+    val swipeGesture = Modifier.runnerSwipeGesture(
+        gestureState,
+        onPrevious = { if (!presentation.holdingCompletion) onPrevious() },
+        onSkip = { if (!presentation.holdingCompletion) onSkip() },
+    )
+    val toggleGesture = Modifier.runnerDoubleTapGesture {
+        if (!presentation.holdingCompletion) {
+            gestureState.flashToggle(showPause = !gesturePaused)
+            if (gesturePaused) onResume() else onPause()
+        }
+    }
     Scaffold(
         modifier = Modifier.drawWithContent {
             drawContent()
@@ -1344,19 +1431,15 @@ private fun RoutineRunnerRoute(
             })
         },
     ) { innerPadding ->
+        Box(modifier = Modifier.fillMaxSize()) {
         BoxWithConstraints(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
                 .consumeWindowInsets(innerPadding)
                 .background(CyberTheme.colors.background)
-                .runnerGestureTracking(
-                    paused = current.pausedAtEpochMillis != null || current.status == RunStepStatus.SKIPPED,
-                    onAdvance = { if (!presentation.holdingCompletion) viewModel.advanceToNextFinishedStep() },
-                    onSkip = { if (!presentation.holdingCompletion) viewModel.skip() },
-                    onPause = { if (!presentation.holdingCompletion) viewModel.pause() },
-                    onResume = { if (!presentation.holdingCompletion) viewModel.resume() },
-                ),
+                .then(gestureActions)
+                .then(swipeGesture),
             contentAlignment = Alignment.TopCenter,
         ) {
             val minHeight = maxHeight
@@ -1365,6 +1448,7 @@ private fun RoutineRunnerRoute(
                     .widthIn(max = dimensionResource(R.dimen.content_max_width))
                     .fillMaxWidth()
                     .heightIn(min = minHeight)
+                    .followRunnerSwipe(gestureState)
                     .verticalScroll(rememberScrollState())
                     .padding(horizontal = CyberPrimitives.Spacing.dp24),
                 horizontalAlignment = Alignment.CenterHorizontally,
@@ -1389,20 +1473,29 @@ private fun RoutineRunnerRoute(
                                 (RunnerMotion.titleEndOffset - RunnerMotion.titleStartOffset) * entrance.value),
                     )
 
-                    key(run.currentStepIndex, presentation.holdingCompletion) {
-                        Box(modifier = Modifier.graphicsLayer { alpha = entrance.value }) {
+                    RunnerSubtaskList(current, subtaskRemaining, preferences.showSubtaskTimeRemaining)
+
+                    key(run.currentTaskIndex, presentation.holdingCompletion) {
+                        Box(
+                            modifier = Modifier
+                                .graphicsLayer { alpha = entrance.value }
+                                .then(toggleGesture),
+                        ) {
+                            RunnerSubtaskDial(current, subtaskElapsed, dialDiameter, behindSubtaskSchedule) { innerDiameter ->
                             RunCountdownDial(
                                 timer = if (presentation.readyLabel == "Get Ready") stringResource(R.string.punch_get_ready)
                                     else presentation.readyLabel ?: timerString,
-                                progress = countdownProgress(current.source.timerSeconds, remaining),
+                                progress = countdownProgress(current.source.durationSeconds, remaining),
                                 remainingMillis = remaining,
-                                diameter = dialDiameter,
+                                diameter = innerDiameter,
+                                behindSubtaskSchedule = behindSubtaskSchedule,
                                 status = current.status,
                                 paused = current.pausedAtEpochMillis != null,
                                 completedPulse = presentation.holdingCompletion && presentation.readyLabel == null,
                                 foreground = foreground,
                                 animationsEnabled = animationsEnabled && presentation.readyLabel == null,
                             )
+                            }
                         }
                     }
 
@@ -1428,7 +1521,7 @@ private fun RoutineRunnerRoute(
                                 CyberTheme.semantics.colors.success.copy(alpha = 0.1f))))
                             .border(2.dp, CyberTheme.semantics.colors.success, completeShape),
                         enabled = !presentation.holdingCompletion,
-                        onClick = { if (!presentation.holdingCompletion) viewModel.complete() },
+                        onClick = { if (!presentation.holdingCompletion) onComplete() },
                         size = CyberButtonSize.Large,
                         style = CyberButtonStyle.Ghost,
                     ) {
@@ -1456,34 +1549,34 @@ private fun RoutineRunnerRoute(
                         horizontalArrangement = Arrangement.spacedBy(CyberPrimitives.Spacing.dp12, Alignment.CenterHorizontally),
                         verticalArrangement = Arrangement.spacedBy(CyberPrimitives.Spacing.dp12),
                     ) {
-                        run.steps.forEachIndexed { index, step ->
-                            val isCurrent = index == run.currentStepIndex
-                            val stepDescription = stringResource(
-                                when (step.status) {
-                                    RunStepStatus.PENDING -> R.string.runner_step_status_pending
-                                    RunStepStatus.COMPLETED -> R.string.runner_step_status_completed
-                                    RunStepStatus.SKIPPED -> R.string.runner_step_status_skipped
+                        run.tasks.forEachIndexed { index, task ->
+                            val isCurrent = index == run.currentTaskIndex
+                            val taskDescription = stringResource(
+                                when (task.status) {
+                                    RunTaskStatus.PENDING -> R.string.runner_task_status_pending
+                                    RunTaskStatus.COMPLETED -> R.string.runner_task_status_completed
+                                    RunTaskStatus.SKIPPED -> R.string.runner_task_status_skipped
                                 },
                                 index + 1,
-                                step.source.title,
+                                task.source.title,
                             )
                             Box(
                                 modifier = Modifier
                                     .size(CyberPrimitives.IconSizes.dp48)
                                     .border(
                                         if (isCurrent) CyberPrimitives.BorderWidths.dp2 else CyberPrimitives.BorderWidths.dp1,
-                                        statusColor(step.status),
+                                        statusColor(task.status),
                                         CircleShape,
                                     )
                                     .background(
-                                        statusColor(step.status).copy(alpha = if (isCurrent) 0.16f else 0.06f),
+                                        statusColor(task.status).copy(alpha = if (isCurrent) 0.16f else 0.06f),
                                         CircleShape,
                                     )
-                                    .semantics { contentDescription = stepDescription },
+                                    .semantics { contentDescription = taskDescription },
                                 contentAlignment = Alignment.Center,
                             ) {
-                                when (step.status) {
-                                    RunStepStatus.PENDING -> {
+                                when (task.status) {
+                                    RunTaskStatus.PENDING -> {
                                         CyberIcon(
                                             iconRes = CyberIcons.Play,
                                             contentDescription = null,
@@ -1491,14 +1584,14 @@ private fun RoutineRunnerRoute(
                                             tint = CyberTheme.semantics.colors.info,
                                         )
                                     }
-                                    RunStepStatus.COMPLETED -> {
+                                    RunTaskStatus.COMPLETED -> {
                                         CyberIcon(
                                             iconRes = SemanticIcons.Success,
                                             contentDescription = null,
                                             tint = CyberTheme.semantics.colors.success,
                                         )
                                     }
-                                    RunStepStatus.SKIPPED -> {
+                                    RunTaskStatus.SKIPPED -> {
                                         CyberIcon(
                                             iconRes = SemanticIcons.Caution,
                                             contentDescription = null,
@@ -1513,21 +1606,25 @@ private fun RoutineRunnerRoute(
 
                 Spacer(modifier = Modifier.weight(1f))
 
+                RunnerMainProgress(run, state.nowEpochMillis,
+                    presentation.holdingCompletion && presentation.readyLabel == null, foreground, animationsEnabled)
+                RunnerNextUpPreview(run)
+
                 if (state.historySaveFailed) {
                     Text(stringResource(R.string.run_history_save_failed))
-                    Button(onClick = viewModel::retryHistorySave) { Text(stringResource(R.string.run_retry_history_save)) }
+                    Button(onClick = onRetryHistorySave) { Text(stringResource(R.string.run_retry_history_save)) }
                 } else if (run.status == RunStatus.ACTIVE) {
-                    Row(
+                    FlowRow(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(bottom = CyberPrimitives.Spacing.dp16),
                         horizontalArrangement = Arrangement.spacedBy(CyberPrimitives.Spacing.dp8),
-                        verticalAlignment = Alignment.CenterVertically,
+                        verticalArrangement = Arrangement.spacedBy(CyberPrimitives.Spacing.dp8),
                     ) {
                         CyberButton(
-                            modifier = Modifier.weight(1f).heightIn(min = CyberPrimitives.IconSizes.dp48),
+                            modifier = Modifier.weight(1f).widthIn(min = controlMinWidth).heightIn(min = CyberPrimitives.IconSizes.dp48),
                             enabled = !presentation.holdingCompletion,
-                            onClick = { if (!presentation.holdingCompletion) viewModel.back() },
+                            onClick = { if (!presentation.holdingCompletion) onBack() },
                             style = CyberButtonStyle.Outline,
                             size = CyberButtonSize.Small,
                         ) {
@@ -1537,11 +1634,11 @@ private fun RoutineRunnerRoute(
                             }
                         }
                         CyberButton(
-                            modifier = Modifier.weight(1f).heightIn(min = CyberPrimitives.IconSizes.dp48),
+                            modifier = Modifier.weight(1f).widthIn(min = controlMinWidth).heightIn(min = CyberPrimitives.IconSizes.dp48),
                             enabled = !presentation.holdingCompletion,
                             onClick = {
                                 if (!presentation.holdingCompletion) {
-                                    if (current.pausedAtEpochMillis == null && current.status != RunStepStatus.SKIPPED) viewModel.pause() else viewModel.resume()
+                                    if (current.pausedAtEpochMillis == null && current.status != RunTaskStatus.SKIPPED) onPause() else onResume()
                                 }
                             },
                             style = CyberButtonStyle.Outline,
@@ -1549,17 +1646,17 @@ private fun RoutineRunnerRoute(
                         ) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 CyberIcon(
-                                    iconRes = if (current.pausedAtEpochMillis == null && current.status != RunStepStatus.SKIPPED) CyberIcons.Pause else CyberIcons.Play,
+                                    iconRes = if (current.pausedAtEpochMillis == null && current.status != RunTaskStatus.SKIPPED) CyberIcons.Pause else CyberIcons.Play,
                                     contentDescription = null,
                                     size = CyberPrimitives.Spacing.dp16,
                                 )
-                                Text(stringResource(if (current.pausedAtEpochMillis == null && current.status != RunStepStatus.SKIPPED) R.string.pause else R.string.resume))
+                                Text(stringResource(if (current.pausedAtEpochMillis == null && current.status != RunTaskStatus.SKIPPED) R.string.pause else R.string.resume))
                             }
                         }
                         CyberButton(
-                            modifier = Modifier.weight(1f).heightIn(min = CyberPrimitives.IconSizes.dp48),
+                            modifier = Modifier.weight(1f).widthIn(min = controlMinWidth).heightIn(min = CyberPrimitives.IconSizes.dp48),
                             enabled = !presentation.holdingCompletion,
-                            onClick = { if (!presentation.holdingCompletion) viewModel.skip() },
+                            onClick = { if (!presentation.holdingCompletion) onSkip() },
                             style = CyberButtonStyle.Outline,
                             size = CyberButtonSize.Small,
                         ) {
@@ -1577,33 +1674,36 @@ private fun RoutineRunnerRoute(
                 }
             }
         }
+            RunnerSwipeCue(gestureState)
+            RunnerToggleFlash(gestureState)
+        }
     }
 
     if (run.status == RunStatus.ACTIVE && run.finishConfirmationRequested && !presentation.holdingCompletion) {
-        val unfinished = container.runEngine.unfinishedStepIndexes(run)
+        val unfinished = unfinishedTaskIndexes
         AlertDialog(
-            onDismissRequest = { if (!presentation.holdingCompletion) viewModel.continueRun() },
+            onDismissRequest = { if (!presentation.holdingCompletion) onContinue() },
             title = { Text(stringResource(R.string.confirm_complete_title)) },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(spacing.small)) {
                     if (unfinished.isNotEmpty()) Text(stringResource(R.string.unfinished_tasks))
                     unfinished.forEach { index ->
-                        TextButton(onClick = { if (!presentation.holdingCompletion) viewModel.selectStep(index) }) { Text(run.steps[index].source.title) }
+                        TextButton(onClick = { if (!presentation.holdingCompletion) onSelectTask(index) }) { Text(run.tasks[index].source.title) }
                     }
                 }
             },
             confirmButton = {
-                Button(onClick = { if (!presentation.holdingCompletion) viewModel.confirmComplete() }) { Text(stringResource(R.string.confirm_complete)) }
+                Button(onClick = { if (!presentation.holdingCompletion) onConfirmComplete() }) { Text(stringResource(R.string.confirm_complete)) }
             },
             dismissButton = {
-                TextButton(onClick = { if (!presentation.holdingCompletion) viewModel.continueRun() }) { Text(stringResource(R.string.continue_run)) }
+                TextButton(onClick = { if (!presentation.holdingCompletion) onContinue() }) { Text(stringResource(R.string.continue_run)) }
             },
         )
     }
     if (run.status == RunStatus.ACTIVE && run.abortConfirmationRequested && !presentation.holdingCompletion) {
         AlertDialog(
             modifier = Modifier.border(3.dp, CyberTheme.semantics.colors.error, CyberTheme.shapes.cyberCutCornerShape),
-            onDismissRequest = { if (!presentation.holdingCompletion) viewModel.continueRun() },
+            onDismissRequest = { if (!presentation.holdingCompletion) onContinue() },
             title = { Text(stringResource(R.string.abort_title), style = MaterialTheme.typography.headlineLarge) },
             text = { Text(stringResource(R.string.abort_run), style = MaterialTheme.typography.titleLarge) },
             confirmButton = {
@@ -1613,11 +1713,11 @@ private fun RoutineRunnerRoute(
                         CyberTheme.shapes.cyberCutCornerShape),
                     colors = ButtonDefaults.buttonColors(containerColor = androidx.compose.ui.graphics.Color.Transparent,
                         contentColor = CyberTheme.colors.textPrimary),
-                    onClick = { if (!presentation.holdingCompletion) viewModel.abort() },
+                    onClick = { if (!presentation.holdingCompletion) onAbort() },
                 ) { Text(stringResource(R.string.abort_run), style = MaterialTheme.typography.titleLarge) }
             },
             dismissButton = {
-                TextButton(onClick = { if (!presentation.holdingCompletion) viewModel.continueRun() }) { Text(stringResource(R.string.continue_run)) }
+                TextButton(onClick = { if (!presentation.holdingCompletion) onContinue() }) { Text(stringResource(R.string.continue_run)) }
             },
         )
     }
@@ -1630,7 +1730,8 @@ private fun RunCountdownDial(
     progress: Float,
     remainingMillis: Long?,
     diameter: Dp,
-    status: RunStepStatus,
+    behindSubtaskSchedule: Boolean,
+    status: RunTaskStatus,
     paused: Boolean,
     completedPulse: Boolean,
     foreground: Boolean,
@@ -1648,8 +1749,9 @@ private fun RunCountdownDial(
     val isWarning = !isUrgent && remainingRatio <= 0.35f
 
     val targetAccentColor = when {
-        status == RunStepStatus.COMPLETED -> CyberTheme.semantics.colors.success
-        status == RunStepStatus.SKIPPED -> CyberTheme.semantics.colors.warning
+        status == RunTaskStatus.COMPLETED -> CyberTheme.semantics.colors.success
+        status == RunTaskStatus.SKIPPED -> CyberTheme.semantics.colors.warning
+        behindSubtaskSchedule -> CyberTheme.semantics.colors.warning
         isOvertime -> CyberTheme.semantics.colors.error
         isUrgent || isWarning -> CyberTheme.semantics.colors.warning
         else -> CyberTheme.semantics.colors.info
@@ -1661,7 +1763,7 @@ private fun RunCountdownDial(
         label = "DialColorAnimation",
     )
 
-    val pulseAlpha = if (foreground && animationsEnabled && isUrgent && status == RunStepStatus.PENDING && !paused) {
+    val pulseAlpha = if (foreground && animationsEnabled && isUrgent && status == RunTaskStatus.PENDING && !paused) {
         val infiniteTransition = rememberInfiniteTransition(label = "DialPulseTransition")
         val alpha by infiniteTransition.animateFloat(
             initialValue = 0.5f,
@@ -1683,12 +1785,12 @@ private fun RunCountdownDial(
             rememberCyberRadialPulse(animationSpec = tween(RunnerMotion.completionDurationMillis)),
             color = CyberTheme.semantics.colors.success,
         )
-        status == RunStepStatus.PENDING && paused -> Modifier.cyberRadialPulse(
+        status == RunTaskStatus.PENDING && paused -> Modifier.cyberRadialPulse(
             rememberCyberRadialPulse(animationSpec = infiniteRepeatable(tween(2400, easing = LinearEasing))),
             color = CyberTheme.semantics.colors.warning,
         )
         // The sweep head follows the same elapsed fraction as the ticks rather than an independent loop.
-        status == RunStepStatus.PENDING -> Modifier.drawWithContent {
+        status == RunTaskStatus.PENDING -> Modifier.drawWithContent {
             drawArc(animatedAccentColor.copy(alpha = 0.15f), -90f, 360f * painted, useCenter = true)
             drawLine(animatedAccentColor, center, center + androidx.compose.ui.geometry.Offset(
                 kotlin.math.cos((painted * 360f - 90f) * kotlin.math.PI / 180).toFloat() * size.width / 2,
@@ -1703,6 +1805,8 @@ private fun RunCountdownDial(
         modifier = Modifier
             .size(diameter)
             .clip(CircleShape)
+            .background(if (behindSubtaskSchedule) CyberTheme.semantics.colors.warning.copy(alpha = 0.3f)
+                else androidx.compose.ui.graphics.Color.Transparent)
             .then(radialModifier)
             .semantics {
                 progressBarRangeInfo = ProgressBarRangeInfo(progress, 0f..1f)
@@ -1770,8 +1874,8 @@ private fun RunCountdownDial(
         } else {
             CyberIcon(
                 iconRes = when {
-                    status == RunStepStatus.COMPLETED -> SemanticIcons.Success
-                    status == RunStepStatus.SKIPPED -> SemanticIcons.Caution
+                    status == RunTaskStatus.COMPLETED -> SemanticIcons.Success
+                    status == RunTaskStatus.SKIPPED -> SemanticIcons.Caution
                     paused -> CyberIcons.Pause
                     else -> CyberIcons.Play
                 },
@@ -1791,7 +1895,7 @@ internal fun countdownProgress(timerSeconds: Long?, remainingMillis: Long?): Flo
 
 /** Use this function to format the runner timer digits for countdown, overtime, elapsed, and untimed displays. */
 @Composable
-private fun formatRunnerTimer(remainingMillis: Long?, actualDurationMillis: Long?, continuePastZero: Boolean): String {
+internal fun formatRunnerTimer(remainingMillis: Long?, actualDurationMillis: Long?, continuePastZero: Boolean): String {
     if (remainingMillis == null && actualDurationMillis == null) return ""
     if (actualDurationMillis != null) {
         val seconds = actualDurationMillis / MILLIS_PER_SECOND
@@ -1817,8 +1921,8 @@ private fun ProgressRoute(viewModel: ProgressViewModel, padding: PaddingValues) 
         item { Text(stringResource(R.string.completed_runs, state.completedRuns)) }
         item { Text(stringResource(R.string.aborted_runs, state.abortedRuns)) }
         item { Text(stringResource(R.string.progress_actual_duration, state.actualDurationMillis / MILLIS_PER_SECOND)) }
-        item { Text(stringResource(R.string.progress_step_adherence, state.stepAdherencePercent)) }
-        item { Text(stringResource(R.string.progress_skipped_steps, state.skippedStepPercent)) }
+        item { Text(stringResource(R.string.progress_task_adherence, state.taskAdherencePercent)) }
+        item { Text(stringResource(R.string.progress_skipped_tasks, state.skippedTaskPercent)) }
         item { Text(stringResource(R.string.progress_seven_day_trend)) }
         items(state.lastSevenDays) { day ->
             Text(stringResource(R.string.progress_daily_count, DateFormat.format("EEE M/d", day.dayStartEpochMillis), day.completedRuns))
@@ -1858,6 +1962,13 @@ private fun SettingsRoute(viewModel: SettingsViewModel, padding: PaddingValues) 
             )
         }
         item {
+            LabeledSwitchRow(
+                label = stringResource(R.string.show_subtask_time_remaining),
+                checked = state.showSubtaskTimeRemaining,
+                onCheckedChange = viewModel::setShowSubtaskTimeRemaining,
+            )
+        }
+        item {
             Text(stringResource(R.string.punch_vibration_intensity), style = MaterialTheme.typography.titleLarge)
             androidx.compose.material3.Slider(value = state.vibrationIntensity,
                 onValueChange = viewModel::setVibrationIntensity, valueRange = 0f..1f, steps = 3)
@@ -1876,7 +1987,6 @@ private fun SettingsRoute(viewModel: SettingsViewModel, padding: PaddingValues) 
                     }
                 })
             if (state.bubbleOnMinimize) {
-                Text(stringResource(R.string.punch_bubble_system_help))
                 TextButton(onClick = {
                     context.startActivity(android.content.Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
                         .putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName))
@@ -1892,12 +2002,12 @@ private fun builderRoute(routineId: RoutineId?): String = routineId?.let { "buil
 /** Use this function when starting a routine by stable identity. */
 private fun runnerRoute(routineId: RoutineId): String = "runner/${routineId.value}"
 
-/** Use this function to map each runner step state to the library's semantic status color. */
+/** Use this function to map each runner task state to the library's semantic status color. */
 @Composable
-private fun statusColor(status: RunStepStatus) = when (status) {
-    RunStepStatus.PENDING -> CyberTheme.semantics.colors.info
-    RunStepStatus.COMPLETED -> CyberTheme.semantics.colors.success
-    RunStepStatus.SKIPPED -> CyberTheme.semantics.colors.warning
+private fun statusColor(status: RunTaskStatus) = when (status) {
+    RunTaskStatus.PENDING -> CyberTheme.semantics.colors.info
+    RunTaskStatus.COMPLETED -> CyberTheme.semantics.colors.success
+    RunTaskStatus.SKIPPED -> CyberTheme.semantics.colors.warning
 }
 
 /** Use this function when deciding whether decorative runner motion should honor the system animator setting. */
@@ -1915,4 +2025,17 @@ private const val RUNNER_ROUTE = "runner/{$ROUTINE_ID_ARGUMENT}"
 private const val MILLIS_PER_SECOND = 1_000L
 private const val SECONDS_PER_MINUTE = 60L
 private const val DRAG_REORDER_THRESHOLD_PX = 48f
+
+// Builder LazyColumn item positions, used to scroll to the first error after a failed save.
+private const val BUILDER_ROUTINE_ITEM = 0
+private const val BUILDER_SETTINGS_ITEM = 1
+private const val BUILDER_TASK_HEADER_ITEM = 2
+private const val BUILDER_FIRST_TASK_ITEM = 3
+
+/** Errors that have their own message next to Save instead of a highlighted field. */
+private val SAVE_AREA_ERRORS = setOf(
+    BuilderValidationError.SCHEDULE_REMINDER_EXCLUSIVE,
+    BuilderValidationError.LEGACY_SETTINGS_CONFLICT,
+    BuilderValidationError.SAVE_FAILED,
+)
 private const val DRAG_TRANSITION_MILLIS = 250

@@ -26,17 +26,17 @@ class MainActivityTest {
     @get:Rule
     val activityRule = createAndroidComposeRule<MainActivity>()
 
-    /** Use this function to verify visible builder handles reorder collapsed and expanded steps through real pointer input. */
+    /** Use this function to verify visible builder handles reorder collapsed and expanded tasks through real pointer input. */
     @Test
-    fun builder_dragHandlesReorderCollapsedAndExpandedSteps() {
+    fun builder_dragHandlesReorderCollapsedAndExpandedTasks() {
         activityRule.waitUntil(10_000) {
             activityRule.onAllNodesWithText("Routines").fetchSemanticsNodes().isNotEmpty()
         }
         activityRule.onNodeWithText("Routines").performClick()
         activityRule.onAllNodesWithText("Edit").onFirst().performClick()
         activityRule.onNodeWithText("Drink water").performScrollTo()
-        activityRule.onAllNodesWithContentDescription("Reorder step", useUnmergedTree = true).assertCountEquals(2)
-        activityRule.onAllNodesWithContentDescription("Reorder step", useUnmergedTree = true).onFirst().performTouchInput {
+        activityRule.onAllNodesWithContentDescription("Reorder task", useUnmergedTree = true).assertCountEquals(2)
+        activityRule.onAllNodesWithContentDescription("Reorder task", useUnmergedTree = true).onFirst().performTouchInput {
             down(center)
             advanceEventTime(600)
             moveBy(Offset(0f, 100f), delayMillis = 100)
@@ -45,11 +45,11 @@ class MainActivityTest {
         activityRule.waitForIdle()
         check(activityRule.onNodeWithText("Review today").fetchSemanticsNode().boundsInRoot.top <
             activityRule.onNodeWithText("Drink water").fetchSemanticsNode().boundsInRoot.top) {
-            "Dragging the collapsed first step down must swap the step order"
+            "Dragging the collapsed first task down must swap the task order"
         }
         activityRule.onAllNodesWithContentDescription("CyberAccordionChevron", useUnmergedTree = true).onFirst().performClick()
-        activityRule.onAllNodesWithContentDescription("Reorder step", useUnmergedTree = true).assertCountEquals(2)
-        activityRule.onAllNodesWithContentDescription("Reorder step", useUnmergedTree = true).onFirst().performTouchInput {
+        activityRule.onAllNodesWithContentDescription("Reorder task", useUnmergedTree = true).assertCountEquals(2)
+        activityRule.onAllNodesWithContentDescription("Reorder task", useUnmergedTree = true).onFirst().performTouchInput {
             down(center)
             advanceEventTime(600)
             moveBy(Offset(0f, 100f), delayMillis = 100)
@@ -58,11 +58,11 @@ class MainActivityTest {
         activityRule.waitForIdle()
         check(activityRule.onNodeWithText("Drink water").fetchSemanticsNode().boundsInRoot.top <
             activityRule.onNodeWithText("Review today").fetchSemanticsNode().boundsInRoot.top) {
-            "Dragging the expanded first step down must swap the step order"
+            "Dragging the expanded first task down must swap the task order"
         }
     }
 
-    /** Verifies routine-owned controls, terminal step creation, autosaved editing, and Save navigation. */
+    /** Verifies routine-owned controls, terminal task creation, autosaved editing, and Save navigation. */
     @Test
     fun builder_savesRoutineOwnedSettingsAndReturnsToRoutines() {
         activityRule.waitUntil(10_000) {
@@ -77,14 +77,14 @@ class MainActivityTest {
         activityRule.onNodeWithText("Set deadline").assertExists()
         activityRule.onNodeWithText("Set reminder").assertExists()
         activityRule.onAllNodesWithText("Schedule").assertCountEquals(2)
-        activityRule.onNodeWithText("Steps").assertExists()
+        activityRule.onNodeWithText("Tasks").assertExists()
         val title = "Builder flow ${System.currentTimeMillis()}"
         activityRule.onAllNodes(hasSetTextAction(), useUnmergedTree = true).onFirst().performTextInput(title)
         activityRule.onNodeWithText("Save").performClick()
         activityRule.onAllNodesWithText("Fix the highlighted fields.").assertCountEquals(0)
-        activityRule.onNodeWithContentDescription("Add step").performClick()
+        activityRule.onNodeWithContentDescription("Add task").performClick()
         activityRule.onNodeWithText("Duration: 0 m 00 s").assertExists()
-        activityRule.onAllNodesWithText("Update step").assertCountEquals(0)
+        activityRule.onAllNodesWithText("Update task").assertCountEquals(0)
 
         activityRule.onNodeWithText("Save").performClick()
         activityRule.waitUntil(10_000) {
@@ -155,9 +155,9 @@ class MainActivityTest {
         }
         activityRule.onNodeWithText("Start").performClick()
         activityRule.waitUntil(10_000) {
-            activityRule.onAllNodesWithText("Step 1 of 2").fetchSemanticsNodes().isNotEmpty()
+            activityRule.onAllNodesWithText("Task 1 of 2").fetchSemanticsNodes().isNotEmpty()
         }
-        activityRule.onNodeWithText("Step 1 of 2").assertExists()
+        activityRule.onNodeWithText("Task 1 of 2").assertExists()
 
         activityRule.onNodeWithText("Back").performClick()
         activityRule.onNodeWithText("Abort this run?").assertExists()

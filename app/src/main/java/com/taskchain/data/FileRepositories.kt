@@ -19,6 +19,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.serialization.DeserializationStrategy
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
@@ -27,8 +28,8 @@ import kotlinx.serialization.json.Json
  * Use this function when a damaged file must not crash startup or silently read as empty.
  * The unreadable file is renamed aside so a later write cannot overwrite recoverable data.
  */
-private fun <T> File.decodeOrQuarantine(decode: (String) -> T): T? = try {
-    decode(AtomicFile(this).readText())
+private fun <T> File.decodeOrQuarantine(json: Json, deserializer: DeserializationStrategy<T>): T? = try {
+    json.decodeFromJsonElement(deserializer, json.parseToJsonElement(AtomicFile(this).readText()).withLegacyKeysRenamed())
 } catch (error: SerializationException) {
     quarantine()
     null
@@ -89,7 +90,7 @@ class FileRoutineRepository(
 
     /** Use this function when a missing or not-yet-created routine file is valid. */
     private fun read(file: File): RoutineTemplate? = file.takeIf(File::exists)
-        ?.decodeOrQuarantine { json.decodeFromString(RoutineTemplate.serializer(), it) }
+        ?.decodeOrQuarantine(json, RoutineTemplate.serializer())
 
     /**
      * Use this function to map stable routine identity to its private JSON file.
@@ -140,7 +141,7 @@ class FileRoutineRunRepository(
 
     /** Use this function when an absent active-session file means there is no run. */
     private fun read(): RoutineRun? = file.takeIf(File::exists)
-        ?.decodeOrQuarantine { json.decodeFromString(RoutineRun.serializer(), it) }
+        ?.decodeOrQuarantine(json, RoutineRun.serializer())
 }
 
 /** File-backed append-only completion history used by progress projections. */
@@ -172,6 +173,6 @@ class FileCompletionRepository(
 
     /** Use this function when an absent history file represents empty history. */
     private fun read(): List<CompletionEvent> = file.takeIf(File::exists)
-        ?.decodeOrQuarantine { json.decodeFromString(serializer, it) }
+        ?.decodeOrQuarantine(json, serializer)
         .orEmpty()
 }

@@ -60,7 +60,7 @@ class RunBubble(context: Context) {
             },
             PendingIntent.FLAG_UPDATE_CURRENT or pendingIntentMutability(),
         )
-        val currentStep = run.steps.getOrNull(run.currentStepIndex)?.source?.title
+        val currentTask = run.tasks.getOrNull(run.currentTaskIndex)?.source?.title
         val conversationPerson = CompatPerson.Builder()
             .setName(run.routineTitle)
             .setKey(SHORTCUT_ID)
@@ -81,7 +81,7 @@ class RunBubble(context: Context) {
         val notification = NotificationCompat.Builder(appContext, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle(run.routineTitle)
-            .setContentText(currentStep ?: appContext.getString(R.string.settings_punch_bubble_content))
+            .setContentText(currentTask ?: appContext.getString(R.string.settings_punch_bubble_content))
             .setContentIntent(openApp)
             .setShortcutId(SHORTCUT_ID)
             .setBubbleMetadata(bubble)
@@ -89,7 +89,7 @@ class RunBubble(context: Context) {
                 NotificationCompat.MessagingStyle(conversationPerson)
                     .setConversationTitle(run.routineTitle)
                     .addMessage(
-                        currentStep ?: appContext.getString(R.string.settings_punch_bubble_content),
+                        currentTask ?: appContext.getString(R.string.settings_punch_bubble_content),
                         System.currentTimeMillis(),
                         conversationPerson,
                     ),

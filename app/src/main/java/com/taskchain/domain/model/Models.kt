@@ -7,15 +7,36 @@ import kotlinx.serialization.Serializable
 @JvmInline
 value class RoutineId(val value: String)
 
-/** Stable identity for one step inside a routine snapshot. */
+/** Stable identity for one task inside a routine snapshot. */
 @Serializable
 @JvmInline
-value class RoutineStepId(val value: String)
+value class RoutineTaskId(val value: String)
 
 /** Stable identity for one execution of a routine. */
 @Serializable
 @JvmInline
 value class RoutineRunId(val value: String)
+
+/** Stable identity for one ordered subtask nested within a routine task. */
+@Serializable
+@JvmInline
+value class RoutineSubtaskId(val value: String)
+
+/** A manually advanced subtask that partitions one main routine task. */
+@Serializable
+data class RoutineSubtask(
+    val id: RoutineSubtaskId,
+    val title: String,
+    val durationSeconds: Long,
+)
+
+/** Records one manual subtask advancement using cumulative active time on its main task. */
+@Serializable
+data class SubtaskAdvancement(
+    val subtaskId: RoutineSubtaskId,
+    val elapsedMillis: Long,
+    val atEpochMillis: Long,
+)
 
 /** Metadata shared by persistent domain records without exposing file-storage details. */
 @Serializable
@@ -42,18 +63,26 @@ data class ScheduleRule(
 
 /** A reusable task within a routine. */
 @Serializable
-data class RoutineStep(
-    val id: RoutineStepId,
+data class RoutineTask(
+    val id: RoutineTaskId,
     val title: String,
     val timerSeconds: Long? = null,
-    val stackingAnchorStepId: RoutineStepId? = null,
+    val subtasks: List<RoutineSubtask> = emptyList(),
+    val stackingAnchorTaskId: RoutineTaskId? = null,
     val deadlineEpochMillis: Long? = null,
     val reminderAtEpochMillis: Long? = null,
     val schedule: ScheduleRule? = null,
     val remindEveryMinutes: Int? = null,
     val soundEnabled: Boolean = true,
     val vibrateEnabled: Boolean = true,
-)
+) {
+    /** Total configured duration in seconds, using subtask duration when subtasks are present. */
+    val durationSeconds: Long?
+        get() = if (subtasks.isEmpty()) timerSeconds else subtasks.fold(0L) { total, subtask ->
+            if (total > Long.MAX_VALUE - subtask.durationSeconds) Long.MAX_VALUE
+            else total + subtask.durationSeconds
+        }
+}
 
 /** A reusable ordered routine definition edited by the builder. */
 @Serializable
@@ -62,7 +91,7 @@ data class RoutineTemplate(
     val metadata: EntityMetadata,
     val title: String,
     val description: String = "",
-    val steps: List<RoutineStep>,
+    val tasks: List<RoutineTask>,
     val schedule: ScheduleRule? = null,
     val deadlineEpochMillis: Long? = null,
     val reminderAtEpochMillis: Long? = null,
@@ -75,11 +104,24 @@ data class RoutineTemplate(
     fun requireRunnable(): RoutineTemplate = apply {
         require(id.value.isNotBlank())
         require(title.isNotBlank())
-        require(steps.isNotEmpty())
-        require(steps.all { it.title.isNotBlank() })
-        require(steps.all { it.id.value.isNotBlank() })
-        require(steps.map { it.id }.distinct().size == steps.size)
-        require(steps.all { it.timerSeconds == null || it.timerSeconds > 0 })
+        require(tasks.isNotEmpty())
+        require(tasks.all { it.title.isNotBlank() })
+        require(tasks.all { it.id.value.isNotBlank() })
+        require(tasks.map { it.id }.distinct().size == tasks.size)
+        require(tasks.flatMap { it.subtasks }.map { it.id }.distinct().size == tasks.sumOf { it.subtasks.size })
+        require(tasks.all { task ->
+            if (task.subtasks.isEmpty()) {
+                task.timerSeconds == null || task.timerSeconds in 1..MAX_SAFE_DURATION_SECONDS
+            } else {
+                var total = 0L
+                task.subtasks.isNotEmpty() && task.subtasks.all { subtask ->
+                    val valid = subtask.id.value.isNotBlank() && subtask.title.isNotBlank() &&
+                        subtask.durationSeconds > 0 && total <= MAX_SAFE_DURATION_SECONDS - subtask.durationSeconds
+                    if (valid) total += subtask.durationSeconds
+                    valid
+                } && task.subtasks.map { it.id }.distinct().size == task.subtasks.size
+            }
+        })
         require(deadlineEpochMillis == null || deadlineEpochMillis >= 0)
         require(reminderAtEpochMillis == null || reminderAtEpochMillis >= 0)
         require(listOfNotNull(schedule, deadlineEpochMillis, reminderAtEpochMillis).size <= 1)
@@ -96,19 +138,19 @@ data class RoutineTemplate(
     }
 }
 
-/** Durable execution status for one step in a run snapshot. */
+/** Durable execution status for one task in a run snapshot. */
 @Serializable
-enum class RunStepStatus { PENDING, COMPLETED, SKIPPED }
+enum class RunTaskStatus { PENDING, COMPLETED, SKIPPED }
 
 /** Durable lifecycle status for a routine run. */
 @Serializable
 enum class RunStatus { ACTIVE, COMPLETED, ABORTED }
 
-/** Per-run step state, including timing and feedback state needed after process death. */
+/** Per-run task state, including timing and feedback state needed after process death. */
 @Serializable
-data class RoutineRunStep(
-    val source: RoutineStep,
-    val status: RunStepStatus = RunStepStatus.PENDING,
+data class RoutineRunTask(
+    val source: RoutineTask,
+    val status: RunTaskStatus = RunTaskStatus.PENDING,
     val startedAtEpochMillis: Long? = null,
     val finishedAtEpochMillis: Long? = null,
     val completedAtEpochMillis: Long? = null,
@@ -116,6 +158,8 @@ data class RoutineRunStep(
     val timerFeedbackAtEpochMillis: Long? = null,
     val pausedAtEpochMillis: Long? = null,
     val taskNudgeCount: Long = 0,
+    val activeSubtaskId: RoutineSubtaskId? = null,
+    val subtaskAdvancements: List<SubtaskAdvancement> = emptyList(),
 )
 
 /** Immutable snapshot of an active or completed routine execution. */
@@ -124,15 +168,15 @@ data class RoutineRun(
     val id: RoutineRunId,
     val routineId: RoutineId,
     val routineTitle: String,
-    val steps: List<RoutineRunStep>,
-    val currentStepIndex: Int,
+    val tasks: List<RoutineRunTask>,
+    val currentTaskIndex: Int,
     val startedAtEpochMillis: Long,
     val endedAtEpochMillis: Long? = null,
     val status: RunStatus = RunStatus.ACTIVE,
     val finishConfirmationRequested: Boolean = false,
     val abortConfirmationRequested: Boolean = false,
     val confirmationStartedAtEpochMillis: Long? = null,
-    val stepBeforeFinishConfirmation: RoutineRunStep? = null,
+    val taskBeforeFinishConfirmation: RoutineRunTask? = null,
     val routineSoundEnabled: Boolean = true,
     val soundSettings: SoundSettings = defaultSoundSettings(),
     val routineVibrateEnabled: Boolean = true,
@@ -147,7 +191,7 @@ data class CompletionEvent(
     val startedAtEpochMillis: Long,
     val endedAtEpochMillis: Long,
     val status: RunStatus,
-    val steps: List<RoutineRunStep>,
+    val tasks: List<RoutineRunTask>,
 )
 
 /** User-level behavior and appearance preferences that may roam in a future adapter. */
@@ -158,8 +202,11 @@ data class UserPreferences(
     val vibrationIntensity: Float = 1f,
     val screenTransitionsEnabled: Boolean = true,
     val bubbleOnMinimize: Boolean = false,
+    val showSubtaskTimeRemaining: Boolean = false,
 ) {
     init {
         require(vibrationIntensity in 0f..1f)
     }
 }
+
+private const val MAX_SAFE_DURATION_SECONDS: Long = Long.MAX_VALUE / 1_000L

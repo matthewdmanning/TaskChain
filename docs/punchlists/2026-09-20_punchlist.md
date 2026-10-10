@@ -24,8 +24,8 @@
 - Time is in center of the screen and text width is 1/3 the smaller dimension.
 - Add description above the time -- halfway between top of time and top safe area boundary. Text size is same as "New ..." header was.
 - Skip and Back buttons are just above the safe area -- with buffer. Font size same as the desciption.
-- Below the timer are icons representing each step.
+- Below the timer are icons representing each task.
   - Not completed: Empty with border
   - Completed: Completed semantic color.
   - Skipped: Warning semantic color.
-- Bug: Timer continues to run even when step / task is not on the screen. Timer should pause on Skip, Back, or Complete. Timer should continue on Screen Off, Screen Lock, or navigate away from app.
+- Bug: Timer continues to run even when task / task is not on the screen. Timer should pause on Skip, Back, or Complete. Timer should continue on Screen Off, Screen Lock, or navigate away from app.

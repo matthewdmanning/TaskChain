@@ -24,6 +24,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         lifecycleScope.launch {
+            container.migrateLegacyData()
             container.recoverTerminalRun()
             setContent {
                 TaskChainApp(container, openActiveRun = intent.getBooleanExtra(RunBubble.EXTRA_OPEN_ACTIVE_RUN, false))

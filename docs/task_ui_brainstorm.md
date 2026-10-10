@@ -19,7 +19,7 @@ Goal: maintain attention, motivation, and momentum during very short work interv
 - **Visual style:** Black or charcoal background with electric cyan, magenta, and violet glow.
 - **Countdown behavior:** The ring depletes continuously as time decreases.
 - **Time display:** Large digital numerals in the center, ultra-legible, with only a very restrained holographic treatment.
-- **Momentum cues:** Small, evenly spaced pulse or sweep events provide rhythm without increasing pressure near the end.
+- **Momentum signals:** Small, evenly spaced pulse or sweep events provide rhythm without increasing pressure near the end.
 - **Progress signal:** The circular ring is the dominant indicator and should make elapsed-versus-remaining time understandable instantly.
 - **Implementation:** Standard circular progress drawing, gradients, glow/blur, opacity and scale animation; no 3D reactor simulation required.
 - **Emotional effect:** Feels like maintaining a stable power system rather than defusing a bomb.
@@ -33,7 +33,7 @@ Goal: maintain attention, motivation, and momentum during very short work interv
 - **Countdown behavior:** Segmented progress bars decrease with precise, mechanical motion.
 - **Time display:** A central bold countdown with small secondary readouts such as focus mode, round length, and next interval.
 - **Motivation layer:** System-status language such as **ATTENTION STABLE**, **MOMENTUM ACTIVE**, or **MISSION IN PROGRESS**.
-- **Momentum cues:** A subtle sweep-line or marker can cross the interface at regular intervals rather than becoming more frantic near completion.
+- **Momentum signals:** A subtle sweep-line or marker can cross the interface at regular intervals rather than becoming more frantic near completion.
 - **Progress signal:** Use one dominant segmented bar plus optional secondary tick marks so remaining time is visually measurable without reading digits.
 - **Implementation:** Rectangles, lines, text, progress bars, clipping, and simple translate/alpha animations.
 - **Emotional effect:** Feels like operating a controlled tactical system rather than responding to an alarm.
@@ -47,7 +47,7 @@ Goal: maintain attention, motivation, and momentum during very short work interv
 - **Countdown behavior:** The energy level decreases continuously at a constant visual pace.
 - **Time display:** Large, high-contrast digital numerals adjacent to or over the progress chamber.
 - **Motivation layer:** Short prompts such as **KEEP MOVING**, **STAY WITH IT**, or **FULL COMMIT**.
-- **Momentum cues:** Small sparks, line motion, or energy ripples occur at regular intervals rather than accelerating near zero.
+- **Momentum signals:** Small sparks, line motion, or energy ripples occur at regular intervals rather than accelerating near zero.
 - **Progress signal:** The remaining energy level itself is the primary timer visualization.
 - **Implementation:** Gradient-filled clipped rectangle, animated level mask, small reusable particle effects, and lightweight motion trails.
 - **Emotional effect:** Feels like sustaining propulsion through a short burst, not racing against an explosion.
