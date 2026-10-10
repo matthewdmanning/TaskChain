@@ -1311,7 +1311,7 @@ private fun RoutineRunnerRoute(
         onComplete = { viewModel.complete() },
         onSkip = { viewModel.skip() },
         onBack = { viewModel.back() },
-        onAdvance = { viewModel.advanceToNextFinishedTask() },
+        onPrevious = { viewModel.goToPreviousTask() },
         onPause = { viewModel.pause() },
         onResume = { viewModel.resume() },
         onContinue = { viewModel.continueRun() },
@@ -1341,7 +1341,7 @@ private fun RoutineRunnerScreen(
     onComplete: () -> Unit,
     onSkip: () -> Unit,
     onBack: () -> Unit,
-    onAdvance: () -> Unit,
+    onPrevious: () -> Unit,
     onPause: () -> Unit,
     onResume: () -> Unit,
     onContinue: () -> Unit,
@@ -1396,6 +1396,26 @@ private fun RoutineRunnerScreen(
         ""
     }
     val transitionColor = CyberTheme.semantics.colors.warning
+    val gestureState = rememberRunnerGestureState()
+    val gesturePaused = current.pausedAtEpochMillis != null || current.status == RunTaskStatus.SKIPPED
+    val gestureActions = Modifier.runnerGestureActions(
+        paused = gesturePaused,
+        onPrevious = { if (!presentation.holdingCompletion) onPrevious() },
+        onSkip = { if (!presentation.holdingCompletion) onSkip() },
+        onPause = { if (!presentation.holdingCompletion) onPause() },
+        onResume = { if (!presentation.holdingCompletion) onResume() },
+    )
+    val swipeGesture = Modifier.runnerSwipeGesture(
+        gestureState,
+        onPrevious = { if (!presentation.holdingCompletion) onPrevious() },
+        onSkip = { if (!presentation.holdingCompletion) onSkip() },
+    )
+    val toggleGesture = Modifier.runnerDoubleTapGesture {
+        if (!presentation.holdingCompletion) {
+            gestureState.flashToggle(showPause = !gesturePaused)
+            if (gesturePaused) onResume() else onPause()
+        }
+    }
     Scaffold(
         modifier = Modifier.drawWithContent {
             drawContent()
@@ -1411,19 +1431,15 @@ private fun RoutineRunnerScreen(
             })
         },
     ) { innerPadding ->
+        Box(modifier = Modifier.fillMaxSize()) {
         BoxWithConstraints(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
                 .consumeWindowInsets(innerPadding)
                 .background(CyberTheme.colors.background)
-                .runnerGestureTracking(
-                    paused = current.pausedAtEpochMillis != null || current.status == RunTaskStatus.SKIPPED,
-                    onAdvance = { if (!presentation.holdingCompletion) onAdvance() },
-                    onSkip = { if (!presentation.holdingCompletion) onSkip() },
-                    onPause = { if (!presentation.holdingCompletion) onPause() },
-                    onResume = { if (!presentation.holdingCompletion) onResume() },
-                ),
+                .then(gestureActions)
+                .then(swipeGesture),
             contentAlignment = Alignment.TopCenter,
         ) {
             val minHeight = maxHeight
@@ -1432,6 +1448,7 @@ private fun RoutineRunnerScreen(
                     .widthIn(max = dimensionResource(R.dimen.content_max_width))
                     .fillMaxWidth()
                     .heightIn(min = minHeight)
+                    .followRunnerSwipe(gestureState)
                     .verticalScroll(rememberScrollState())
                     .padding(horizontal = CyberPrimitives.Spacing.dp24),
                 horizontalAlignment = Alignment.CenterHorizontally,
@@ -1459,7 +1476,11 @@ private fun RoutineRunnerScreen(
                     RunnerSubtaskList(current, subtaskRemaining, preferences.showSubtaskTimeRemaining)
 
                     key(run.currentTaskIndex, presentation.holdingCompletion) {
-                        Box(modifier = Modifier.graphicsLayer { alpha = entrance.value }) {
+                        Box(
+                            modifier = Modifier
+                                .graphicsLayer { alpha = entrance.value }
+                                .then(toggleGesture),
+                        ) {
                             RunnerSubtaskDial(current, subtaskElapsed, dialDiameter, behindSubtaskSchedule) { innerDiameter ->
                             RunCountdownDial(
                                 timer = if (presentation.readyLabel == "Get Ready") stringResource(R.string.punch_get_ready)
@@ -1652,6 +1673,9 @@ private fun RoutineRunnerScreen(
                     }
                 }
             }
+        }
+            RunnerSwipeCue(gestureState)
+            RunnerToggleFlash(gestureState)
         }
     }
 

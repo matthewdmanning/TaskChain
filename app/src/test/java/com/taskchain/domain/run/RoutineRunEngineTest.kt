@@ -172,6 +172,21 @@ class RoutineRunEngineTest {
         }
     }
 
+    /** Use this function to verify that a previous-task swipe revisits without changing status and never aborts. */
+    @Test
+    fun previousTaskRevisitsWithoutChangingStatusAndStaysOnFirstTask() {
+        val engine = RoutineRunEngine()
+        val started = engine.start(routine(timerSeconds = 10), RoutineRunId("run"), 1_000)
+        val completed = engine.completeCurrent(started, 2_000)
+
+        val revisited = engine.previousTask(completed, 3_000)
+
+        assertEquals(0, revisited.currentTaskIndex)
+        assertEquals(RunTaskStatus.COMPLETED, revisited.tasks[0].status)
+        assertEquals(started, engine.previousTask(started, 2_000))
+        assertEquals(false, engine.previousTask(started, 2_000).abortConfirmationRequested)
+    }
+
     /**
      * Use this function to verify that a newly entered timer waits for the presentation delay without changing persisted completion time.
      * Inputs: none; the test builds a two-task timed run and completes the first task.
