@@ -23,6 +23,9 @@ private const val SWIPE_CUE_MAX_ALPHA = 0.5f
 /** Scale pop once the swipe is armed, so crossing the commit distance is visible without text. */
 private const val SWIPE_CUE_ARMED_SCALE = 1.15f
 
+/** Scale of the swipe symbol before any drag; it grows to full size at the commit distance. */
+private const val SWIPE_CUE_START_SCALE = 0.8f
+
 /**
  * Large centered symbol shown while swiping: the same caution symbol as a skipped task for a left swipe, a back
  * arrow for a right swipe. It fades in toward 50% opacity and pops once releasing would commit.
@@ -32,7 +35,7 @@ internal fun BoxScope.RunnerSwipeCue(state: RunnerGestureState) {
     val progress = state.swipeProgress
     if (progress <= 0f) return
     val previous = state.swipeDirection > 0f
-    val scale = if (state.swipeArmed) SWIPE_CUE_ARMED_SCALE else 0.8f + 0.2f * progress
+    val scale = if (state.swipeArmed) SWIPE_CUE_ARMED_SCALE else SWIPE_CUE_START_SCALE + (1f - SWIPE_CUE_START_SCALE) * progress
     CyberIcon(
         iconRes = if (previous) CyberIcons.ArrowLeft else SemanticIcons.Caution,
         contentDescription = null,
