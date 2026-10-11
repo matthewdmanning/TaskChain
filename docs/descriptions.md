@@ -1977,3 +1977,197 @@ Dependencies: AppContainer, TaskChainApp, RunBubble, NavHostController, and Stat
 Use this function to verify recreation consumes the bubble request after restoration.
 Inputs: none.
 Dependencies: composeRule, AppContainer, RunBubble.EXTRA_OPEN_ACTIVE_RUN, TaskChainApp, and NavHostController back-stack state.
+
+## `UnsupportedSchemaVersionException` — app/src/main/java/com/taskchain/data/StoredJson.kt
+Represents a stored file whose schema is newer than this app can safely interpret. Input: `version`; dependency: [IOException].
+
+## `StorageIo` — app/src/main/java/com/taskchain/data/StoredJson.kt
+Coordinates every repository and startup migration operation that touches local files. Constructor inputs: none; dependency: [Mutex].
+
+## `decodeStored` — app/src/main/java/com/taskchain/data/StoredJson.kt
+Use this function to decode a stored record or legacy raw JSON payload. Inputs: `text` is file content and `serializer` is the record decoder; dependencies: [Json.parseToJsonElement], [Json.decodeFromJsonElement], and [JsonElement.withLegacyKeysRenamed].
+
+## `encodeStored` — app/src/main/java/com/taskchain/data/StoredJson.kt
+Use this function when writing a value into the current schema envelope. Inputs: `serializer` and `value`; dependencies: [Json.encodeToJsonElement] and [Json.encodeToString].
+
+## `validateStored` — app/src/main/java/com/taskchain/data/StoredJson.kt
+Use this function to validate a stored document before replacing or deleting it. Input: `text` is file content; dependencies: [Json.parseToJsonElement] and [JsonElement.payloadForCurrentSchema].
+
+## `migrateStored` — app/src/main/java/com/taskchain/data/StoredJson.kt
+Use this function to migrate one raw or enveloped JSON document while preserving current keys. Input: `text` is file content; dependencies: [Json.parseToJsonElement], [JsonElement.withLegacyKeysRenamed], and [Json.encodeToString].
+
+## `encodeStoredPayload` — app/src/main/java/com/taskchain/data/StoredJson.kt
+Use this function to wrap a JSON payload in the version-one storage envelope. Input: `payload`; dependency: [Json.encodeToString].
+
+## `payloadForCurrentSchema` — app/src/main/java/com/taskchain/data/StoredJson.kt
+Use this function to extract a supported envelope payload or accept a legacy raw JSON value. Input: receiver JSON element; dependency: [UnsupportedSchemaVersionException].
+
+## `isCurrentEnvelope` — app/src/main/java/com/taskchain/data/StoredJson.kt
+Use this function to identify an already-versioned document without decoding its payload. Input: receiver JSON element; dependency: [JsonObject].
+
+## `hasRecoverableAtomicFile` — app/src/main/java/com/taskchain/data/FileRepositories.kt
+Use this function to identify a recoverable AtomicFile base or backup. Input: receiver base path; dependencies: [File.exists].
+
+## `quarantineCorrupt` — app/src/main/java/com/taskchain/data/FileRepositories.kt
+Use this function when malformed JSON must be preserved before a later write can replace it.
+Input: receiver [File] is the AtomicFile base path; dependencies: [File.renameTo], [File.exists], and [UUID].
+
+## `readStoredOrNull` — app/src/main/java/com/taskchain/data/FileRepositories.kt
+Use this function to decode a present file while quarantining only serialization failures. Inputs: receiver base path, `json`, and `deserializer`; dependencies: [AtomicFile], [Json.decodeStored], and [File.quarantineCorrupt].
+
+## `validateBeforeMutation` — app/src/main/java/com/taskchain/data/FileRepositories.kt
+Use this function before mutation to reject newer schemas and quarantine malformed JSON safely. Inputs: receiver base path and `json`; dependencies: [AtomicFile], [Json.validateStored], and [File.quarantineCorrupt].
+
+## `atomicBaseFile` — app/src/main/java/com/taskchain/data/FileRepositories.kt
+Use this function to map a directory entry to its AtomicFile base path. Input: receiver directory entry; dependency: [File].
+
+## `initializeUserData` — app/src/main/java/com/taskchain/AppContainer.kt
+Use this function before UI editing to validate stored records and recover interrupted completion.
+Inputs: none. Dependencies: migration, routine/history/preference repositories, terminal recovery.
+
+## `loadUserData` — app/src/main/java/com/taskchain/MainActivity.kt
+Use this function on startup or Retry to open saved data before exposing editable screens.
+Inputs: none. Dependencies: AppContainer.initializeUserData, startup state, lifecycleScope.
+
+## `StartupScreen` — app/src/main/java/com/taskchain/ui/StartupScreen.kt
+Use this function while opening saved data, or to offer Retry after a storage failure.
+Inputs: failed — whether loading failed; onRetry — reload request. Dependencies: TaskChainTheme, Button.
+
+## `StartupRecoveryTest` — app/src/androidTest/java/com/taskchain/StartupRecoveryTest.kt
+Exercises saved-data startup failure and Retry on the isolated testing application.
+Constructor inputs: none. Dependencies: MainActivity, its startup screen, versioned routine files.
+
+## `before` — app/src/androidTest/java/com/taskchain/StartupRecoveryTest.kt
+Use this function before Activity launch to seed an unsupported record; inputs none, dependencies target context and futureFile.
+
+## `after` — app/src/androidTest/java/com/taskchain/StartupRecoveryTest.kt
+Use this function after Activity disposal to remove only this fixture; inputs none, dependency futureFile.
+
+## `futureSchemaIsPreservedAndRetryOpensRepairedStorage` — app/src/androidTest/java/com/taskchain/StartupRecoveryTest.kt
+Use this function to verify unsupported data is preserved and Retry can reopen a repaired store.
+Inputs: none. Dependencies: compose rule, futureFile, MainActivity startup flow.
+
+## `resetTestAppState` — app/src/androidTest/java/com/taskchain/TestAppStorage.kt
+Use this function to discard only the isolated instrumentation application's test-owned state.
+The package guard makes persisted routines in this disposable sandbox test-owned while preserving built-in IDs.
+Inputs: target application context. Dependencies: testing package suffix, AppContainer repositories, and built-in routine asset.
+
+## `testAppContainer` — app/src/androidTest/java/com/taskchain/TestAppStorage.kt
+Use this function to resolve the process-shared test container after verifying package isolation.
+Inputs: target application context. Dependencies: TaskChainApplication and testing application ID suffix.
+
+## `LegacyDataMigrationTest` — app/src/androidTest/java/com/taskchain/data/LegacyDataMigrationTest.kt
+Verifies Android AtomicFile recovery, quarantine, migration, and serialized concurrent writes. Constructor inputs: none; dependencies: Android instrumentation and storage repositories.
+
+## `startupMigrationRewritesLegacyFilesAndQuarantinesMalformedOnes` — app/src/androidTest/java/com/taskchain/data/LegacyDataMigrationTest.kt
+Use this test when startup migration rewrites legacy files and quarantines malformed bytes. Inputs: none; dependencies: [migrateLegacyDataFiles] and [Json].
+
+## `activeRunReadsRecoverableBackup` — app/src/androidTest/java/com/taskchain/data/LegacyDataMigrationTest.kt
+Use this test when AtomicFile must recover a backup even though its base path is absent. Inputs: none; dependencies: [FileRoutineRunRepository] and [AtomicFile].
+
+## `newerSchemaBlocksActiveRunMutationAndPreservesBytes` — app/src/androidTest/java/com/taskchain/data/LegacyDataMigrationTest.kt
+Use this test when a newer schema must block both overwrite and delete. Inputs: none; dependencies: [FileRoutineRunRepository] and [UnsupportedSchemaVersionException].
+
+## `malformedActiveRunIsQuarantinedWithOriginalBytes` — app/src/androidTest/java/com/taskchain/data/LegacyDataMigrationTest.kt
+Use this test when malformed repository bytes must move aside without being lost. Inputs: none; dependencies: [FileRoutineRunRepository] and [File.quarantineCorrupt].
+
+## `failedQuarantineReportsRecoveryError` — app/src/androidTest/java/com/taskchain/data/LegacyDataMigrationTest.kt
+Use this test when quarantine cannot move a path and must report recovery failure. Inputs: none; dependencies: [File.quarantineCorrupt].
+
+## `readIoFailureIsNotQuarantined` — app/src/androidTest/java/com/taskchain/data/LegacyDataMigrationTest.kt
+Use this test when an I/O read failure must propagate without quarantine. Inputs: none; dependencies: [FileRoutineRunRepository] and [AtomicFile].
+
+## `concurrentActiveWritesRemainDecodable` — app/src/androidTest/java/com/taskchain/data/LegacyDataMigrationTest.kt
+Use this test when concurrent transitions must leave one complete, decodable AtomicFile record. Inputs: none; dependencies: [FileRoutineRunRepository], coroutines, and [AtomicFile].
+
+## `disposableDirectory` — app/src/androidTest/java/com/taskchain/data/LegacyDataMigrationTest.kt
+Use this function to create an isolated Android cache directory for one storage test. Input: `name` is the test directory; dependencies: instrumentation cache and [File.deleteRecursively].
+
+## `sampleRun` — app/src/androidTest/java/com/taskchain/data/LegacyDataMigrationTest.kt
+Use this function to create a minimal valid run payload for AtomicFile tests. Input: `startedAt` is the persisted start time; dependencies: domain model constructors.
+
+## `clearIsolatedTestState` — app/src/androidTest/java/com/taskchain/MainActivityTest.kt
+Use this function before each activity test to remove prior isolated test routines and runs. Inputs: none. Dependencies: instrumentation target context and resetTestAppState.
+
+## `clearIsolatedTestStateAfterTest` — app/src/androidTest/java/com/taskchain/MainActivityTest.kt
+Use this function after each activity test to remove only state created in the isolated test package. Inputs: none. Dependencies: instrumentation target context and resetTestAppState.
+
+## `clearIsolatedTestState` — app/src/androidTest/java/com/taskchain/BuilderErrorFlowTest.kt
+Use this function before each builder error test to remove prior isolated test routines and runs. Inputs: none. Dependencies: instrumentation target context and resetTestAppState.
+
+## `clearIsolatedTestStateAfterTest` — app/src/androidTest/java/com/taskchain/BuilderErrorFlowTest.kt
+Use this function after each builder error test to remove only state created in the isolated test package. Inputs: none. Dependencies: instrumentation target context and resetTestAppState.
+
+## `clearIsolatedTestState` — app/src/androidTest/java/com/taskchain/BubbleNavigationTest.kt
+Use this function before the bubble test to remove prior isolated test routines and runs. Inputs: none. Dependencies: instrumentation target context and resetTestAppState.
+
+## `clearIsolatedTestStateAfterTest` — app/src/androidTest/java/com/taskchain/BubbleNavigationTest.kt
+Use this function after the bubble test to remove only state created in the isolated test package. Inputs: none. Dependencies: instrumentation target context and resetTestAppState.
+
+## `StoredJsonTest` — app/src/test/java/com/taskchain/data/StoredJsonTest.kt
+Verifies versioned envelopes, legacy payloads, and unsupported-file preservation. Constructor inputs: none; dependencies: [Json] and the storage helpers.
+
+## `rawLegacyObjectAndArrayDecode` — app/src/test/java/com/taskchain/data/StoredJsonTest.kt
+Use this test when a legacy raw object or array must remain decodable. Inputs: none; dependencies: [Json.decodeStored].
+
+## `envelopeRoundTripsAndOptionalDefaultsDecode` — app/src/test/java/com/taskchain/data/StoredJsonTest.kt
+Use this test when a current record must round-trip through the minimal envelope. Inputs: none; dependencies: [Json.decodeStored] and [Json.encodeStored].
+
+## `newerSchemaIsRejectedWithoutChangingBytes` — app/src/test/java/com/taskchain/data/StoredJsonTest.kt
+Use this function to reject a newer schema before producing replacement JSON. Inputs: none; dependencies: Json.migrateStored and UnsupportedSchemaVersionException.
+
+## `migrationIsRepeatableAndCurrentKeysWin` — app/src/test/java/com/taskchain/data/LegacyJsonMigrationTest.kt
+Use this test when startup migration must be repeatable and retain current-key values. Inputs: none; dependencies: [migrateLegacyDataFiles] and [Json].
+
+## `currentKeysRemainWhenNoLegacyKeysArePresent` — app/src/test/java/com/taskchain/data/LegacyJsonMigrationTest.kt
+Use this test when current-only fields must survive key canonicalization. Inputs: none; dependencies: [JsonElement.withLegacyKeysRenamed].
+
+## `ignoresActiveRun` — app/src/test/java/com/taskchain/data/RunRecoveryTest.kt
+Use this function to verify an active persisted run remains available for the runner.
+
+## `ignoresAbortedRun` — app/src/test/java/com/taskchain/data/RunRecoveryTest.kt
+Use this function to verify aborting never creates history or clears the persisted run.
+
+## `failedAppendKeepsCompletedRun` — app/src/test/java/com/taskchain/data/RunRecoveryTest.kt
+Use this function to verify a failed history append leaves the completed run available for retry.
+
+## `retryAfterClearFailureDoesNotDuplicateHistory` — app/src/test/java/com/taskchain/data/RunRecoveryTest.kt
+Use this function to verify retry after clear failure does not append the same completed event twice.
+
+## `startedRun` — app/src/test/java/com/taskchain/data/RunRecoveryTest.kt
+Use this function to create the smallest active run used by recovery tests. Inputs: `engine`; dependencies: run engine and routine snapshot.
+
+## `completedRun` — app/src/test/java/com/taskchain/data/RunRecoveryTest.kt
+Use this function to create the completed run used by recovery tests. Inputs: `engine`; dependencies: run engine and routine snapshot.
+
+## `abortedRun` — app/src/test/java/com/taskchain/data/RunRecoveryTest.kt
+Use this function to create the aborted run used by recovery tests. Inputs: `engine`; dependencies: run engine and routine snapshot.
+
+## `routine` — app/src/test/java/com/taskchain/data/RunRecoveryTest.kt
+Use this function to provide one valid routine snapshot. Inputs: none; dependencies: domain model identifiers.
+
+## `FakeActiveRunRepository` — app/src/test/java/com/taskchain/data/RunRecoveryTest.kt
+Fake active-run storage with controllable clear failure. Inputs: initial run and clear behavior; dependencies: repository contract.
+
+## `observeActive` — app/src/test/java/com/taskchain/data/RunRecoveryTest.kt
+Use this function to expose the fake saved run; inputs none, dependency current.
+
+## `saveActive` — app/src/test/java/com/taskchain/data/RunRecoveryTest.kt
+Use this function to replace the fake saved run; input run is its snapshot, dependency current.
+
+## `clearActive` — app/src/test/java/com/taskchain/data/RunRecoveryTest.kt
+Use this function to simulate clearing after persistence; inputs none, dependencies current and failure controls.
+
+## `FakeCompletionRepository` — app/src/test/java/com/taskchain/data/RunRecoveryTest.kt
+Fake append-only history with ordering and failure controls. Inputs: active repository and run; dependencies: repository contract.
+
+## `observeAll` — app/src/test/java/com/taskchain/data/RunRecoveryTest.kt
+Use this function to expose fake history; inputs none, dependency events.
+
+## `append` — app/src/test/java/com/taskchain/data/RunRecoveryTest.kt
+Use this function to check append-before-clear ordering; input event is completed history, dependencies active and failure controls.
+
+## `backup-device-data.ps1` — scripts/backup-device-data.ps1
+Use this script before development operations on valued app data to create a verified local snapshot.
+Inputs: AdbPath — SDK adb executable; DeviceSerial — selected device; PackageName — debuggable app; DestinationDirectory — new snapshot location.
+Dependencies: adb run-as, tar, SHA-256, binary process streams.

@@ -21,6 +21,10 @@ Humans should use ./scripts/gradle.ps1 on Windows. Sandboxed agents must use scr
 - `scripts\gradle-agent.cmd :app:compileDebugKotlin` gives sandboxed coding agents Kotlin and Java compiler diagnostics.
 - `scripts\gradle-agent.cmd :app:testDebugUnitTest` runs focused JVM regression tests for sandboxed coding agents.
 - `scripts\gradle-agent.cmd :app:lintDebug` gives sandboxed coding agents Android and Kotlin lint diagnostics.
+- `scripts\gradle-agent.cmd :app:assembleDeviceTest :app:assembleDeviceTestAndroidTest` builds isolated device-test APKs.
+- `scripts\gradle-agent.cmd :app:connectedDeviceTestAndroidTest` runs instrumentation against the disposable `com.taskchain.testapp` package.
+
+Keep valued user data in the regular app separate from instrumentation fixtures. Never clear or uninstall `com.taskchain` to run tests. Verify APK application IDs before device installation; see `docs/on-device-data.md` and `scripts/backup-device-data.ps1`. The regular debug unit-test task remains enabled for CI.
 
 Use the checked-in wrapper's pinned Gradle distribution; do not install or manually download a separate Gradle version. The wrapper caches its distribution under `GRADLE_USER_HOME\wrapper\dists`, reuses it when that exact version is present, and downloads it when the cache is absent or incomplete. If a build appears to download Gradle again, first check `GRADLE_USER_HOME` and that cache; report the pinned version and cache state before retrying network access.
 
@@ -39,6 +43,8 @@ Tests use JUnit 4 and are named `*Test.kt`, mirroring production packages (for e
 ## Commits & Pull Requests
 
 Use a short imperative subject describing the change. In PRs, explain the behavior and affected requirements, include test results, link a relevant issue when one exists, and attach screenshots for UI changes. Do not claim a requirement is implemented without verification.
+
+Commit corresponding documentation with its code, including reference documents and plans supplied in chat and documents generated during the work. Append new declaration descriptions to `docs/descriptions.md`.
 
 ## Configuration & Agent Guidance
 

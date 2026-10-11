@@ -20,7 +20,10 @@ import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.click
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
+import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import org.junit.After
+import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -30,6 +33,18 @@ import org.junit.runner.RunWith
 class MainActivityTest {
     @get:Rule
     val activityRule = createAndroidComposeRule<MainActivity>()
+
+    /** Use this function before each activity test to remove prior isolated test routines and runs. Inputs: none. Dependencies: instrumentation target context and resetTestAppState. */
+    @Before
+    fun clearIsolatedTestState() {
+        resetTestAppState(InstrumentationRegistry.getInstrumentation().targetContext)
+    }
+
+    /** Use this function after each activity test to remove only state created in the isolated test package. Inputs: none. Dependencies: instrumentation target context and resetTestAppState. */
+    @After
+    fun clearIsolatedTestStateAfterTest() {
+        resetTestAppState(InstrumentationRegistry.getInstrumentation().targetContext)
+    }
 
     /** Use this function to verify visible builder handles reorder collapsed and expanded tasks through real pointer input. */
     @Test

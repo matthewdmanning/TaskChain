@@ -11,7 +11,9 @@ suspend fun recoverTerminalSession(
     engine: RoutineRunEngine,
 ) {
     val persisted = activeRun.observeActive().first() ?: return
-    if (persisted.status == RunStatus.ACTIVE) return
-    completions.append(engine.toCompletionEvent(persisted))
+    if (persisted.status != RunStatus.COMPLETED) return
+    if (completions.observeAll().first().none { it.runId == persisted.id }) {
+        completions.append(engine.toCompletionEvent(persisted))
+    }
     activeRun.clearActive()
 }

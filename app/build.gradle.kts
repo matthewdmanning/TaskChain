@@ -41,6 +41,16 @@ android {
         buildConfig = dotenv.isNotEmpty()
     }
 
+    buildTypes {
+        create("deviceTest") {
+            initWith(getByName("debug"))
+            applicationIdSuffix = ".testapp"
+            matchingFallbacks += listOf("debug")
+        }
+    }
+
+    testBuildType = "deviceTest"
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
@@ -48,6 +58,12 @@ android {
 
     packaging {
         resources.excludes += "/META-INF/{AL2.0,LGPL2.1}"
+    }
+}
+
+androidComponents {
+    beforeVariants(selector().withBuildType("debug")) { variant ->
+        variant.hostTests[com.android.build.api.variant.HostTestBuilder.UNIT_TEST_TYPE]?.enable = true
     }
 }
 
@@ -91,4 +107,5 @@ dependencies {
     androidTestImplementation(libs.androidx.test.runner)
     androidTestImplementation(libs.junit)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
+    add("deviceTestImplementation", libs.androidx.compose.ui.test.manifest)
 }

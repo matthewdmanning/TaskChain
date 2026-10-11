@@ -5,6 +5,8 @@ import androidx.core.util.readText
 import androidx.core.util.writeText
 import java.io.File
 import java.io.IOException
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
@@ -24,32 +26,46 @@ private val LEGACY_KEY_RENAMES = mapOf(
     "CueAdvanced" to "SubtaskAdvanced",
 )
 
-/** Use this function before decoding stored JSON so files written before the rename still load. */
+/** Use this function before decoding stored JSON so files written before the task rename still load. */
 fun JsonElement.withLegacyKeysRenamed(): JsonElement = when (this) {
-    is JsonObject -> JsonObject(
-        entries.associate { (key, value) -> (LEGACY_KEY_RENAMES[key] ?: key) to value.withLegacyKeysRenamed() },
-    )
+    is JsonObject -> {
+        val sourceEntries = entries
+        val renamed = linkedMapOf<String, JsonElement>().apply {
+            sourceEntries.filter { (key, _) -> key !in LEGACY_KEY_RENAMES }
+                .forEach { (key, value) -> put(key, value.withLegacyKeysRenamed()) }
+            sourceEntries.filter { (key, _) -> key in LEGACY_KEY_RENAMES }
+                .forEach { (key, value) -> putIfAbsent(LEGACY_KEY_RENAMES.getValue(key), value.withLegacyKeysRenamed()) }
+        }
+        JsonObject(renamed)
+    }
     is JsonArray -> JsonArray(map { it.withLegacyKeysRenamed() })
     else -> this
 }
 
 /**
  * Use this function once at startup to rewrite legacy JSON files under [directory] with current keys.
- * Unreadable files are left in place for the repositories to quarantine.
+ * [json] parses and writes records; [directory] is the app's durable data root.
+ * Depends on [StorageIo], [AtomicFile], and [File.quarantineCorrupt].
  */
 fun migrateLegacyDataFiles(directory: File, json: Json) {
-    directory.walkTopDown()
-        .filter { it.isFile && it.extension == "json" }
-        .forEach { file ->
-            try {
-                val atomicFile = AtomicFile(file)
-                val stored = json.parseToJsonElement(atomicFile.readText())
-                val migrated = stored.withLegacyKeysRenamed()
-                if (migrated != stored) atomicFile.writeText(json.encodeToString(JsonElement.serializer(), migrated))
-            } catch (error: SerializationException) {
-                Unit
-            } catch (error: IOException) {
-                Unit
-            }
+    runBlocking {
+        StorageIo.mutex.withLock {
+            directory.walkTopDown()
+                .onFail { _, error -> throw error }
+                .filter { it.isFile && (it.extension == "json" || it.name.endsWith(".json.bak")) }
+                .map { if (it.name.endsWith(".bak")) File(it.path.removeSuffix(".bak")) else it }
+                .distinctBy(File::getPath)
+                .forEach { file ->
+                    try {
+                        val atomicFile = AtomicFile(file)
+                        val original = atomicFile.readText()
+                        val migrated = json.migrateStored(original)
+                        if (migrated != original) atomicFile.writeText(migrated)
+                    } catch (error: SerializationException) {
+                        file.quarantineCorrupt()
+                        throw IOException("Malformed storage JSON was quarantined for recovery: ${file.path}", error)
+                    }
+                }
         }
+    }
 }

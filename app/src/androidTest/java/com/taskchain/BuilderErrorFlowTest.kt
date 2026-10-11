@@ -17,6 +17,9 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.performTextInput
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import androidx.test.platform.app.InstrumentationRegistry
+import org.junit.After
+import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -26,6 +29,18 @@ import org.junit.runner.RunWith
 class BuilderErrorFlowTest {
     @get:Rule
     val activityRule = createAndroidComposeRule<MainActivity>()
+
+    /** Use this function before each builder error test to remove prior isolated test routines and runs. Inputs: none. Dependencies: instrumentation target context and resetTestAppState. */
+    @Before
+    fun clearIsolatedTestState() {
+        resetTestAppState(InstrumentationRegistry.getInstrumentation().targetContext)
+    }
+
+    /** Use this function after each builder error test to remove only state created in the isolated test package. Inputs: none. Dependencies: instrumentation target context and resetTestAppState. */
+    @After
+    fun clearIsolatedTestStateAfterTest() {
+        resetTestAppState(InstrumentationRegistry.getInstrumentation().targetContext)
+    }
 
     private val subtaskTitleError = "Enter a subtask title."
 

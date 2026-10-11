@@ -226,7 +226,13 @@ class ReminderReceiver : BroadcastReceiver() {
 class ReminderRescheduleReceiver : BroadcastReceiver() {
     /** Use this function when Android reports a reboot or time-zone change requiring alarm restoration. */
     override fun onReceive(context: Context, intent: Intent) {
-        if (intent.action !in setOf(Intent.ACTION_BOOT_COMPLETED, Intent.ACTION_TIME_CHANGED, Intent.ACTION_TIMEZONE_CHANGED)) return
+        if (intent.action !in setOf(
+                Intent.ACTION_BOOT_COMPLETED,
+                Intent.ACTION_TIME_CHANGED,
+                Intent.ACTION_TIMEZONE_CHANGED,
+                Intent.ACTION_MY_PACKAGE_REPLACED,
+            )
+        ) return
         val pendingResult = goAsync()
         CoroutineScope(Dispatchers.IO).launch {
             try {

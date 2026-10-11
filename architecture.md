@@ -31,6 +31,14 @@ Both entry points reuse the same platform-neutral recurrence and Reminder mappin
 
 The initial app is Android-only, offline-only, and database-free. Repository interfaces keep the file format and Android APIs outside domain behavior without adding speculative cloud, sync, authentication, or backup implementations.
 
+## Local data durability
+
+JSON repositories use versioned records, coordinated file access and atomic replacement.
+Preferences use one process-wide DataStore delegate. Startup validates saved data before
+exposing editable screens and offers Retry on failure. Instrumentation uses a separate
+`com.taskchain.testapp` sandbox. See [On-device data lifecycle](docs/on-device-data.md)
+for schema migration, update/reboot behavior, snapshots and testing commands.
+
 ## UI library dependency
 
 cyberpunkAndroid supplies UI components, theme tokens, and effects through the published `com.github.matthewdmanning:cyberpunkAndroid:v1.0.8` dependency. TaskChain has no `third_party` source checkout, submodule, or Gradle project inclusion for it.

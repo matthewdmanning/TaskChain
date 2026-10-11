@@ -13,6 +13,7 @@ import com.taskchain.domain.run.RunFeedbackPolicy
 import com.taskchain.domain.schedule.ReminderPlanner
 import com.taskchain.ui.designsystem.RunnerMotion
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
@@ -47,8 +48,8 @@ class RoutineRunnerViewModel(
         viewModelScope.launch {
             runMutex.withLock {
                 val active = container.activeRun.observeActive().first()
-                val run = active?.takeIf { it.status == RunStatus.ACTIVE } ?: startRun()
-                initialRunningFeedbackPending = active?.status != RunStatus.ACTIVE
+                val run = active?.takeIf { it.status == RunStatus.ACTIVE && it.routineId == routineId } ?: startRun()
+                initialRunningFeedbackPending = active?.let { it.status != RunStatus.ACTIVE || it.routineId != routineId } ?: true
                 container.activeRun.saveActive(run)
                 state.value = state.value.copy(run = run)
             }
@@ -126,14 +127,19 @@ class RoutineRunnerViewModel(
                     container.activeRun.saveActive(terminal)
                     container.recoverTerminalRun()
                     if (terminal.status == RunStatus.COMPLETED) {
-                        runCatching {
+                        try {
                             rescheduleRoutineReminderAfterCompletion(
                                 terminal.routineId,
                                 terminal.endedAtEpochMillis ?: container.now(),
                             )
+                        } catch (error: CancellationException) {
+                            throw error
+                        } catch (_: Exception) {
                         }
                     }
                     state.value = RunnerState(nowEpochMillis = container.now(), run = terminal, finished = true)
+                } catch (error: CancellationException) {
+                    throw error
                 } catch (_: Exception) {
                     state.value = state.value.copy(historySaveFailed = true)
                 }
@@ -252,24 +258,35 @@ class RoutineRunnerViewModel(
     private suspend fun persistTerminalRun(terminal: RoutineRun): Boolean {
         try {
             container.activeRun.saveActive(terminal)
+        } catch (error: CancellationException) {
+            throw error
         } catch (_: Exception) {
             state.value = state.value.copy(run = terminal, historySaveFailed = true)
             return false
         }
         state.value = state.value.copy(run = terminal, historySaveFailed = false)
+        if (terminal.status == RunStatus.ABORTED) {
+            state.value = RunnerState(nowEpochMillis = container.now(), run = terminal, finished = true)
+            return true
+        }
         try {
             container.completions.append(container.runEngine.toCompletionEvent(terminal))
             container.activeRun.clearActive()
+        } catch (error: CancellationException) {
+            throw error
         } catch (_: Exception) {
             state.value = state.value.copy(historySaveFailed = true)
             return false
         }
         if (terminal.status == RunStatus.COMPLETED) {
-            runCatching {
+            try {
                 rescheduleRoutineReminderAfterCompletion(
                     terminal.routineId,
                     terminal.endedAtEpochMillis ?: container.now(),
                 )
+            } catch (error: CancellationException) {
+                throw error
+            } catch (_: Exception) {
             }
         }
         state.value = RunnerState(nowEpochMillis = container.now(), run = terminal, finished = true)

@@ -5,9 +5,13 @@ import com.taskchain.domain.model.RoutineSubtaskId
 import com.taskchain.domain.model.RoutineTaskId
 import com.taskchain.domain.model.RoutineTemplate
 import com.taskchain.domain.model.SoundToken
+import java.io.File
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /** Verifies that JSON saved before the task/subtask rename decodes with every renamed field intact. */
@@ -16,7 +20,7 @@ class LegacyJsonMigrationTest {
 
     /** Use this function to decode legacy text the same way the file repositories do. */
     private fun <T> decodeLegacy(text: String, deserializer: kotlinx.serialization.DeserializationStrategy<T>): T =
-        json.decodeFromJsonElement(deserializer, json.parseToJsonElement(text).withLegacyKeysRenamed())
+        json.decodeStored(text, deserializer)
 
     @Test
     fun legacyRoutineKeysDecodeAsTasksAndSubtasks() {
@@ -50,5 +54,25 @@ class LegacyJsonMigrationTest {
         assertEquals(RoutineSubtaskId("c"), task.activeSubtaskId)
         assertEquals(RoutineSubtaskId("c"), task.subtaskAdvancements.single().subtaskId)
         assertEquals(task, run.taskBeforeFinishConfirmation)
+    }
+
+    /** Use this test when startup migration must be repeatable and retain current-key values. Inputs: none; dependencies: [migrateLegacyDataFiles] and [Json]. */
+    @Test
+    fun migrationIsRepeatableAndCurrentKeysWin() {
+        val first = json.migrateStored("""{"steps":[{"id":"legacy"}],"tasks":[{"id":"current"}]}""")
+        assertEquals(first, json.migrateStored(first))
+        assertEquals("current", json.parseToJsonElement(first).jsonObject["data"]!!.jsonObject["tasks"]!!
+            .jsonArray.single().jsonObject["id"]!!.toString().trim('"'))
+        assertTrue(json.parseToJsonElement(first).jsonObject.containsKey("schemaVersion"))
+    }
+
+    /** Use this test when current-only fields must survive key canonicalization. Inputs: none; dependencies: [JsonElement.withLegacyKeysRenamed]. */
+    @Test
+    fun currentKeysRemainWhenNoLegacyKeysArePresent() {
+        val result = json.parseToJsonElement("""{"tasks":[{"id":"current"}],"title":"Kept"}""")
+            .withLegacyKeysRenamed().jsonObject
+
+        assertEquals("Kept", result["title"]!!.toString().trim('"'))
+        assertEquals("current", result["tasks"]!!.jsonArray.single().jsonObject["id"]!!.toString().trim('"'))
     }
 }
