@@ -1807,6 +1807,142 @@ Use this function to animate main-task progress and feedback from existing runne
 Inputs: displayed run, sampled time, completion hold, foreground and animation gates.
 Dependencies: persisted main-task statuses/timestamps, CyberProgress, completion presentation.
 
+## TaskChainApplication — app/src/main/java/com/taskchain/TaskChainApplication.kt
+
+Owns the shared AppContainer and its Android adapters for the lifetime of the app process.
+Constructor inputs: None; Android creates the registered Application.
+Dependencies: AppContainer.
+
+## ReminderRequest - app/src/main/java/com/taskchain/domain/schedule/ReminderPlanner.kt
+Platform-neutral reminder request used by the Android adapter. Use it when a routine or legacy task needs a complete alarm description; it contains the routine identity, trigger, recurrence, feedback settings, and optional legacy task identity. It depends only on the domain schedule and model types, so no Android alarm state is required.
+Inputs: alarm identity, routine/title, trigger, schedule, legacy task id, repeat interval, cycle start, and feedback gates
+Dependencies: ScheduleRule.
+
+## ReminderPlan - app/src/main/java/com/taskchain/domain/schedule/ReminderPlanner.kt
+Describes reminder cancellations and schedules produced by one domain planning operation. Use it when a caller is saving, restoring, completing, or delivering a reminder; inputs are the relevant routine/request and clock value, and the Android adapter applies the returned codes and requests without adding scheduling policy.
+Inputs: cancelRequestCodes - alarm identities to cancel; requests - alarms to schedule
+Dependencies: ReminderRequest.
+
+## RoutineTemplate.toReminderRequest - app/src/main/java/com/taskchain/domain/schedule/ReminderPlanner.kt
+Maps one routine occurrence to the complete adapter request. Use this function when a future trigger has already been selected; the input is the trigger epoch and the receiver depends only on the routine's persisted identity, recurrence, title, and feedback gates.
+Inputs: routine receiver and triggerAtEpochMillis - selected occurrence
+Dependencies: Domain model snapshots, ReminderRequest; NextTriggerCalculator for planning.
+
+## completedSinceCycle - app/src/main/java/com/taskchain/domain/schedule/ReminderPlanner.kt
+Checks whether a task completed during the current reminder cycle. Use this function before rearming repeated task prompts; inputs are routine/task ids, cycle start, active run, and completion history, and it depends only on persisted run timestamps and statuses.
+Inputs: routineId, taskId, cycleStartEpochMillis, activeRun, history - completion snapshots
+Dependencies: Domain model snapshots, ReminderRequest; NextTriggerCalculator for planning.
+
+## completedRoutineSinceCycle - app/src/main/java/com/taskchain/domain/schedule/ReminderPlanner.kt
+Checks whether a routine completed during the current reminder cycle. Use this function before rearming repeated routine prompts; inputs are the routine id, cycle start, active run, and completion history, and it depends on completed status plus the persisted end time.
+Inputs: routineId, cycleStartEpochMillis, activeRun, history - completion snapshots
+Dependencies: Domain model snapshots, ReminderRequest; NextTriggerCalculator for planning.
+
+## ReminderPlanner - app/src/main/java/com/taskchain/domain/schedule/ReminderPlanner.kt
+Produces platform-neutral reminder changes for routine lifecycle events. Use these functions from ViewModels and broadcast receivers; inputs are domain snapshots and epoch times, and the only dependency is [NextTriggerCalculator], with no Android state.
+Inputs: None.
+Dependencies: Domain model snapshots, ReminderRequest; NextTriggerCalculator for planning.
+
+## forSave - app/src/main/java/com/taskchain/domain/schedule/ReminderPlanner.kt
+Plans alarm changes before a routine save is persisted. Use this function with the new routine, optional previous snapshot, and current epoch; a configured schedule must resolve to a future trigger or this throws before persistence, while a direct reminder timestamp is preserved as supplied.
+Inputs: routine - new snapshot; previous - prior snapshot; nowEpochMillis - planning time
+Dependencies: Domain model snapshots, ReminderRequest; NextTriggerCalculator for planning.
+
+## forRestore - app/src/main/java/com/taskchain/domain/schedule/ReminderPlanner.kt
+Plans alarm restoration after reboot or local-time changes. Use this function with one saved routine and current epoch; routine-level settings suppress legacy task alarms, while a routine with no settings restores each future task alarm with its own gates.
+Inputs: routine - saved snapshot; nowEpochMillis - restoration time
+Dependencies: Domain model snapshots, ReminderRequest; NextTriggerCalculator for planning.
+
+## afterCompletion - app/src/main/java/com/taskchain/domain/schedule/ReminderPlanner.kt
+Plans the next alarm after a routine completion. Use this function with the completed routine when available, its stable id, and completion epoch; a next recurring trigger schedules the routine and every other case cancels its routine alarm.
+Inputs: routine - optional saved snapshot; routineId - completed identity; completedAtEpochMillis - completion time
+Dependencies: Domain model snapshots, ReminderRequest; NextTriggerCalculator for planning.
+
+## afterDelivery - app/src/main/java/com/taskchain/domain/schedule/ReminderPlanner.kt
+Computes a delivery rearm request from a delivered request. Use this function in the receiver with the request, current epoch, and whether an immediate repeat is wanted; it depends on [NextTriggerCalculator] and returns null for missing/expired policy.
+Inputs: request - delivered alarm; nowEpochMillis - delivery time; repeatNow - repeat eligibility
+Dependencies: Domain model snapshots, ReminderRequest; NextTriggerCalculator for planning.
+
+## routineRequestCode - app/src/main/java/com/taskchain/domain/schedule/ReminderPlanner.kt
+Use this function to map a stable RoutineId to the alarm code used by request mapping and cancellation.
+Inputs: routineId - stable routine identity
+Dependencies: String.hashCode; RoutineId for routine codes.
+
+## legacyTaskRequestCode - app/src/main/java/com/taskchain/domain/schedule/ReminderPlanner.kt
+Use this function to map a task id to the legacy alarm code used before settings moved to the routine.
+Inputs: taskId - stable legacy task identity
+Dependencies: String.hashCode; RoutineId for routine codes.
+
+## ReminderPlannerTest - app/src/test/java/com/taskchain/domain/schedule/ReminderPlannerTest.kt
+Verifies reminder planning at save, restore, completion, and delivery boundaries.
+Inputs: None.
+Dependencies: ReminderPlanner, domain model snapshots, JUnit assertions.
+
+## saveAndRestoreShareRoutineMapping - app/src/test/java/com/taskchain/domain/schedule/ReminderPlannerTest.kt
+Use this function to verify save and restore map the same future routine reminder and feedback gates.
+Inputs: None.
+Dependencies: ReminderPlanner, domain model snapshots, JUnit assertions.
+
+## saveRejectsInvalidOrExpiredSchedule - app/src/test/java/com/taskchain/domain/schedule/ReminderPlannerTest.kt
+Use this function to verify invalid and expired schedules reject a save plan.
+Inputs: None.
+Dependencies: ReminderPlanner, domain model snapshots, JUnit assertions.
+
+## saveCancelsRemovedTaskAndDisabledRoutine - app/src/test/java/com/taskchain/domain/schedule/ReminderPlannerTest.kt
+Use this function to verify removed legacy task alarms are cancelled while a disabled routine alarm is cleared.
+Inputs: None.
+Dependencies: ReminderPlanner, domain model snapshots, JUnit assertions.
+
+## restoreRoutineSettingsSuppressesLegacyTasks - app/src/test/java/com/taskchain/domain/schedule/ReminderPlannerTest.kt
+Use this function to verify reboot restoration of routine settings suppresses every legacy task alarm.
+Inputs: None.
+Dependencies: ReminderPlanner, domain model snapshots, JUnit assertions.
+
+## restoreWithoutRoutineSettingsRestoresLegacyTask - app/src/test/java/com/taskchain/domain/schedule/ReminderPlannerTest.kt
+Use this function to verify reboot restoration retains legacy task settings for manual routines.
+Inputs: None.
+Dependencies: ReminderPlanner, domain model snapshots, JUnit assertions.
+
+## completionOfOnceCancelsRoutineAlarm - app/src/test/java/com/taskchain/domain/schedule/ReminderPlannerTest.kt
+Use this function to verify a completed one-time routine cancels its nonrecurring alarm.
+Inputs: None.
+Dependencies: ReminderPlanner, domain model snapshots, JUnit assertions.
+
+## completionOfDailyRoutineSchedulesNextDay - app/src/test/java/com/taskchain/domain/schedule/ReminderPlannerTest.kt
+Use this function to verify recurring completion schedules the next local calendar day.
+Inputs: None.
+Dependencies: ReminderPlanner, domain model snapshots, JUnit assertions.
+
+## deliveryRetainsRepeatedCycleAndResetsAtRegularTrigger - app/src/test/java/com/taskchain/domain/schedule/ReminderPlannerTest.kt
+Use this function to verify repeated delivery retains a valid cycle start and resets on regular recurrence.
+Inputs: None.
+Dependencies: ReminderPlanner, domain model snapshots, JUnit assertions.
+
+## deliveryOnceRepeatsOnlyWithPositiveInterval - app/src/test/java/com/taskchain/domain/schedule/ReminderPlannerTest.kt
+Use this function to verify one-time reminders repeat only when explicitly configured.
+Inputs: None.
+Dependencies: ReminderPlanner, domain model snapshots, JUnit assertions.
+
+## completedRoutineSinceCycleMatchesOnlyCurrentCompletedRoutine - app/src/test/java/com/taskchain/domain/schedule/ReminderPlannerTest.kt
+Use this function to verify completed routine cycles ignore stale, unrelated, and aborted runs.
+Inputs: None.
+Dependencies: ReminderPlanner, domain model snapshots, JUnit assertions.
+
+## routine - app/src/test/java/com/taskchain/domain/schedule/ReminderPlannerTest.kt
+Use this function to build a routine snapshot from task, schedule, and direct-reminder inputs for planner tests.
+Inputs: tasks, schedule, reminderAtEpochMillis - test snapshot settings
+Dependencies: ReminderPlanner, domain model snapshots, JUnit assertions.
+
+## task - app/src/test/java/com/taskchain/domain/schedule/ReminderPlannerTest.kt
+Use this function to build a legacy task with a stable id, reminder timestamp, and feedback gates for restoration tests.
+Inputs: id, reminderAtEpochMillis, soundEnabled, vibrateEnabled - legacy task settings
+Dependencies: ReminderPlanner, domain model snapshots, JUnit assertions.
+
+## assertIllegalArgument - app/src/test/java/com/taskchain/domain/schedule/ReminderPlannerTest.kt
+Use this function to verify the supplied planner operation rejects a schedule before persistence.
+Inputs: block - planner operation expected to reject its schedule
+Dependencies: ReminderPlanner, domain model snapshots, JUnit assertions.
+
 ## `navigationBackPreview` — app/src/main/java/com/taskchain/ui/NavigationBackPreview.kt
 Use this function to preview an intercepted Back gesture from its transition state, gated by enabled.
 Inputs: transitionState — current gesture lifecycle and event; enabled — motion/confirmation gate; receiver — screen modifier.
