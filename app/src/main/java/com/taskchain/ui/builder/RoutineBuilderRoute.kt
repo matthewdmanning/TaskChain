@@ -15,7 +15,10 @@ import android.text.format.DateFormat
 import java.util.Calendar
 import java.util.Date
 import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.compose.BackHandler
+import androidx.navigationevent.NavigationEventInfo
+import androidx.navigationevent.compose.NavigationBackHandler
+import androidx.navigationevent.compose.rememberNavigationEventState
+import com.taskchain.ui.navigationBackPreview
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -118,6 +121,7 @@ internal fun RoutineBuilderRoute(
     routineId: RoutineId?,
     onClose: () -> Unit,
     onSaved: () -> Unit,
+    animationsEnabled: Boolean,
 ) {
     val viewModel: RoutineBuilderViewModel = viewModel(key = "builder-${routineId?.value}") {
         RoutineBuilderViewModel(container, routineId)
@@ -143,8 +147,10 @@ internal fun RoutineBuilderRoute(
     val requestClose = {
         if (state.hasUnsavedChanges) showDiscardDialog = true else onClose()
     }
-    BackHandler { requestClose() }
+    val backState = rememberNavigationEventState(currentInfo = NavigationEventInfo.None)
+    NavigationBackHandler(state = backState, onBackCompleted = { requestClose() })
     Scaffold(
+        modifier = Modifier.navigationBackPreview(backState.transitionState, enabled = animationsEnabled && !showDiscardDialog),
         contentWindowInsets = WindowInsets.safeDrawing,
         topBar = {
             CenterAlignedTopAppBar(

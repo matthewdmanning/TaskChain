@@ -1,8 +1,13 @@
 package com.taskchain
 
+import androidx.activity.BackEventCompat
 import androidx.compose.ui.test.assertHasNoClickAction
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.hasSetTextAction
+import androidx.compose.ui.test.hasClickAction
+import androidx.compose.ui.test.hasScrollToNodeAction
+import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
@@ -110,17 +115,32 @@ class MainActivityTest {
         activityRule.onAllNodes(hasSetTextAction(), useUnmergedTree = true).onFirst().performTextInput(title)
         activityRule.onNodeWithText(title).assertExists()
 
-        activityRule.onAllNodesWithText("Cancel").onFirst().performClick()
+        activityRule.runOnUiThread {
+            val dispatcher = activityRule.activity.onBackPressedDispatcher
+            dispatcher.dispatchOnBackStarted(BackEventCompat(0f, 0f, 0f, BackEventCompat.EDGE_LEFT))
+            dispatcher.dispatchOnBackProgressed(BackEventCompat(100f, 0f, 0.5f, BackEventCompat.EDGE_LEFT))
+        }
+        activityRule.onAllNodesWithText("Discard changes?").assertCountEquals(0)
+        activityRule.runOnUiThread {
+            activityRule.activity.onBackPressedDispatcher.dispatchOnBackCancelled()
+        }
+        activityRule.onNodeWithText(title).assertExists()
+        activityRule.onAllNodesWithText("Discard changes?").assertCountEquals(0)
+
+        activityRule.onNode(hasScrollToNodeAction()).performScrollToNode(hasText("Discard"))
+        activityRule.onNodeWithText("Discard").performClick()
         activityRule.onNodeWithText("Discard changes?").assertExists()
         activityRule.onNodeWithText("Keep editing").performClick()
+        activityRule.onNode(hasScrollToNodeAction()).performScrollToNode(hasText(title))
         activityRule.onNodeWithText(title).assertExists()
 
-        activityRule.activity.onBackPressedDispatcher.onBackPressed()
+        activityRule.runOnUiThread { activityRule.activity.onBackPressedDispatcher.onBackPressed() }
         activityRule.waitForIdle()
         activityRule.onNodeWithText("Discard changes?").assertExists()
         activityRule.onNodeWithText("Keep editing").performClick()
         activityRule.onNodeWithText(title).assertExists()
 
+        activityRule.runOnUiThread { activityRule.activity.onBackPressedDispatcher.onBackPressed() }
         activityRule.onNodeWithText("Discard changes").performClick()
         activityRule.onNodeWithText("New routine").assertExists()
     }
@@ -148,20 +168,35 @@ class MainActivityTest {
             activityRule.onAllNodesWithText("Routine builder").fetchSemanticsNodes().isNotEmpty()
         }
         activityRule.onNodeWithText("Morning reset").assertExists()
-        activityRule.onAllNodesWithText("Cancel").onFirst().performClick()
+        activityRule.onNode(hasScrollToNodeAction()).performScrollToNode(hasText("Discard"))
+        activityRule.onNodeWithText("Discard").performClick()
 
         activityRule.waitUntil(10_000) {
             activityRule.onAllNodesWithText("Morning reset").fetchSemanticsNodes().isNotEmpty()
         }
         activityRule.onNodeWithText("Start").performClick()
         activityRule.waitUntil(10_000) {
-            activityRule.onAllNodesWithText("Task 1 of 2").fetchSemanticsNodes().isNotEmpty()
+            activityRule.onAllNodesWithContentDescription("Task 1: Drink water, unfinished").fetchSemanticsNodes().isNotEmpty()
         }
-        activityRule.onNodeWithText("Task 1 of 2").assertExists()
+        activityRule.onNodeWithContentDescription("Task 1: Drink water, unfinished").assertExists()
+        activityRule.waitForIdle()
 
+        activityRule.runOnUiThread { activityRule.activity.onBackPressedDispatcher.onBackPressed() }
+        activityRule.waitUntil(10_000) {
+            activityRule.onAllNodesWithText("Abort this run?", useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty()
+        }
+        activityRule.onNodeWithText("Abort this run?", useUnmergedTree = true).assertExists()
+        activityRule.runOnUiThread { activityRule.activity.onBackPressedDispatcher.onBackPressed() }
+        activityRule.waitUntil(10_000) {
+            activityRule.onAllNodesWithText("Abort this run?", useUnmergedTree = true).fetchSemanticsNodes().isEmpty()
+        }
+        activityRule.onAllNodesWithText("Abort this run?", useUnmergedTree = true).assertCountEquals(0)
         activityRule.onNodeWithText("Back").performClick()
-        activityRule.onNodeWithText("Abort this run?").assertExists()
-        activityRule.onNodeWithText("Abort run").performClick()
+        activityRule.waitUntil(10_000) {
+            activityRule.onAllNodesWithText("Abort this run?", useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty()
+        }
+        activityRule.onNodeWithText("Abort this run?", useUnmergedTree = true).assertExists()
+        activityRule.onNode(hasText("Abort run") and hasClickAction()).performClick()
         activityRule.waitUntil(10_000) {
             activityRule.onAllNodesWithText("Routines").fetchSemanticsNodes().isNotEmpty()
         }

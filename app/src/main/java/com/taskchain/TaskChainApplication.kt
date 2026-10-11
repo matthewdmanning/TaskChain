@@ -6,4 +6,3 @@ import android.app.Application
 class TaskChainApplication : Application() {
     val container: AppContainer by lazy { AppContainer(this) }
 }
-good

@@ -17,7 +17,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.Lifecycle
+import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -37,19 +37,17 @@ import com.taskchain.ui.runner.RoutineRunnerRoute
 
 /** Use this function as the Compose application entry point. */
 @Composable
-fun TaskChainApp(container: AppContainer, openActiveRun: Boolean = false) {
+fun TaskChainApp(
+    container: AppContainer,
+    openActiveRun: Boolean = false,
+    providedNavController: NavHostController? = null,
+) {
     val preferences by container.preferences.observe().collectAsStateWithLifecycle(UserPreferences())
     TaskChainTheme(preferences.selectedTheme) {
         CompositionLocalProvider(LocalVibrationIntensity provides preferences.vibrationIntensity) {
         Surface(modifier = Modifier.fillMaxSize()) {
-            val navController = rememberNavController()
-            LaunchedEffect(openActiveRun) {
-                if (openActiveRun) {
-                    container.activeRun.observeActive().first()
-                        ?.takeIf { it.status == RunStatus.ACTIVE }
-                        ?.let { navController.navigate(runnerRoute(it.routineId)) }
-                }
-            }
+            val navController = providedNavController ?: rememberNavController()
+            var openActiveRunConsumed by rememberSaveable { mutableStateOf(false) }
             var selectedTab by rememberSaveable { mutableStateOf(HomeTab.HOME) }
             NavHost(navController = navController, startDestination = HOME_ROUTE) {
                 composable(HOME_ROUTE) {
@@ -74,6 +72,7 @@ fun TaskChainApp(container: AppContainer, openActiveRun: Boolean = false) {
                     CyberAppearance {
                         RoutineBuilderRoute(
                             container = container,
+                            animationsEnabled = preferences.screenTransitionsEnabled,
                             routineId = entry.arguments?.getString(ROUTINE_ID_ARGUMENT)?.let(::RoutineId),
                             onClose = navController::popBackStack,
                             onSaved = {
@@ -95,6 +94,23 @@ fun TaskChainApp(container: AppContainer, openActiveRun: Boolean = false) {
                             onFinished = navController::popBackStack,
                         )
                     }
+                }
+            }
+            LaunchedEffect(openActiveRun) {
+                if (openActiveRun && !openActiveRunConsumed) {
+                    container.activeRun.observeActive()
+                        .first { it?.status == RunStatus.ACTIVE }
+                        ?.let { activeRun ->
+                            val restoredRunner = navController.currentBackStackEntry
+                            val alreadyShowingActiveRun = restoredRunner?.destination?.route == RUNNER_ROUTE &&
+                                restoredRunner.arguments?.getString(ROUTINE_ID_ARGUMENT) == activeRun.routineId.value
+                            if (!alreadyShowingActiveRun) {
+                                navController.navigate(runnerRoute(activeRun.routineId)) {
+                                    launchSingleTop = true
+                                }
+                            }
+                            openActiveRunConsumed = true
+                        }
                 }
             }
         }

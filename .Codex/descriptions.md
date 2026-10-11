@@ -1806,3 +1806,38 @@ Inputs: None. Dependencies: subtaskRimStartDegrees, subtaskRimSweepDegrees, Rout
 Use this function to animate main-task progress and feedback from existing runner presentation and time.
 Inputs: displayed run, sampled time, completion hold, foreground and animation gates.
 Dependencies: persisted main-task statuses/timestamps, CyberProgress, completion presentation.
+
+## `navigationBackPreview` — app/src/main/java/com/taskchain/ui/NavigationBackPreview.kt
+Use this function to preview an intercepted Back gesture from its transition state, gated by enabled.
+Inputs: transitionState — current gesture lifecycle and event; enabled — motion/confirmation gate; receiver — screen modifier.
+Dependencies: NavigationEventTransitionState.
+
+## `BubbleNavigationTest` — app/src/androidTest/java/com/taskchain/BubbleNavigationTest.kt
+Verifies that a bubble launch request does not duplicate a restored runner entry.
+Constructor inputs: none.
+Dependencies: MainActivity, RunBubble, and Compose test semantics.
+
+## `bubbleRequestAfterRecreation_doesNotLeaveDuplicateRunnerEntry` — app/src/androidTest/java/com/taskchain/BubbleNavigationTest.kt
+Use this function to verify recreation consumes the bubble request after restoration.
+Inputs: none.
+Dependencies: activityRule, MainActivity, RunBubble.EXTRA_OPEN_ACTIVE_RUN, and Compose test semantics.
+
+## `NavigationBackHandlerTest` — app/src/androidTest/java/com/taskchain/ui/NavigationBackHandlerTest.kt
+Tests predictive progress, cancellation, and completion through ComponentActivity's dispatcher.
+Constructor inputs: none.
+Dependencies: NavigationBackHandler, navigationBackPreview.
+
+## `cancelledGestureResetsPreviewAndCompletedBackCommitsOnce` — app/src/androidTest/java/com/taskchain/ui/NavigationBackHandlerTest.kt
+Use this function to verify gesture previews reset without committing the Back action.
+Inputs: none.
+Dependencies: compose dispatcher, NavigationBackHandler, navigationBackPreview.
+
+## `BubbleNavigationTest` — app/src/androidTest/java/com/taskchain/BubbleNavigationTest.kt
+Verifies that a bubble launch request does not duplicate a restored runner entry.
+Constructor inputs: none.
+Dependencies: AppContainer, TaskChainApp, RunBubble, NavHostController, and StateRestorationTester.
+
+## `bubbleRequestAfterRecreation_doesNotLeaveDuplicateRunnerEntry` — app/src/androidTest/java/com/taskchain/BubbleNavigationTest.kt
+Use this function to verify recreation consumes the bubble request after restoration.
+Inputs: none.
+Dependencies: composeRule, AppContainer, RunBubble.EXTRA_OPEN_ACTIVE_RUN, TaskChainApp, and NavHostController back-stack state.

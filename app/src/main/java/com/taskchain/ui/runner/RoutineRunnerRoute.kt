@@ -4,7 +4,10 @@
 )
 
 package com.taskchain.ui.runner
-import androidx.activity.compose.BackHandler
+import androidx.navigationevent.NavigationEventInfo
+import androidx.navigationevent.compose.NavigationBackHandler
+import androidx.navigationevent.compose.rememberNavigationEventState
+import com.taskchain.ui.navigationBackPreview
 import android.animation.ValueAnimator
 import android.os.Build
 import android.provider.Settings
@@ -157,7 +160,27 @@ internal fun RoutineRunnerRoute(
     }
     val animationsEnabled = preferences.screenTransitionsEnabled && runnerAnimationsEnabled(LocalContext.current)
     LaunchedEffect(animationsEnabled) { viewModel.setTransitionsEnabled(animationsEnabled) }
+    val backState = rememberNavigationEventState(currentInfo = NavigationEventInfo.None)
+    val run = presentation.run
+    NavigationBackHandler(
+        state = backState,
+        isBackEnabled = run?.status == RunStatus.ACTIVE || presentation.holdingCompletion,
+        onBackCompleted = {
+            if (!presentation.holdingCompletion && run != null) {
+                if (run.abortConfirmationRequested || run.finishConfirmationRequested) {
+                    viewModel.continueRun()
+                } else {
+                    viewModel.back()
+                }
+            }
+        },
+    )
     RoutineRunnerScreen(
+        modifier = Modifier.navigationBackPreview(
+            backState.transitionState,
+            enabled = animationsEnabled && !presentation.holdingCompletion &&
+                run?.abortConfirmationRequested == false && !run.finishConfirmationRequested,
+        ),
         state = state,
         preferences = preferences,
         presentation = presentation,
@@ -194,6 +217,7 @@ internal fun RoutineRunnerRoute(
  */
 @Composable
 private fun RoutineRunnerScreen(
+    modifier: Modifier,
     state: RunnerState,
     preferences: UserPreferences,
     presentation: RunnerPresentation,
@@ -227,15 +251,6 @@ private fun RoutineRunnerScreen(
             }
         }
         return
-    }
-    BackHandler(enabled = run.status == RunStatus.ACTIVE || presentation.holdingCompletion) {
-        if (!presentation.holdingCompletion) {
-            if (run.abortConfirmationRequested || run.finishConfirmationRequested) {
-                onContinue()
-            } else {
-                onBack()
-            }
-        }
     }
 
     val spacing = TaskChainDesignSystem.spacing()
@@ -283,7 +298,7 @@ private fun RoutineRunnerScreen(
         }
     }
     Scaffold(
-        modifier = Modifier.drawWithContent {
+        modifier = modifier.drawWithContent {
             drawContent()
             if (presentation.readyLabel != null) {
                 val phase = (presentation.transitionElapsedMillis % 1000L) / 1000f
