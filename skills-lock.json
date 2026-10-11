@@ -13,6 +13,18 @@
       "skillPath": "system/edge-to-edge/SKILL.md",
       "computedHash": "7ccf71d4ff4d16509ee07df3312d6475741cd68006156c1a90e0638aa67b5fa0"
     },
+    "navigation-3": {
+      "source": "android/skills",
+      "sourceType": "github",
+      "skillPath": "navigation/navigation-3/SKILL.md",
+      "computedHash": "e2d0b960682ae0b7e8a2cbf4769ef058cc164b1a6096177d3a7022dc8e73b54c"
+    },
+    "navigation-event": {
+      "source": "android/skills",
+      "sourceType": "github",
+      "skillPath": "navigation/navigation-event/SKILL.md",
+      "computedHash": "315522dc24b2207a8bec803109999fb411750958b64c36b5893d32bca989651d"
+    },
     "refactoring-ui": {
       "source": "wondelai/skills",
       "sourceType": "github",

@@ -77,4 +77,8 @@
     <string name="runner_task_status_pending">Task %1$d: %2$s, unfinished</string>
     <string name="runner_task_status_completed">Task %1$d: %2$s, completed</string>
     <string name="runner_task_status_skipped">Task %1$d: %2$s, skipped</string>
+    <string name="retry">Retry</string>
+    <string name="opening_saved_data">Opening saved data…</string>
+    <string name="saved_data_unavailable">Couldn’t open saved data</string>
+    <string name="saved_data_retry_message">Your saved files have not been reset. Check available storage or restore a compatible backup, then retry.</string>
 </resources>

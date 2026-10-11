@@ -1,6 +1,7 @@
 package com.taskchain.domain.run
 
 import com.taskchain.domain.model.CompletionEvent
+import com.taskchain.domain.model.MILLIS_PER_SECOND
 import com.taskchain.domain.model.SubtaskAdvancement
 import com.taskchain.domain.model.RoutineRun
 import com.taskchain.domain.model.RoutineRunId
@@ -458,8 +459,4 @@ class RoutineRunEngine {
     /** Use this function to immutably replace one run task without a mutable collection. */
     private fun List<RoutineRunTask>.replaceAt(index: Int, value: RoutineRunTask): List<RoutineRunTask> =
         toMutableList().also { it[index] = value }
-
-    private companion object {
-        const val MILLIS_PER_SECOND = 1_000L
-    }
 }

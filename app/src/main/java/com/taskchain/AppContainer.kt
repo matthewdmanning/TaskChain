@@ -25,6 +25,7 @@ import java.io.File
 import java.util.UUID
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.flow.first
 import kotlinx.serialization.json.Json
 
 /** Small application composition root that wires domain ports to local Android adapters. */
@@ -51,6 +52,18 @@ class AppContainer(context: Context) {
 
     /** Use this function before UI loads so an interrupted terminal run reaches append-only history. */
     suspend fun recoverTerminalRun() = recoverTerminalSession(activeRun, completions, runEngine)
+
+    /**
+     * Use this function before UI editing to validate stored records and recover interrupted completion.
+     * Inputs: none. Dependencies: migration, routine/history/preference repositories, terminal recovery.
+     */
+    suspend fun initializeUserData() {
+        migrateLegacyData()
+        routines.observeAll().first()
+        completions.observeAll().first()
+        preferences.observe().first()
+        recoverTerminalRun()
+    }
 
     /** Use this function when creating a new persistent routine identity offline. */
     fun newRoutineId(): RoutineId = RoutineId(UUID.randomUUID().toString())
