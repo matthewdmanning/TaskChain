@@ -1,0 +1,15 @@
+<resources>
+    <string name="show_subtask_time_remaining">Show subtask time remaining</string>
+    <string name="subtask_remaining">Subtask remaining: %1$s</string>
+    <string name="subtask_duration_total">Main duration is the total of its subtasks</string>
+    <string name="runner_subtasks">Subtasks</string>
+    <string name="runner_subtasks_collapse">Collapse subtasks</string>
+    <string name="runner_subtasks_expand">Expand subtasks</string>
+    <string name="runner_next_up">Next up</string>
+    <string name="runner_subtask_advanced">Subtask complete</string>
+    <string name="behind_subtask_schedule">Behind subtask schedule</string>
+    <string name="subtask_active">Active subtask</string>
+    <string name="subtask_advanced">Completed subtask</string>
+    <string name="subtask_pending">Upcoming subtask</string>
+    <string name="runner_main_progress">%1$d of %2$d main tasks finished</string>
+</resources>

@@ -4,15 +4,15 @@ This plan records the reset criteria used for the September 2026 implementation 
 
 ## 1. Update the task model
 
-- Store schedule, optional repeat-minute interval, Sound, and Vibrate per task. Keep timer length on each step.
+- Store schedule, optional repeat-minute interval, Sound, and Vibrate per task. Keep timer length on each task.
 - Enforce schedule-versus-deadline/reminder exclusivity when saving. Preserve IDs and existing run snapshots when editing.
 - Load older saved routines and bundled defaults without losing task titles, timers, or schedules.
 
 ## 2. Rebuild the builder layout
 
 - Center top-level headers and apply safe-area padding on Home, Routines, Progress, Settings, Builder, and Runner.
-- Remove the built-in label, kind selector, and goal-link UI. Make Add Step create a task and place timer editing in its expanded step.
-- Put the expandable step list under Schedule. Show name left and `[M m SS s]` timer length right; let taps open field editing.
+- Remove the built-in label, kind selector, and goal-link UI. Make Add task create a task and place timer editing in its expanded task.
+- Put the expandable task list under Schedule. Show name left and `[M m SS s]` timer length right; let taps open field editing.
 - Provide task schedule, one-time deadline/reminder, repeat-minute wheel, and independent Sound/Vibrate switches.
 
 ## 3. Wire local feedback and reminders
@@ -29,11 +29,11 @@ This plan records the reset criteria used for the September 2026 implementation 
 
 ## Open decision
 
-Navigation after completing a previously skipped step remains TBD. It is outside this reset scope.
+Navigation after completing a previously skipped task remains TBD. It is outside this reset scope.
 
 ## Execution snapshot (2026-09-15)
 
-- **Code present:** Safe-area-aware, centered headers; the built-in label removed; task-only steps; Add Step and expandable task editing; task-level schedule/deadline exclusivity; Sound/Vibrate settings; native minute selector; legacy routine-schedule preservation; task alarms, repeat rearming, completion-based stopping, and timer feedback wiring. Completion timestamps are distinct from retained skip timing.
+- **Code present:** Safe-area-aware, centered headers; the built-in label removed; task-only tasks; Add task and expandable task editing; task-level schedule/deadline exclusivity; Sound/Vibrate settings; native minute selector; legacy routine-schedule preservation; task alarms, repeat rearming, completion-based stopping, and timer feedback wiring. Completion timestamps are distinct from retained skip timing.
 - **Assumption:** Repeat prompts stop when the task is completed, then restart at a recurring task's next occurrence. The user may choose a different stopping rule.
 - **Automated checks:** `:app:assembleDebug`, `:app:testDebugUnitTest`, and `:app:lintDebug` all passed after integration.
 - **Device checks:** Not yet performed. Safe areas, builder interactions, permission prompts, alarm timing, and audio/haptic combinations need on-device proof.

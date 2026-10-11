@@ -8,7 +8,10 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.material3.Typography
 import com.example.cyberpunkandroid.theme.CyberTypography
 import com.example.cyberpunkandroid.theme.cyberMaterialTypography
@@ -57,8 +60,30 @@ data class Spacing(
     val large: androidx.compose.ui.unit.Dp,
 )
 
+/** Hue step between neighbouring subtask colors; a prime so far-apart indexes stay distinct. */
+private const val SUBTASK_HUE_STEP_DEGREES = 47f
+
+private const val FULL_HUE_DEGREES = 360f
+
 /** Provides configured spacing to feature UI through the design-system boundary. */
 object TaskChainDesignSystem {
+    /** Finger travel along a drag handle that moves a task or subtask one place. */
+    val reorderDragDistance = 48.dp
+
+    /** Semantic seed for the ordered subtask palette; configure its theme mapping here. */
+    val subtaskColorSeed: Color
+        @Composable get() = CyberTheme.semantics.colors.info
+
+    /** Use this function to generate a stable sequential subtask color from the design-system seed.
+     * Inputs: ordered subtask index. Dependencies: subtaskColorSeed and native HSV color conversion.
+     */
+    @Composable
+    fun subtaskColor(index: Int): Color {
+        val hsv = FloatArray(3)
+        android.graphics.Color.colorToHSV(subtaskColorSeed.toArgb(), hsv)
+        return Color.hsv((hsv[0] + index * SUBTASK_HUE_STEP_DEGREES) % FULL_HUE_DEGREES, hsv[1], hsv[2])
+    }
+
     /** Use this function when feature UI needs semantic spacing from cyberpunkAndroid. */
     @Composable
     fun spacing(): Spacing = Spacing(
@@ -123,18 +148,25 @@ fun TaskChainTheme(selectedTheme: String, content: @Composable () -> Unit) {
     val cappedScale = density.fontScale.coerceAtMost((width / 240f).coerceAtLeast(1f))
     val base = Typography()
     val typography = cyberMaterialTypography(base.copy(
-        bodySmall = base.bodyLarge,
-        bodyMedium = base.bodyLarge,
-        labelSmall = base.labelLarge,
-        labelMedium = base.labelLarge,
+        bodySmall = base.bodyLarge.copy(fontSize = 20.sp, lineHeight = 28.sp),
+        bodyMedium = base.bodyLarge.copy(fontSize = 22.sp, lineHeight = 30.sp),
+        bodyLarge = base.bodyLarge.copy(fontSize = 22.sp, lineHeight = 30.sp),
+        labelSmall = base.labelLarge.copy(fontSize = 18.sp, lineHeight = 24.sp),
+        labelMedium = base.labelLarge.copy(fontSize = 20.sp, lineHeight = 26.sp),
+        labelLarge = base.labelLarge.copy(fontSize = 22.sp, lineHeight = 30.sp),
+        titleSmall = base.titleSmall.copy(fontSize = 22.sp, lineHeight = 30.sp),
+        titleMedium = base.titleMedium.copy(fontSize = 24.sp, lineHeight = 32.sp),
+        headlineSmall = base.headlineSmall.copy(fontSize = 28.sp, lineHeight = 36.sp),
+        headlineMedium = base.headlineMedium.copy(fontSize = 32.sp, lineHeight = 40.sp),
+        displayMedium = base.displayMedium.copy(fontSize = 48.sp, lineHeight = 56.sp),
         titleLarge = base.headlineLarge,
     ))
     CompositionLocalProvider(LocalDensity provides Density(density.density, cappedScale)) {
         CyberTheme(
             colors = colors,
             typography = CyberTypography(display = CyberTypography().display.copy(fontSize = 40.sp),
-                terminal = CyberTypography().terminal.copy(fontSize = 18.sp),
-                body = CyberTypography().body.copy(fontSize = 18.sp)),
+                terminal = CyberTypography().terminal.copy(fontSize = 22.sp, lineHeight = 30.sp),
+                body = CyberTypography().body.copy(fontSize = 22.sp, lineHeight = 30.sp)),
             materialTypography = typography,
             content = content,
         )

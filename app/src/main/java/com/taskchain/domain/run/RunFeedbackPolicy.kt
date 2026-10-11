@@ -2,13 +2,13 @@ package com.taskchain.domain.run
 
 import com.taskchain.domain.model.RoutineRun
 import com.taskchain.domain.model.RunStatus
-import com.taskchain.domain.model.RunStepStatus
+import com.taskchain.domain.model.RunTaskStatus
 import com.taskchain.domain.model.SoundToken
 
-/** Represents one semantic feedback event and the run step that caused it. */
+/** Represents one semantic feedback event and the run task that caused it. */
 data class RunFeedbackEvent(
     val token: SoundToken,
-    val stepIndex: Int,
+    val taskIndex: Int,
 )
 
 /** Contains the persisted nudge bucket and whether the current tick should emit it. */
@@ -25,44 +25,44 @@ object RunFeedbackPolicy {
     /**
      * Use this function after a run transition to identify state-entry feedback exactly once.
      * Inputs: `previous` — persisted run before the transition; `updated` — persisted run after the transition.
-     * Dependencies: `RoutineRun` step statuses and pause/confirmation state.
+     * Dependencies: `RoutineRun` task statuses and pause/confirmation state.
      */
     fun stateEntryEvents(previous: RoutineRun?, updated: RoutineRun): List<RunFeedbackEvent> {
         if (updated.status != RunStatus.ACTIVE) {
-            return previous?.let { completedEvents(it, updated) } ?: emptyList()
+            return previous?.let { subtaskAdvancedEvents(it, updated) + completedEvents(it, updated) } ?: emptyList()
         }
         if (previous == null) {
-            val current = updated.steps.getOrNull(updated.currentStepIndex)
+            val current = updated.tasks.getOrNull(updated.currentTaskIndex)
             return if (
-                current?.status == RunStepStatus.PENDING &&
+                current?.status == RunTaskStatus.PENDING &&
                 current.pausedAtEpochMillis == null &&
                 !updated.finishConfirmationRequested &&
                 !updated.abortConfirmationRequested
             ) {
-                listOf(RunFeedbackEvent(SoundToken.TaskRunning, updated.currentStepIndex))
+                listOf(RunFeedbackEvent(SoundToken.TaskRunning, updated.currentTaskIndex))
             } else {
                 emptyList()
             }
         }
 
-        val events = completedEvents(previous, updated).toMutableList()
-        val previousStep = previous.steps.getOrNull(previous.currentStepIndex)
-        val updatedStep = updated.steps.getOrNull(updated.currentStepIndex)
-        val enteredPendingStep = updatedStep?.status == RunStepStatus.PENDING &&
-            updatedStep.pausedAtEpochMillis == null &&
+        val events = (subtaskAdvancedEvents(previous, updated) + completedEvents(previous, updated)).toMutableList()
+        val previousTask = previous.tasks.getOrNull(previous.currentTaskIndex)
+        val updatedTask = updated.tasks.getOrNull(updated.currentTaskIndex)
+        val enteredPendingTask = updatedTask?.status == RunTaskStatus.PENDING &&
+            updatedTask.pausedAtEpochMillis == null &&
             !updated.finishConfirmationRequested && !updated.abortConfirmationRequested && (
-            previous.currentStepIndex != updated.currentStepIndex ||
-                previousStep?.status != RunStepStatus.PENDING ||
-                previousStep?.pausedAtEpochMillis != null
+            previous.currentTaskIndex != updated.currentTaskIndex ||
+                previousTask?.status != RunTaskStatus.PENDING ||
+                previousTask?.pausedAtEpochMillis != null
             )
-        if (enteredPendingStep) {
-            events += RunFeedbackEvent(SoundToken.TaskRunning, updated.currentStepIndex)
+        if (enteredPendingTask) {
+            events += RunFeedbackEvent(SoundToken.TaskRunning, updated.currentTaskIndex)
         } else if (
-            previous.currentStepIndex == updated.currentStepIndex &&
-            previousStep?.pausedAtEpochMillis == null &&
-            updatedStep?.pausedAtEpochMillis != null
+            previous.currentTaskIndex == updated.currentTaskIndex &&
+            previousTask?.pausedAtEpochMillis == null &&
+            updatedTask?.pausedAtEpochMillis != null
         ) {
-            events += RunFeedbackEvent(SoundToken.TaskPaused, updated.currentStepIndex)
+            events += RunFeedbackEvent(SoundToken.TaskPaused, updated.currentTaskIndex)
         }
         return events
     }
@@ -71,7 +71,7 @@ object RunFeedbackPolicy {
      * Use this function on the existing runner tick to acknowledge one active-time nudge bucket.
      * Inputs: `run` — persisted run snapshot; `nowEpochMillis` — wall-clock time; `intervalMillis` — nudge cadence;
      * `emit` — whether a newly due bucket should produce feedback or only be skipped on foreground resume.
-     * Dependencies: current-step timestamps, pause state, confirmation state, and persisted nudge count.
+     * Dependencies: current-task timestamps, pause state, confirmation state, and persisted nudge count.
      */
     fun evaluateNudge(
         run: RoutineRun,
@@ -83,22 +83,22 @@ object RunFeedbackPolicy {
         if (run.status != RunStatus.ACTIVE) {
             return NudgeDecision(run, shouldFire = false)
         }
-        val index = run.currentStepIndex
-        val step = run.steps.getOrNull(index) ?: return NudgeDecision(run, shouldFire = false)
-        if (step.status != RunStepStatus.PENDING) {
+        val index = run.currentTaskIndex
+        val task = run.tasks.getOrNull(index) ?: return NudgeDecision(run, shouldFire = false)
+        if (task.status != RunTaskStatus.PENDING) {
             return NudgeDecision(run, shouldFire = false)
         }
-        if (emit && (run.finishConfirmationRequested || run.abortConfirmationRequested || step.pausedAtEpochMillis != null)) {
+        if (emit && (run.finishConfirmationRequested || run.abortConfirmationRequested || task.pausedAtEpochMillis != null)) {
             return NudgeDecision(run, shouldFire = false)
         }
-        val startedAt = step.startedAtEpochMillis ?: return NudgeDecision(run, shouldFire = false)
-        val effectiveNow = step.pausedAtEpochMillis ?: run.confirmationStartedAtEpochMillis ?: nowEpochMillis
+        val startedAt = task.startedAtEpochMillis ?: return NudgeDecision(run, shouldFire = false)
+        val effectiveNow = task.pausedAtEpochMillis ?: run.confirmationStartedAtEpochMillis ?: nowEpochMillis
         val activeElapsedMillis = (effectiveNow - startedAt).coerceAtLeast(0L)
         val dueBucket = activeElapsedMillis / intervalMillis
-        if (dueBucket <= step.taskNudgeCount) return NudgeDecision(run, shouldFire = false)
+        if (dueBucket <= task.taskNudgeCount) return NudgeDecision(run, shouldFire = false)
         val acknowledged = run.copy(
-            steps = run.steps.toMutableList().also {
-                it[index] = step.copy(taskNudgeCount = dueBucket)
+            tasks = run.tasks.toMutableList().also {
+                it[index] = task.copy(taskNudgeCount = dueBucket)
             },
         )
         return NudgeDecision(acknowledged, shouldFire = emit)
@@ -107,21 +107,36 @@ object RunFeedbackPolicy {
     /**
      * Use this function when entering the foreground to discard missed background buckets without catch-up sound.
      * Inputs: `run` — persisted run snapshot; `nowEpochMillis` — wall-clock time; `intervalMillis` — nudge cadence.
-     * Dependencies: `evaluateNudge` and persisted step timestamps.
+     * Dependencies: `evaluateNudge` and persisted task timestamps.
      */
     fun skipMissedNudges(run: RoutineRun, nowEpochMillis: Long, intervalMillis: Long): RoutineRun =
         evaluateNudge(run, nowEpochMillis, intervalMillis, emit = false).run
 
     /**
-     * Use this function to report steps that became completed during one transition.
+     * Use this function to report tasks that became completed during one transition.
      * Inputs: `previous` — run before the transition; `updated` — run after the transition.
-     * Dependencies: `RoutineRunStep.status` and `SoundToken.TaskCompleted`.
+     * Dependencies: `RoutineRunTask.status` and `SoundToken.TaskCompleted`.
      */
     private fun completedEvents(previous: RoutineRun, updated: RoutineRun): List<RunFeedbackEvent> =
-        updated.steps.mapIndexedNotNull { index, step ->
-            val prior = previous.steps.getOrNull(index)
-            if (prior?.status != RunStepStatus.COMPLETED && step.status == RunStepStatus.COMPLETED) {
+        updated.tasks.mapIndexedNotNull { index, task ->
+            val prior = previous.tasks.getOrNull(index)
+            if (prior?.status != RunTaskStatus.COMPLETED && task.status == RunTaskStatus.COMPLETED) {
                 RunFeedbackEvent(SoundToken.TaskCompleted, index)
+            } else {
+                null
+            }
+        }
+
+    /**
+     * Use this function after a run transition to detect newly persisted manual subtask advancements.
+     * Inputs: `previous` — run before the transition; `updated` — run after the transition.
+     * Dependencies: `RoutineRunTask.subtaskAdvancements` and `SoundToken.SubtaskAdvanced`.
+     */
+    private fun subtaskAdvancedEvents(previous: RoutineRun, updated: RoutineRun): List<RunFeedbackEvent> =
+        updated.tasks.mapIndexedNotNull { index, task ->
+            val priorCount = previous.tasks.getOrNull(index)?.subtaskAdvancements?.size ?: 0
+            if (task.subtaskAdvancements.size > priorCount) {
+                RunFeedbackEvent(SoundToken.SubtaskAdvanced, index)
             } else {
                 null
             }

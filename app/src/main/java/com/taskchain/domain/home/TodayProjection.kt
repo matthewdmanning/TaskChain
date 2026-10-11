@@ -4,7 +4,7 @@ import com.taskchain.domain.model.CompletionEvent
 import com.taskchain.domain.model.RoutineRun
 import com.taskchain.domain.model.RoutineTemplate
 import com.taskchain.domain.model.RunStatus
-import com.taskchain.domain.model.RunStepStatus
+import com.taskchain.domain.model.RunTaskStatus
 import com.taskchain.domain.schedule.NextTriggerCalculator
 import java.util.TimeZone
 
@@ -37,8 +37,8 @@ fun projectTodayRoutines(
         val activeCompletedAt = activeRun?.takeIf {
             it.routineId == routine.id && it.status == RunStatus.COMPLETED
         }?.let { run ->
-            run.endedAtEpochMillis ?: run.steps.asSequence()
-                .filter { it.status == RunStepStatus.COMPLETED }
+            run.endedAtEpochMillis ?: run.tasks.asSequence()
+                .filter { it.status == RunTaskStatus.COMPLETED }
                 .mapNotNull { it.completedAtEpochMillis ?: it.finishedAtEpochMillis }
                 .maxOrNull()
         }

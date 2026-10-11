@@ -8,30 +8,30 @@ This file records the product and architecture decisions established in prior de
 - [ ] Selecting Home displays the Today content.
 - [ ] Each tab preserves its state when the user switches tabs.
 - [ ] Routine Builder and Routine Runner are deeper routes outside the tab set.
-- [ ] A run is one route; individual run steps are domain state, not Android navigation destinations.
+- [ ] A run is one route; individual run tasks are domain state, not Android navigation destinations.
 
 ## Routine authoring
 
-- [ ] Users can build reusable routines from ordered tasks, habits, and goal-linked steps.
-- [ ] A step may have an optional configured duration, deadline, reminder, and explicit habit-stacking anchor.
+- [ ] Users can build reusable routines from ordered tasks, habits, and goal-linked tasks.
+- [ ] A task may have an optional configured duration, deadline, reminder, and explicit habit-stacking anchor.
 - [ ] Custom routines and predefined library routines are available from the Routines flow.
 - [ ] Editing a routine never changes the snapshot held by a run already in progress or in history.
 
 ## Routine runner
 
 - [ ] Starting a routine creates and persists a distinct run snapshot.
-- [ ] The runner displays one primary step at a time.
-- [ ] Each run step has a durable status: **Pending**, **Completed**, or **Skipped**.
-- [ ] Complete records the step as completed and advances normally.
-- [ ] Skip records the step as skipped and advances normally.
-- [ ] Pressing Complete on a previously skipped step changes it directly to Completed; there is no separate Undo Skip action.
-- [ ] An explicit Back control returns to the previous step while preserving all run state.
+- [ ] The runner displays one primary task at a time.
+- [ ] Each run task has a durable status: **Pending**, **Completed**, or **Skipped**.
+- [ ] Complete records the task as completed and advances normally.
+- [ ] Skip records the task as skipped and advances normally.
+- [ ] Pressing Complete on a previously skipped task changes it directly to Completed; there is no separate Undo Skip action.
+- [ ] An explicit Back control returns to the previous task while preserving all run state.
 - [ ] Moving backward or forward never resets, duplicates, or silently recreates run state.
 - [ ] The screen is fully driven by authoritative persisted run state.
 
 ## First-step back behavior
 
-- [ ] Pressing Back on the first step opens an abort warning instead of exiting silently.
+- [ ] Pressing Back on the first task opens an abort warning instead of exiting silently.
 - [ ] The warning has exactly two actions: **Continue Run** and **Abort Run**.
 - [ ] Continue Run closes the warning and preserves the active run.
 - [ ] Abort Run ends the run as Aborted and exits the Runner.
@@ -39,29 +39,29 @@ This file records the product and architecture decisions established in prior de
 
 ## Final-step completion behavior
 
-- [ ] Complete or Skip on the final step opens a Confirm Complete dialog instead of finalizing immediately.
-- [ ] The dialog clearly lists every unfinished step, including Pending and Skipped steps.
-- [ ] Each unfinished step in the dialog is actionable and lets the user jump directly to that step.
-- [ ] Jumping to an unfinished step preserves the current run.
+- [ ] Complete or Skip on the final task opens a Confirm Complete dialog instead of finalizing immediately.
+- [ ] The dialog clearly lists every unfinished task, including Pending and Skipped tasks.
+- [ ] Each unfinished task in the dialog is actionable and lets the user jump directly to that task.
+- [ ] Jumping to an unfinished task preserves the current run.
 - [ ] Continue Run closes the dialog without finalizing.
-- [ ] Confirm Complete finalizes and records the run even when unfinished steps remain.
+- [ ] Confirm Complete finalizes and records the run even when unfinished tasks remain.
 
 ## Timers and completion feedback
 
-- [ ] A timed Pending step starts immediately when it first becomes active through forward navigation.
-- [ ] Returning to an already completed or skipped step never restarts its timer or causes timer side effects.
-- [ ] A completed step displays its persisted status and actual duration.
+- [ ] A timed Pending task starts immediately when it first becomes active through forward navigation.
+- [ ] Returning to an already completed or skipped task never restarts its timer or causes timer side effects.
+- [ ] A completed task displays its persisted status and actual duration.
 - [ ] Timer state is reconstructed from persisted timestamps rather than an in-memory counter.
 - [ ] When a countdown reaches zero, audio and haptic feedback fire exactly once.
-- [ ] With **Continue timer past zero** enabled, the timer continues in overtime until the step is completed or skipped.
+- [ ] With **Continue timer past zero** enabled, the timer continues in overtime until the task is completed or skipped.
 - [ ] Overtime is displayed as elapsed time past zero and is included in actual duration.
 - [ ] With **Continue timer past zero** disabled, feedback still fires once and the displayed countdown stops at zero.
-- [ ] Actual duration is stored per step and remains distinct from the configured duration.
+- [ ] Actual duration is stored per task and remains distinct from the configured duration.
 
 ## Persistence and progress
 
 - [ ] Active run state survives screen recreation and process death.
-- [ ] Completed runs retain every step status, including Skipped.
+- [ ] Completed runs retain every task status, including Skipped.
 - [ ] Completed and aborted runs record start time, end time, and the per-step actual durations.
 - [ ] Completion history is append-only; statistics are derived from events rather than mutable counters.
 - [ ] Progress can report completions, duration, adherence, skipped-step rate, and trends from local history.
@@ -94,6 +94,6 @@ This file records the product and architecture decisions established in prior de
 
 ## Open decision
 
-- [ ] **TBD:** After the user completes a previously skipped step, should the runner jump to the next unfinished step or continue the normal sequence?
+- [ ] **TBD:** After the user completes a previously skipped task, should the runner jump to the next unfinished task or continue the normal sequence?
 
 Until decided, implementations must not treat either behavior as a settled product requirement.

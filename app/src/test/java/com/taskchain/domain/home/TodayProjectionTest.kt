@@ -5,12 +5,12 @@ import com.taskchain.domain.model.EntityMetadata
 import com.taskchain.domain.model.RoutineId
 import com.taskchain.domain.model.RoutineRun
 import com.taskchain.domain.model.RoutineRunId
-import com.taskchain.domain.model.RoutineRunStep
-import com.taskchain.domain.model.RoutineStep
-import com.taskchain.domain.model.RoutineStepId
+import com.taskchain.domain.model.RoutineRunTask
+import com.taskchain.domain.model.RoutineTask
+import com.taskchain.domain.model.RoutineTaskId
 import com.taskchain.domain.model.RoutineTemplate
 import com.taskchain.domain.model.RunStatus
-import com.taskchain.domain.model.RunStepStatus
+import com.taskchain.domain.model.RunTaskStatus
 import com.taskchain.domain.model.ScheduleFrequency
 import com.taskchain.domain.model.ScheduleRule
 import java.text.SimpleDateFormat
@@ -115,13 +115,13 @@ class TodayProjectionTest {
         id = RoutineId(id),
         metadata = EntityMetadata(0, 0),
         title = id,
-        steps = listOf(RoutineStep(RoutineStepId("step-$id"), "Step")),
+        tasks = listOf(RoutineTask(RoutineTaskId("task-$id"), "Task")),
         schedule = schedule,
     )
 
     /** Use this function to represent durable completion history for a routine. */
     private fun completion(routine: RoutineTemplate, completedAt: Long): CompletionEvent {
-        val step = routine.steps.single()
+        val task = routine.tasks.single()
         return CompletionEvent(
             runId = RoutineRunId("history-$completedAt"),
             routineId = routine.id,
@@ -129,19 +129,19 @@ class TodayProjectionTest {
             startedAtEpochMillis = completedAt,
             endedAtEpochMillis = completedAt,
             status = RunStatus.COMPLETED,
-            steps = listOf(RoutineRunStep(step, RunStepStatus.COMPLETED, completedAtEpochMillis = completedAt)),
+            tasks = listOf(RoutineRunTask(task, RunTaskStatus.COMPLETED, completedAtEpochMillis = completedAt)),
         )
     }
 
-    /** Use this function to represent an active run with a completed routine step. */
+    /** Use this function to represent an active run with a completed routine task. */
     private fun activeRun(routine: RoutineTemplate, completedAt: Long): RoutineRun {
-        val step = routine.steps.single()
+        val task = routine.tasks.single()
         return RoutineRun(
             id = RoutineRunId("active"),
             routineId = routine.id,
             routineTitle = routine.title,
-            steps = listOf(RoutineRunStep(step, RunStepStatus.COMPLETED, completedAtEpochMillis = completedAt)),
-            currentStepIndex = 0,
+            tasks = listOf(RoutineRunTask(task, RunTaskStatus.COMPLETED, completedAtEpochMillis = completedAt)),
+            currentTaskIndex = 0,
             startedAtEpochMillis = completedAt,
             endedAtEpochMillis = completedAt,
             status = RunStatus.COMPLETED,

@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <integer name="runner_next_up_preview_count">2</integer>
+    <string name="runner_next_up_label">Next up</string>
+    <string name="runner_next_up_task">%1$d. %2$s</string>
+    <string name="runner_next_up_progress">Routine progress</string>
+</resources>

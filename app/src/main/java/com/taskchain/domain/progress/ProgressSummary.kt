@@ -2,7 +2,7 @@ package com.taskchain.domain.progress
 
 import com.taskchain.domain.model.CompletionEvent
 import com.taskchain.domain.model.RunStatus
-import com.taskchain.domain.model.RunStepStatus
+import com.taskchain.domain.model.RunTaskStatus
 import java.util.Calendar
 import java.util.TimeZone
 
@@ -14,8 +14,8 @@ data class ProgressSummary(
     val completedRuns: Int,
     val abortedRuns: Int,
     val actualDurationMillis: Long,
-    val stepAdherencePercent: Int,
-    val skippedStepPercent: Int,
+    val taskAdherencePercent: Int,
+    val skippedTaskPercent: Int,
     val lastSevenDays: List<DailyCompletion>,
 )
 
@@ -25,7 +25,7 @@ fun projectProgress(
     nowEpochMillis: Long,
     timeZone: TimeZone = TimeZone.getDefault(),
 ): ProgressSummary {
-    val steps = events.flatMap(CompletionEvent::steps)
+    val tasks = events.flatMap(CompletionEvent::tasks)
     val completedEvents = events.filter { it.status == RunStatus.COMPLETED }
     val dayStarts = (6 downTo 0).map { daysAgo ->
         Calendar.getInstance(timeZone).apply {
@@ -37,9 +37,9 @@ fun projectProgress(
     return ProgressSummary(
         completedRuns = completedEvents.size,
         abortedRuns = events.count { it.status == RunStatus.ABORTED },
-        actualDurationMillis = steps.sumOf { it.actualDurationMillis?.coerceAtLeast(0L) ?: 0L },
-        stepAdherencePercent = if (steps.isEmpty()) 0 else steps.count { it.status == RunStepStatus.COMPLETED } * 100 / steps.size,
-        skippedStepPercent = if (steps.isEmpty()) 0 else steps.count { it.status == RunStepStatus.SKIPPED } * 100 / steps.size,
+        actualDurationMillis = tasks.sumOf { it.actualDurationMillis?.coerceAtLeast(0L) ?: 0L },
+        taskAdherencePercent = if (tasks.isEmpty()) 0 else tasks.count { it.status == RunTaskStatus.COMPLETED } * 100 / tasks.size,
+        skippedTaskPercent = if (tasks.isEmpty()) 0 else tasks.count { it.status == RunTaskStatus.SKIPPED } * 100 / tasks.size,
         lastSevenDays = dayStarts.map { DailyCompletion(it, completedByDay[it] ?: 0) },
     )
 }

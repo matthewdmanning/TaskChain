@@ -13,12 +13,12 @@ class SoundSettingsTest {
     @Test
     fun legacyRunGetsFeedbackDefaults() {
         val run = Json.decodeFromString<RoutineRun>(
-            """{"id":"run","routineId":"routine","routineTitle":"Legacy","steps":[{"source":{"id":"step","title":"Task"},"startedAtEpochMillis":1000}],"currentStepIndex":0,"startedAtEpochMillis":1000}""",
+            """{"id":"run","routineId":"routine","routineTitle":"Legacy","tasks":[{"source":{"id":"task","title":"Task"},"startedAtEpochMillis":1000}],"currentTaskIndex":0,"startedAtEpochMillis":1000}""",
         )
 
         assertTrue(run.routineSoundEnabled)
         assertTrue(run.routineVibrateEnabled)
-        assertEquals(0L, run.steps.single().taskNudgeCount)
+        assertEquals(0L, run.tasks.single().taskNudgeCount)
         assertTrue(run.soundSettings[SoundToken.TimerExpired].enabled)
     }
 
@@ -26,7 +26,7 @@ class SoundSettingsTest {
     @Test
     fun legacyRoutineGetsDefaultSoundSettings() {
         val routine = Json { ignoreUnknownKeys = true }.decodeFromString<RoutineTemplate>(
-            """{"id":"legacy","metadata":{"createdAtEpochMillis":0,"updatedAtEpochMillis":0},"title":"Legacy","steps":[{"id":"step","title":"Step"}]}""",
+            """{"id":"legacy","metadata":{"createdAtEpochMillis":0,"updatedAtEpochMillis":0},"title":"Legacy","tasks":[{"id":"task","title":"Task"}]}""",
         )
 
         assertTrue(routine.soundSettings[SoundToken.TimerExpired].enabled)

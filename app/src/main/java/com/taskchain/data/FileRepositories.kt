@@ -9,38 +9,58 @@ import com.taskchain.domain.model.RoutineRun
 import com.taskchain.domain.model.RoutineTemplate
 import java.io.File
 import java.io.IOException
+import java.util.UUID
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
-import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.onStart
-import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
+import kotlinx.serialization.DeserializationStrategy
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
 
+/** Use this function to identify a recoverable AtomicFile base or backup. Input: receiver base path; dependencies: [File.exists]. */
+private fun File.hasRecoverableAtomicFile(): Boolean = exists() || File("$path.bak").exists()
+
 /**
- * Use this function when a damaged file must not crash startup or silently read as empty.
- * The unreadable file is renamed aside so a later write cannot overwrite recoverable data.
+ * Use this function when malformed JSON must be preserved before a later write can replace it.
+ * Input: receiver [File] is the AtomicFile base path; dependencies: [File.renameTo], [File.exists], and [UUID].
  */
-private fun <T> File.decodeOrQuarantine(decode: (String) -> T): T? = try {
-    decode(AtomicFile(this).readText())
-} catch (error: SerializationException) {
-    quarantine()
-    null
-} catch (error: IOException) {
-    quarantine()
-    null
+internal fun File.quarantineCorrupt() {
+    val parent = parentFile ?: throw IOException("Cannot quarantine storage file without a parent: $path")
+    val target = File(parent, "$name.corrupt-${UUID.randomUUID()}")
+    if (!renameTo(target) || exists() || !target.exists()) {
+        throw IOException("Could not quarantine malformed storage file for recovery: $path")
+    }
 }
 
-/** Use this function to move an unreadable file out of the path its repository reads. */
-private fun File.quarantine() {
-    renameTo(File(parentFile, "$name.corrupt-${System.currentTimeMillis()}"))
+/** Use this function to decode a present file while quarantining only serialization failures. Inputs: receiver base path, `json`, and `deserializer`; dependencies: [AtomicFile], [Json.decodeStored], and [File.quarantineCorrupt]. */
+private fun <T> File.readStoredOrNull(json: Json, deserializer: DeserializationStrategy<T>): T? {
+    if (!hasRecoverableAtomicFile()) return null
+    return try {
+        json.decodeStored(AtomicFile(this).readText(), deserializer)
+    } catch (error: SerializationException) {
+        quarantineCorrupt()
+        throw IOException("Malformed storage JSON was quarantined for recovery: $path", error)
+    }
 }
+
+/** Use this function before mutation to reject newer schemas and quarantine malformed JSON safely. Inputs: receiver base path and `json`; dependencies: [AtomicFile], [Json.validateStored], and [File.quarantineCorrupt]. */
+private fun File.validateBeforeMutation(json: Json) {
+    if (!hasRecoverableAtomicFile()) return
+    try {
+        json.validateStored(AtomicFile(this).readText())
+    } catch (error: SerializationException) {
+        quarantineCorrupt()
+        throw IOException("Malformed storage JSON was quarantined for recovery: $path", error)
+    }
+}
+
+/** Use this function to map a directory entry to its AtomicFile base path. Input: receiver directory entry; dependency: [File]. */
+private fun File.atomicBaseFile(): File = if (name.endsWith(".bak")) File(path.removeSuffix(".bak")) else this
 
 /** File-backed routine storage using one atomic JSON file per routine. */
 class FileRoutineRepository(
@@ -48,53 +68,60 @@ class FileRoutineRepository(
     private val json: Json,
 ) : RoutineRepository {
     private val changes = MutableStateFlow(0L)
-    private val mutex = Mutex()
 
     /** Use this function when UI needs routines refreshed after every local write. */
-    override fun observeAll(): Flow<List<RoutineTemplate>> = changes
-        .onStart { emit(changes.value) }
-        .map { readAll() }
-        .flowOn(Dispatchers.IO)
+    override fun observeAll(): Flow<List<RoutineTemplate>> = flow {
+        emit(readAll())
+        changes.collect { emit(readAll()) }
+    }.flowOn(Dispatchers.IO)
 
     /** Use this function when opening one routine without loading every definition. */
     override suspend fun get(id: RoutineId): RoutineTemplate? = withContext(Dispatchers.IO) {
-        mutex.withLock { read(fileFor(id)) }
+        StorageIo.mutex.withLock { read(fileFor(id)) }
     }
 
     /** Use this function when atomically creating or replacing a routine file. */
     override suspend fun save(routine: RoutineTemplate) = withContext(Dispatchers.IO) {
-        mutex.withLock {
+        StorageIo.mutex.withLock {
             routine.requireRunnable()
             directory.mkdirs()
-            AtomicFile(fileFor(routine.id)).writeText(json.encodeToString(RoutineTemplate.serializer(), routine))
+            val file = fileFor(routine.id)
+            file.validateBeforeMutation(json)
+            AtomicFile(file).writeText(json.encodeStored(RoutineTemplate.serializer(), routine))
             changes.value += 1
         }
     }
 
     /** Use this function when deleting a routine through its repository boundary. */
     override suspend fun delete(id: RoutineId) = withContext(Dispatchers.IO) {
-        mutex.withLock {
-            AtomicFile(fileFor(id)).delete()
+        StorageIo.mutex.withLock {
+            val file = fileFor(id)
+            file.validateBeforeMutation(json)
+            AtomicFile(file).delete()
             changes.value += 1
         }
     }
 
     /** Use this function to load all non-deleted routine files for an observation refresh. */
-    private fun readAll(): List<RoutineTemplate> = directory
-        .listFiles { file -> file.extension == JSON_EXTENSION }
-        .orEmpty()
-        .mapNotNull(::read)
-        .filter { it.metadata.deletedAtEpochMillis == null }
-        .sortedBy { it.title.lowercase() }
+    private suspend fun readAll(): List<RoutineTemplate> = StorageIo.mutex.withLock {
+        if (!directory.exists()) return@withLock emptyList()
+        val files = directory.listFiles { file ->
+            file.name.endsWith(".$JSON_EXTENSION") || file.name.endsWith(".$JSON_EXTENSION.bak")
+        } ?: throw IOException("Could not read routine storage directory: ${directory.path}")
+        files
+            .map(File::atomicBaseFile)
+            .distinctBy(File::getPath)
+            .mapNotNull(::read)
+            .filter { it.metadata.deletedAtEpochMillis == null }
+            .sortedBy { it.title.lowercase() }
+    }
 
     /** Use this function when a missing or not-yet-created routine file is valid. */
-    private fun read(file: File): RoutineTemplate? = file.takeIf(File::exists)
-        ?.decodeOrQuarantine { json.decodeFromString(RoutineTemplate.serializer(), it) }
+    private fun read(file: File): RoutineTemplate? = file.readStoredOrNull(json, RoutineTemplate.serializer())
 
     /**
      * Use this function to map stable routine identity to its private JSON file.
-     * The identity is checked because it becomes a file name, and a separator or a
-     * parent reference in it would escape the repository directory.
+     * [id] is checked because it becomes a file name; depends on [SAFE_ID] and [File].
      */
     private fun fileFor(id: RoutineId): File {
         require(SAFE_ID.matches(id.value)) { "Routine id is not usable as a file name: ${id.value}" }
@@ -113,34 +140,34 @@ class FileRoutineRunRepository(
     private val json: Json,
 ) : RoutineRunRepository {
     private val changes = MutableStateFlow(0L)
-    private val mutex = Mutex()
 
     /** Use this function when runner state must be reconstructed from disk. */
-    override fun observeActive(): Flow<RoutineRun?> = changes
-        .onStart { emit(changes.value) }
-        .map { read() }
-        .flowOn(Dispatchers.IO)
+    override fun observeActive(): Flow<RoutineRun?> = flow {
+        emit(StorageIo.mutex.withLock { read() })
+        changes.collect { emit(StorageIo.mutex.withLock { read() }) }
+    }.flowOn(Dispatchers.IO)
 
     /** Use this function to atomically persist the authoritative run state. */
     override suspend fun saveActive(run: RoutineRun) = withContext(Dispatchers.IO) {
-        mutex.withLock {
+        StorageIo.mutex.withLock {
             file.parentFile?.mkdirs()
-            AtomicFile(file).writeText(json.encodeToString(RoutineRun.serializer(), run))
+            file.validateBeforeMutation(json)
+            AtomicFile(file).writeText(json.encodeStored(RoutineRun.serializer(), run))
             changes.value += 1
         }
     }
 
     /** Use this function only after history safely contains the terminal run. */
     override suspend fun clearActive() = withContext(Dispatchers.IO) {
-        mutex.withLock {
+        StorageIo.mutex.withLock {
+            file.validateBeforeMutation(json)
             AtomicFile(file).delete()
             changes.value += 1
         }
     }
 
     /** Use this function when an absent active-session file means there is no run. */
-    private fun read(): RoutineRun? = file.takeIf(File::exists)
-        ?.decodeOrQuarantine { json.decodeFromString(RoutineRun.serializer(), it) }
+    private fun read(): RoutineRun? = file.readStoredOrNull(json, RoutineRun.serializer())
 }
 
 /** File-backed append-only completion history used by progress projections. */
@@ -149,29 +176,27 @@ class FileCompletionRepository(
     private val json: Json,
 ) : CompletionRepository {
     private val changes = MutableStateFlow(0L)
-    private val mutex = Mutex()
     private val serializer = ListSerializer(CompletionEvent.serializer())
 
     /** Use this function when progress screens need refreshed event history. */
     override fun observeAll(): Flow<List<CompletionEvent>> = flow {
-        emit(read())
-        changes.collect { emit(read()) }
+        emit(StorageIo.mutex.withLock { read().orEmpty() })
+        changes.collect { emit(StorageIo.mutex.withLock { read().orEmpty() }) }
     }.flowOn(Dispatchers.IO)
 
     /** Use this function to durably append one terminal run event. */
     override suspend fun append(event: CompletionEvent) = withContext(Dispatchers.IO) {
-        mutex.withLock {
-            val events = read()
+        StorageIo.mutex.withLock {
+            val events = read().orEmpty()
             if (events.none { it.runId == event.runId }) {
                 file.parentFile?.mkdirs()
-                AtomicFile(file).writeText(json.encodeToString(serializer, events + event))
+                file.validateBeforeMutation(json)
+                AtomicFile(file).writeText(json.encodeStored(serializer, events + event))
                 changes.value += 1
             }
         }
     }
 
     /** Use this function when an absent history file represents empty history. */
-    private fun read(): List<CompletionEvent> = file.takeIf(File::exists)
-        ?.decodeOrQuarantine { json.decodeFromString(serializer, it) }
-        .orEmpty()
+    private fun read(): List<CompletionEvent>? = file.readStoredOrNull(json, serializer)
 }

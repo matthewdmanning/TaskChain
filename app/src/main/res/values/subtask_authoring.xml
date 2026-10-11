@@ -1,0 +1,13 @@
+<resources>
+    <string name="subtask_title">Subtask title (required)</string>
+    <string name="subtask_duration_seconds">Duration in seconds (required)</string>
+    <string name="subtask_add">Add subtask</string>
+    <string name="subtask_remove">Remove subtask</string>
+    <string name="subtask_drag_handle">Reorder subtask</string>
+    <string name="subtask_move_up">Move subtask up</string>
+    <string name="subtask_move_down">Move subtask down</string>
+    <string name="subtask_duration_invalid">Enter a positive duration.</string>
+    <string name="subtask_title_required">Enter a subtask title.</string>
+    <string name="subtask_total_too_long">The total subtask duration is too long.</string>
+    <string name="subtask_id_duplicated">A subtask in this task is a duplicate. Remove it and add it again.</string>
+</resources>

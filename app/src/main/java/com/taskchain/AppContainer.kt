@@ -10,10 +10,11 @@ import com.taskchain.data.FileRoutineRunRepository
 import com.taskchain.data.RoutineRepository
 import com.taskchain.data.RoutineRunRepository
 import com.taskchain.data.UserPreferenceRepository
+import com.taskchain.data.migrateLegacyDataFiles
 import com.taskchain.data.recoverTerminalSession
 import com.taskchain.domain.model.RoutineId
 import com.taskchain.domain.model.RoutineRunId
-import com.taskchain.domain.model.RoutineStepId
+import com.taskchain.domain.model.RoutineTaskId
 import com.taskchain.domain.run.RoutineRunEngine
 import com.taskchain.reminder.AndroidReminderScheduler
 import com.taskchain.reminder.AndroidTaskFeedback
@@ -22,6 +23,9 @@ import com.taskchain.reminder.TaskFeedback
 import com.taskchain.reminder.TimerFeedback
 import java.io.File
 import java.util.UUID
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.flow.first
 import kotlinx.serialization.json.Json
 
 /** Small application composition root that wires domain ports to local Android adapters. */
@@ -43,14 +47,29 @@ class AppContainer(context: Context) {
         .getInteger(R.integer.run_nudge_interval_seconds)
         .toLong() * 1000L
 
+    /** Use this function before UI loads so files saved before the task/subtask rename use current keys. */
+    suspend fun migrateLegacyData() = withContext(Dispatchers.IO) { migrateLegacyDataFiles(dataDirectory, json) }
+
     /** Use this function before UI loads so an interrupted terminal run reaches append-only history. */
     suspend fun recoverTerminalRun() = recoverTerminalSession(activeRun, completions, runEngine)
+
+    /**
+     * Use this function before UI editing to validate stored records and recover interrupted completion.
+     * Inputs: none. Dependencies: migration, routine/history/preference repositories, terminal recovery.
+     */
+    suspend fun initializeUserData() {
+        migrateLegacyData()
+        routines.observeAll().first()
+        completions.observeAll().first()
+        preferences.observe().first()
+        recoverTerminalRun()
+    }
 
     /** Use this function when creating a new persistent routine identity offline. */
     fun newRoutineId(): RoutineId = RoutineId(UUID.randomUUID().toString())
 
-    /** Use this function when creating a new routine-step identity offline. */
-    fun newStepId(): RoutineStepId = RoutineStepId(UUID.randomUUID().toString())
+    /** Use this function when creating a new routine-task identity offline. */
+    fun newTaskId(): RoutineTaskId = RoutineTaskId(UUID.randomUUID().toString())
 
     /** Use this function when starting a distinct routine execution offline. */
     fun newRunId(): RoutineRunId = RoutineRunId(UUID.randomUUID().toString())

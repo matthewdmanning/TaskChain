@@ -3,8 +3,8 @@ package com.taskchain.data
 import android.content.Context
 import com.taskchain.domain.model.EntityMetadata
 import com.taskchain.domain.model.RoutineId
-import com.taskchain.domain.model.RoutineStep
-import com.taskchain.domain.model.RoutineStepId
+import com.taskchain.domain.model.RoutineTask
+import com.taskchain.domain.model.RoutineTaskId
 import com.taskchain.domain.model.RoutineTemplate
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -33,7 +33,7 @@ class BuiltInRoutineLibrary(
         val id: String,
         val title: String,
         val description: String,
-        val steps: List<StepDto>,
+        val tasks: List<TaskDto>,
     ) {
         /** Use this function when exposing a predefined routine to domain consumers. */
         fun toDomain(nowEpochMillis: Long): RoutineTemplate = RoutineTemplate(
@@ -41,19 +41,19 @@ class BuiltInRoutineLibrary(
             metadata = EntityMetadata(nowEpochMillis, nowEpochMillis),
             title = title,
             description = description,
-            steps = steps.map(StepDto::toDomain),
+            tasks = tasks.map(TaskDto::toDomain),
         )
     }
 
-    /** Asset-only representation of one predefined step. */
+    /** Asset-only representation of one predefined task. */
     @Serializable
-    private data class StepDto(
+    private data class TaskDto(
         val id: String,
         val title: String,
         val timerSeconds: Long? = null,
     ) {
-        /** Use this function when copying a predefined step into a domain routine. */
-        fun toDomain(): RoutineStep = RoutineStep(RoutineStepId(id), title, timerSeconds)
+        /** Use this function when copying a predefined task into a domain routine. */
+        fun toDomain(): RoutineTask = RoutineTask(RoutineTaskId(id), title, timerSeconds)
     }
 
     private companion object {

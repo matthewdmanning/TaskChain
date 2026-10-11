@@ -21,6 +21,10 @@ Humans should use ./scripts/gradle.ps1 on Windows. Sandboxed agents must use scr
 - `scripts\gradle-agent.cmd :app:compileDebugKotlin` gives sandboxed coding agents Kotlin and Java compiler diagnostics.
 - `scripts\gradle-agent.cmd :app:testDebugUnitTest` runs focused JVM regression tests for sandboxed coding agents.
 - `scripts\gradle-agent.cmd :app:lintDebug` gives sandboxed coding agents Android and Kotlin lint diagnostics.
+- `scripts\gradle-agent.cmd :app:assembleDeviceTest :app:assembleDeviceTestAndroidTest` builds isolated device-test APKs.
+- `scripts\gradle-agent.cmd :app:connectedDeviceTestAndroidTest` runs instrumentation against the disposable `com.taskchain.testapp` package.
+
+Keep valued user data in the regular app separate from instrumentation fixtures. Never clear or uninstall `com.taskchain` to run tests. Verify APK application IDs before device installation; see `docs/on-device-data.md` and `scripts/backup-device-data.ps1`. The regular debug unit-test task remains enabled for CI.
 
 Use the checked-in wrapper's pinned Gradle distribution; do not install or manually download a separate Gradle version. The wrapper caches its distribution under `GRADLE_USER_HOME\wrapper\dists`, reuses it when that exact version is present, and downloads it when the cache is absent or incomplete. If a build appears to download Gradle again, first check `GRADLE_USER_HOME` and that cache; report the pinned version and cache state before retrying network access.
 
@@ -40,6 +44,8 @@ Tests use JUnit 4 and are named `*Test.kt`, mirroring production packages (for e
 
 Use a short imperative subject describing the change. In PRs, explain the behavior and affected requirements, include test results, link a relevant issue when one exists, and attach screenshots for UI changes. Do not claim a requirement is implemented without verification.
 
+Commit corresponding documentation with its code, including reference documents and plans supplied in chat and documents generated during the work. Append new declaration descriptions to `docs/descriptions.md`.
+
 ## Configuration & Agent Guidance
 
 Keep defaults in `app/src/main/assets/config/` and UI values in resources or design-system configuration. Preserve the platform, storage, and service constraints defined in `architecture.md`; do not add secrets or remote services. After a sandboxed command fails, verify the command and its exact scope, then retry once with appropriate escalation. If it still fails, stop and provide the exact PowerShell command for manual execution. During parallel work, the root agent owns full Gradle verification unless a worker is explicitly assigned a focused check.
@@ -49,7 +55,7 @@ Delegate to the read-only `codebase_scanner` agent with `fork_turns = "none"` wh
 ### Subagent command preflight
 
 - On Windows, set `exec_command` to `shell: "cmd.exe"` and `login: false`, then pass a native command directly. Do not nest `cmd.exe /c`, use PowerShell quoting, or invoke Unix text tools through cmd. Use `type AGENTS.md` for a simple read; avoid multi-pattern `findstr /c:` quoting through a shell wrapper.
-- Verify the actual path with `rg.exe --files` before a scoped search. Tested commands from the repository root: `rg.exe --files app\src\main\java\com\taskchain\ui` and `rg.exe -n TaskChainApp app\src\main\java\com\taskchain\ui\TaskChainApp.kt` both exit 0. The UI currently lives in `TaskChainApp.kt` and `FeatureViewModels.kt`, not `ui/home` or `ui/run` directories. `rg` exit 1 with no diagnostic means no matches, so adjust the query or scope instead of retrying the same command.
+- Verify the actual path with `rg.exe --files` before a scoped search. Tested commands from the repository root: `rg.exe --files app\src\main\java\com\taskchain\ui` and `rg.exe -n TaskChainApp app\src\main\java\com\taskchain\ui\TaskChainApp.kt` both exit 0. The UI is organized under `ui/home`, `ui/builder`, `ui/runner`, `ui/progress`, and `ui/settings`; `TaskChainApp.kt` owns application navigation. `rg` exit 1 with no diagnostic means no matches, so adjust the query or scope instead of retrying the same command.
 - On a genuine tool failure, follow the raw recovery and tool-failure recording instructions from the global PostToolUse hook. A completed test run with failing assertions or test cases is diagnostic output, not a tool failure; fix the tests without logging or counting it toward the consecutive-failure stop rule. Record the attempted command, exit code, and error excerpt for actual tool failures. Read-only subagents must send those details to the parent for logging without attempting to write outside their sandbox. Track consecutive failures separately for each agent. Stop the affected agent's task after consecutive tool failures; the orchestrator continues independent work and assigns that subagent the next task not blocked by the failed task.
 - Before abandoning a stuck subagent, the parent should inspect its exact command, shell, working directory, and scope, then provide one corrected approach with verified paths. Do not repeat the failed command unchanged.
 
