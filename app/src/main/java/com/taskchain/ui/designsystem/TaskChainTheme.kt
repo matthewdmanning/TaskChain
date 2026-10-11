@@ -8,6 +8,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
@@ -59,8 +60,16 @@ data class Spacing(
     val large: androidx.compose.ui.unit.Dp,
 )
 
+/** Hue step between neighbouring subtask colors; a prime so far-apart indexes stay distinct. */
+private const val SUBTASK_HUE_STEP_DEGREES = 47f
+
+private const val FULL_HUE_DEGREES = 360f
+
 /** Provides configured spacing to feature UI through the design-system boundary. */
 object TaskChainDesignSystem {
+    /** Finger travel along a drag handle that moves a task or subtask one place. */
+    val reorderDragDistance = 48.dp
+
     /** Semantic seed for the ordered subtask palette; configure its theme mapping here. */
     val subtaskColorSeed: Color
         @Composable get() = CyberTheme.semantics.colors.info
@@ -72,7 +81,7 @@ object TaskChainDesignSystem {
     fun subtaskColor(index: Int): Color {
         val hsv = FloatArray(3)
         android.graphics.Color.colorToHSV(subtaskColorSeed.toArgb(), hsv)
-        return Color.hsv((hsv[0] + index * 47f) % 360f, hsv[1], hsv[2])
+        return Color.hsv((hsv[0] + index * SUBTASK_HUE_STEP_DEGREES) % FULL_HUE_DEGREES, hsv[1], hsv[2])
     }
 
     /** Use this function when feature UI needs semantic spacing from cyberpunkAndroid. */

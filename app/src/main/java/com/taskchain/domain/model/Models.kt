@@ -2,6 +2,9 @@ package com.taskchain.domain.model
 
 import kotlinx.serialization.Serializable
 
+/** Milliseconds in one second, shared by the run engine and its presentation. */
+const val MILLIS_PER_SECOND = 1_000L
+
 /** Stable routine identity that remains valid across file moves and future storage adapters. */
 @Serializable
 @JvmInline
@@ -101,40 +104,8 @@ data class RoutineTemplate(
     val soundSettings: SoundSettings = defaultSoundSettings(),
 ) {
     /** Use this function before starting or saving a routine that must be executable. */
-    fun requireRunnable(): RoutineTemplate = apply {
-        require(id.value.isNotBlank())
-        require(title.isNotBlank())
-        require(tasks.isNotEmpty())
-        require(tasks.all { it.title.isNotBlank() })
-        require(tasks.all { it.id.value.isNotBlank() })
-        require(tasks.map { it.id }.distinct().size == tasks.size)
-        require(tasks.flatMap { it.subtasks }.map { it.id }.distinct().size == tasks.sumOf { it.subtasks.size })
-        require(tasks.all { task ->
-            if (task.subtasks.isEmpty()) {
-                task.timerSeconds == null || task.timerSeconds in 1..MAX_SAFE_DURATION_SECONDS
-            } else {
-                var total = 0L
-                task.subtasks.isNotEmpty() && task.subtasks.all { subtask ->
-                    val valid = subtask.id.value.isNotBlank() && subtask.title.isNotBlank() &&
-                        subtask.durationSeconds > 0 && total <= MAX_SAFE_DURATION_SECONDS - subtask.durationSeconds
-                    if (valid) total += subtask.durationSeconds
-                    valid
-                } && task.subtasks.map { it.id }.distinct().size == task.subtasks.size
-            }
-        })
-        require(deadlineEpochMillis == null || deadlineEpochMillis >= 0)
-        require(reminderAtEpochMillis == null || reminderAtEpochMillis >= 0)
-        require(listOfNotNull(schedule, deadlineEpochMillis, reminderAtEpochMillis).size <= 1)
-        require(remindEveryMinutes == null || (schedule != null && remindEveryMinutes > 0))
-        listOfNotNull(schedule).forEach { rule ->
-            require(rule.localHour in 0..23 && rule.localMinute in 0..59)
-            require(rule.daysOfWeek.all { it in 1..7 })
-            when (rule.frequency) {
-                ScheduleFrequency.ONCE -> require(rule.oneTimeEpochMillis != null && rule.oneTimeEpochMillis >= 0)
-                ScheduleFrequency.SELECTED_DAYS -> require(rule.daysOfWeek.isNotEmpty())
-                else -> Unit
-            }
-        }
+    fun requireRunnable(nowEpochMillis: Long? = null): RoutineTemplate = apply {
+        require(validationIssues(nowEpochMillis).isEmpty())
     }
 }
 
@@ -208,5 +179,3 @@ data class UserPreferences(
         require(vibrationIntensity in 0f..1f)
     }
 }
-
-private const val MAX_SAFE_DURATION_SECONDS: Long = Long.MAX_VALUE / 1_000L

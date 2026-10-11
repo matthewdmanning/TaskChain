@@ -17,6 +17,8 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.taskchain.ui.designsystem.TaskChainTheme
+import com.taskchain.ui.home.RoutineList
+import com.taskchain.ui.builder.WeekdaySelector
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith

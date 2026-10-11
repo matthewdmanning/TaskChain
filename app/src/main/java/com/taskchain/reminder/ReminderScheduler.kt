@@ -17,16 +17,14 @@ import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import com.taskchain.MainActivity
-import com.taskchain.AppContainer
+import com.taskchain.TaskChainApplication
 import com.taskchain.R
 import com.taskchain.domain.model.ScheduleFrequency
 import com.taskchain.domain.model.ScheduleRule
-import com.taskchain.domain.schedule.NextTriggerCalculator
-import com.taskchain.domain.model.CompletionEvent
-import com.taskchain.domain.model.RoutineRun
-import com.taskchain.domain.model.RoutineTemplate
-import com.taskchain.domain.model.RunStatus
-import com.taskchain.domain.model.RunTaskStatus
+import com.taskchain.domain.schedule.ReminderPlanner
+import com.taskchain.domain.schedule.ReminderRequest
+import com.taskchain.domain.schedule.completedSinceCycle
+import com.taskchain.domain.schedule.completedRoutineSinceCycle
 import com.taskchain.domain.model.SoundSettings
 import com.taskchain.domain.model.SoundToken
 import com.taskchain.domain.model.defaultSoundSettings
@@ -34,71 +32,6 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
-
-/** Platform-neutral request to prompt the user about one routine. */
-data class ReminderRequest(
-    val requestCode: Int,
-    val routineId: String,
-    val title: String,
-    val triggerAtEpochMillis: Long,
-    val schedule: ScheduleRule? = null,
-    val taskId: String? = null,
-    val remindEveryMinutes: Int? = null,
-    val cycleStartEpochMillis: Long? = null,
-    val soundEnabled: Boolean = true,
-    val vibrateEnabled: Boolean = true,
-)
-
-/** Maps one routine occurrence to the complete request understood by the Android reminder adapter. */
-internal fun RoutineTemplate.toReminderRequest(triggerAtEpochMillis: Long): ReminderRequest = ReminderRequest(
-    requestCode = id.value.hashCode(),
-    routineId = id.value,
-    title = title,
-    triggerAtEpochMillis = triggerAtEpochMillis,
-    schedule = schedule,
-    remindEveryMinutes = remindEveryMinutes,
-    cycleStartEpochMillis = triggerAtEpochMillis.takeIf { schedule != null },
-    soundEnabled = soundEnabled,
-    vibrateEnabled = vibrateEnabled,
-)
-
-/** Use this function when a repeated task alert must honor a completion persisted in an active run or history. */
-internal fun completedSinceCycle(
-    routineId: String,
-    taskId: String,
-    cycleStartEpochMillis: Long,
-    activeRun: RoutineRun?,
-    history: List<CompletionEvent>,
-): Boolean {
-    if (cycleStartEpochMillis <= 0) return false
-    val activeCompleted = activeRun?.takeIf { it.routineId.value == routineId }?.tasks?.any { task ->
-        task.source.id.value == taskId && task.status == RunTaskStatus.COMPLETED &&
-            (task.completedAtEpochMillis ?: task.finishedAtEpochMillis ?: Long.MIN_VALUE) >= cycleStartEpochMillis
-    } == true
-    return activeCompleted || history.any { event ->
-        event.routineId.value == routineId && event.tasks.any { task ->
-            task.source.id.value == taskId && task.status == RunTaskStatus.COMPLETED &&
-                (task.completedAtEpochMillis ?: task.finishedAtEpochMillis ?: Long.MIN_VALUE) >= cycleStartEpochMillis
-        }
-    }
-}
-
-/** Use this function when a repeated routine prompt must stop after a completed run in its cycle. */
-internal fun completedRoutineSinceCycle(
-    routineId: String,
-    cycleStartEpochMillis: Long,
-    activeRun: RoutineRun?,
-    history: List<CompletionEvent>,
-): Boolean {
-    if (cycleStartEpochMillis <= 0) return false
-    val activeCompleted = activeRun?.takeIf {
-        it.routineId.value == routineId && it.status == RunStatus.COMPLETED
-    }?.endedAtEpochMillis?.let { it >= cycleStartEpochMillis } == true
-    return activeCompleted || history.any { event ->
-        event.routineId.value == routineId && event.status == RunStatus.COMPLETED &&
-            event.endedAtEpochMillis >= cycleStartEpochMillis
-    }
-}
 
 /** Android scheduling boundary kept outside routine and schedule domain models. */
 interface ReminderScheduler {
@@ -188,7 +121,7 @@ class ReminderReceiver : BroadcastReceiver() {
         val taskId = intent.getStringExtra(AndroidReminderScheduler.EXTRA_TASK_ID)
         val repeatMinutes = intent.getIntExtra(AndroidReminderScheduler.EXTRA_REMIND_EVERY_MINUTES, 0)
         val completed = if (repeatMinutes > 0) runCatching {
-            val container = AppContainer(context.applicationContext)
+            val container = (context.applicationContext as TaskChainApplication).container
             val routineId = intent.getStringExtra(AndroidReminderScheduler.EXTRA_ROUTINE_ID).orEmpty()
             val cycleStartEpochMillis = intent.getLongExtra(AndroidReminderScheduler.EXTRA_CYCLE_START, 0L)
             val activeRun = container.activeRun.observeActive().first()
@@ -246,7 +179,6 @@ class ReminderReceiver : BroadcastReceiver() {
         val frequency = intent.getStringExtra(AndroidReminderScheduler.EXTRA_FREQUENCY)
             ?.let { runCatching { ScheduleFrequency.valueOf(it) }.getOrNull() } ?: return
         val minutes = intent.getIntExtra(AndroidReminderScheduler.EXTRA_REMIND_EVERY_MINUTES, 0).takeIf { it > 0 }
-        if (frequency == ScheduleFrequency.ONCE && minutes == null) return
         val rule = ScheduleRule(
             frequency = frequency,
             localHour = intent.getIntExtra(AndroidReminderScheduler.EXTRA_LOCAL_HOUR, -1),
@@ -255,24 +187,23 @@ class ReminderReceiver : BroadcastReceiver() {
             oneTimeEpochMillis = intent.getLongExtra(AndroidReminderScheduler.EXTRA_ONCE_EPOCH_MILLIS, 0L).takeIf { it != 0L },
         )
         val now = System.currentTimeMillis()
-        val regular = NextTriggerCalculator.nextTriggerEpochMillis(rule, now)
-        val next = if (repeatNow) NextTriggerCalculator.nextRepeatedTriggerEpochMillis(rule, now, minutes ?: 0)
-            else regular
-        if (next == null) return
-        AndroidReminderScheduler(context).schedule(
+        val next = ReminderPlanner.afterDelivery(
             ReminderRequest(
                 requestCode = intent.getIntExtra(AndroidReminderScheduler.EXTRA_REQUEST_CODE, 0),
                 routineId = intent.getStringExtra(AndroidReminderScheduler.EXTRA_ROUTINE_ID).orEmpty(),
                 title = intent.getStringExtra(AndroidReminderScheduler.EXTRA_TITLE).orEmpty(),
-                triggerAtEpochMillis = next,
+                triggerAtEpochMillis = now,
                 schedule = rule,
                 taskId = intent.getStringExtra(AndroidReminderScheduler.EXTRA_TASK_ID),
                 remindEveryMinutes = minutes,
-                cycleStartEpochMillis = if (!repeatNow || next == regular) next else intent.getLongExtra(AndroidReminderScheduler.EXTRA_CYCLE_START, 0L).takeIf { it > 0 } ?: now,
+                cycleStartEpochMillis = intent.getLongExtra(AndroidReminderScheduler.EXTRA_CYCLE_START, 0L).takeIf { it > 0 },
                 soundEnabled = intent.getBooleanExtra(AndroidReminderScheduler.EXTRA_SOUND_ENABLED, true),
                 vibrateEnabled = intent.getBooleanExtra(AndroidReminderScheduler.EXTRA_VIBRATE_ENABLED, true),
             ),
-        )
+            now,
+            repeatNow,
+        ) ?: return
+        (context.applicationContext as TaskChainApplication).container.reminders.schedule(next)
     }
 
     /** Use this function before posting reminders on Android 8 or newer. */
@@ -299,46 +230,12 @@ class ReminderRescheduleReceiver : BroadcastReceiver() {
         val pendingResult = goAsync()
         CoroutineScope(Dispatchers.IO).launch {
             try {
-                val container = AppContainer(context.applicationContext)
+                val container = (context.applicationContext as TaskChainApplication).container
                 val now = System.currentTimeMillis()
                 container.routines.observeAll().first().forEach { routine ->
-                    val routineRequestCode = routine.id.value.hashCode()
-                    val hasRoutineSettings = routine.schedule != null || routine.deadlineEpochMillis != null ||
-                        routine.reminderAtEpochMillis != null || routine.remindEveryMinutes != null
-                    if (hasRoutineSettings) {
-                        val trigger = routine.schedule?.let { NextTriggerCalculator.nextTriggerEpochMillis(it, now) }
-                            ?: routine.reminderAtEpochMillis?.takeIf { it > now }
-                        if (trigger == null) container.reminders.cancel(routineRequestCode)
-                        else container.reminders.schedule(
-                            routine.toReminderRequest(trigger),
-                        )
-                        // The "step:" prefix matches request codes of alarms scheduled before the task rename.
-                        routine.tasks.forEach { task ->
-                            container.reminders.cancel("step:${task.id.value}".hashCode())
-                        }
-                    } else {
-                        container.reminders.cancel(routineRequestCode)
-                        routine.tasks.forEach { task ->
-                            val requestCode = "step:${task.id.value}".hashCode()
-                            val trigger = task.schedule?.let { NextTriggerCalculator.nextTriggerEpochMillis(it, now) }
-                                ?: task.reminderAtEpochMillis?.takeIf { it > now }
-                            if (trigger == null) container.reminders.cancel(requestCode)
-                            else container.reminders.schedule(
-                                ReminderRequest(
-                                    requestCode = requestCode,
-                                    routineId = routine.id.value,
-                                    title = task.title,
-                                    triggerAtEpochMillis = trigger,
-                                    schedule = task.schedule,
-                                    taskId = task.id.value,
-                                    remindEveryMinutes = task.remindEveryMinutes,
-                                    cycleStartEpochMillis = if (task.schedule != null) trigger else null,
-                                    soundEnabled = task.soundEnabled,
-                                    vibrateEnabled = task.vibrateEnabled,
-                                ),
-                            )
-                        }
-                    }
+                    val reminderPlan = ReminderPlanner.forRestore(routine, now)
+                    reminderPlan.cancelRequestCodes.forEach(container.reminders::cancel)
+                    reminderPlan.requests.forEach(container.reminders::schedule)
                 }
             } catch (_: Exception) {
                 // A damaged or concurrently replaced local routine file must not crash a system broadcast.

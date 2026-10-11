@@ -1,4 +1,4 @@
-package com.taskchain.ui
+package com.taskchain.ui.runner
 
 import com.taskchain.domain.model.RoutineId
 import com.taskchain.domain.model.EntityMetadata

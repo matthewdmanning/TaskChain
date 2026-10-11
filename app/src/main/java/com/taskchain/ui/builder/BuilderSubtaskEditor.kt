@@ -1,4 +1,4 @@
-package com.taskchain.ui
+package com.taskchain.ui.builder
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -33,6 +33,7 @@ import com.example.cyberpunkandroid.icons.CyberIcon
 import com.example.cyberpunkandroid.icons.CyberIcons
 import com.example.cyberpunkandroid.theme.CyberTheme
 import com.taskchain.R
+import com.taskchain.ui.designsystem.TaskChainDesignSystem
 import com.taskchain.domain.model.RoutineSubtask
 import com.taskchain.domain.model.RoutineSubtaskId
 import kotlin.math.absoluteValue
@@ -93,7 +94,7 @@ fun BuilderSubtaskEditor(
                                     onDrag = { change, amount ->
                                         change.consume()
                                         dragOffset += amount.y
-                                        if (dragOffset.absoluteValue >= SUBTASK_DRAG_REORDER_THRESHOLD_PX) {
+                                        if (dragOffset.absoluteValue >= TaskChainDesignSystem.reorderDragDistance.toPx()) {
                                             onMoveSubtask(subtask.id, if (dragOffset > 0) 1 else -1)
                                             dragOffset = 0f
                                         }
@@ -147,7 +148,6 @@ fun BuilderSubtaskEditor(
     }
 }
 
-private const val SUBTASK_DRAG_REORDER_THRESHOLD_PX = 48f
 
 /** Use this function to show one builder error that screen readers announce when it appears. */
 @Composable

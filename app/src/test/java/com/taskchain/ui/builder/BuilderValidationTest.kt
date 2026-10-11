@@ -1,4 +1,4 @@
-package com.taskchain.ui
+package com.taskchain.ui.builder
 
 import com.taskchain.domain.model.EntityMetadata
 import com.taskchain.domain.model.RoutineId
@@ -9,6 +9,8 @@ import com.taskchain.domain.model.RoutineTaskId
 import com.taskchain.domain.model.RoutineTemplate
 import com.taskchain.domain.model.ScheduleFrequency
 import com.taskchain.domain.model.ScheduleRule
+import com.taskchain.ui.home.formatRoutineItemCount
+import com.taskchain.ui.home.formatRoutineTotalTime
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue

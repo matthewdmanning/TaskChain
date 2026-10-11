@@ -15,7 +15,7 @@ import kotlinx.coroutines.launch
 
 /** Hosts the single Compose activity and the local application composition root. */
 class MainActivity : ComponentActivity() {
-    private val container by lazy { AppContainer(this) }
+    private val container get() = (application as TaskChainApplication).container
     private val runBubble by lazy { RunBubble(this) }
     private var bubbleJob: Job? = null
 

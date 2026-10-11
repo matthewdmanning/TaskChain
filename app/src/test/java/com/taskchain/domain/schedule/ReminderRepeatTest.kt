@@ -1,4 +1,4 @@
-package com.taskchain.reminder
+package com.taskchain.domain.schedule
 
 import com.taskchain.domain.model.CompletionEvent
 import com.taskchain.domain.model.EntityMetadata
