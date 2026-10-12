@@ -11,7 +11,7 @@ Rank is by risk to user data and to the run flow.
 | 2 | Bubble launch can replay after recreation. A test exists, so confirm it passes on a device | Duplicate runner entry | `docs/navigation-events-review.md` |
 | 3 | Runner and Home system Back tests are written but never run on a device. Predictive Back has no test | Custom handlers own these events | `docs/navigation-events-review.md` |
 | 4 | UI checks never ran on an unlocked device | Compose tests are unproven on hardware | `docs/on-device-data.md` |
-| 5 | No screenshot tooling | UI provider swap in #26 can change appearance unseen | #26 |
+| 5 | Screenshot tooling installed and one test written. No reference recorded on a device | UI provider swap in #26 can change appearance unseen | #26 |
 | 6 | Device suite has no run record or trigger | Slow checks run by memory only | CI split in README |
 | 7 | `CONTEXT.md` invariants have no mapping to tests | Gaps stay hidden | README coverage targets |
 | 8 | Untested UI packages: settings, progress, home presentation | No regression guard | test file list |

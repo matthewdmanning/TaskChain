@@ -59,7 +59,7 @@ Each row maps to an event in [navigation-events-review.md](../navigation-events-
 
 ## Screenshot tests
 
-Status: Proposed. No screenshot tooling is installed.
+Status: tooling installed, one test written, no reference recorded.
 
 ### Tool choice
 
@@ -72,7 +72,13 @@ Status: Proposed. No screenshot tooling is installed.
   - Record and verify on a device configured the same way. Use one reference device.
   - Pixel tolerance uses `CountValidator` or `ThresholdValidator`.
 - The README documents no Compose usage. Test the rule with a Compose screen on the device before you rely on it.
-- TaskChain's instrumentation runs against the `deviceTest` build type. Confirm the record task name for that build type before the first run.
+- Installed on 2026-10-12: plugin `0.6.0` through the version catalog. The build passes with AGP 9.4.1.
+- The plugin adds its own test dependency. Do not add one by hand.
+- TaskChain's tests run against the `deviceTest` build type. Gradle lists these tasks for it:
+  - `recordDeviceTestAndroidTestScreenshots` writes new references.
+  - `pullDeviceTestAndroidTestScreenshots` copies screenshots from the device.
+  - `clearDeviceTestAndroidTestScreenshots` removes screenshots from the device.
+- Existing test: `ScreenshotTest.routinesTab_matchesReference`. No reference image exists yet. Record on the reference device with the device unlocked, then review and commit the image.
 - Do not add Roborazzi or Paparazzi in the first pass. They render on the JVM and do not show real device rendering.
 
 ### What to capture
