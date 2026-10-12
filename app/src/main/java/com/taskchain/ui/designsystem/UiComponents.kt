@@ -10,10 +10,12 @@ import com.example.cyberpunkandroid.components.CyberButton
 import com.taskchain.ui.pressAction
 
 /**
- * Library-independent composable actions consumed by TaskChain screens.
+ * Library-independent composable action contract consumed by TaskChain screens.
  *
- * Arguments remain ordinary Compose state and callbacks so screens never need
- * to import an implementation library.
+ * @param onClick User action, wrapped by the provider's press-feedback behavior.
+ * @param modifier Layout, interaction, and accessibility modifier supplied by the caller.
+ * @param enabled Whether interaction is allowed.
+ * @param content Button content executed inside the active composition; no RowScope guarantee.
  */
 typealias UiButton = @Composable (
     onClick: () -> Unit,
@@ -22,20 +24,31 @@ typealias UiButton = @Composable (
     content: @Composable () -> Unit,
 ) -> Unit
 
-/** Renders a state-driven toggle; the parent can own the accessible row target. */
+/**
+ * Renders a state-driven toggle; a parent may own the sole accessible row target.
+ *
+ * @param checked Current toggle value.
+ * @param onCheckedChange Change callback, or null when a parent handles input.
+ * @param modifier Caller-owned layout and semantics.
+ */
 typealias UiSwitch = @Composable (
     checked: Boolean,
     onCheckedChange: ((Boolean) -> Unit)?,
     modifier: Modifier,
 ) -> Unit
 
-/** Collection of swappable UI primitives. Extend by semantic use case, not library API count. */
+/**
+ * Collection of swappable UI primitives. Extend by semantic use case, not library API count.
+ *
+ * @property button Action implementation preserving the app's press feedback.
+ * @property switch Toggle implementation with externally owned state.
+ */
 data class UiComponents(
     val button: UiButton,
     val switch: UiSwitch,
 )
 
-/** Existing Cyberpunk appearance, retaining the current Material-backed switch. */
+/** Existing Cyberpunk appearance; the toggle remains Material-backed under CyberTheme. */
 val CyberpunkUiComponents = UiComponents(
     button = { onClick, modifier, enabled, content ->
         CyberButton(onClick = pressAction(onClick), modifier = modifier, enabled = enabled, content = content)
@@ -45,7 +58,7 @@ val CyberpunkUiComponents = UiComponents(
     },
 )
 
-/** Material 3 implementation of the same component contracts. */
+/** Material 3 primitive implementation; a full Material theme is not yet installed. */
 val MaterialUiComponents = UiComponents(
     button = { onClick, modifier, enabled, content ->
         Button(onClick = pressAction(onClick), modifier = modifier, enabled = enabled, content = content)
@@ -55,7 +68,7 @@ val MaterialUiComponents = UiComponents(
     },
 )
 
-/** Current UI implementation, scoped to a Compose subtree. */
+/** Current UI implementation scoped to a Compose subtree; defaults to the legacy appearance. */
 val LocalUiComponents = staticCompositionLocalOf { CyberpunkUiComponents }
 
 /**
