@@ -16,13 +16,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.semantics
-import com.example.cyberpunkandroid.config.CyberPrimitives
-import com.taskchain.ui.designsystem.TaskChainTheme
+import com.taskchain.ui.designsystem.TaskChainDesignSystem
 import com.taskchain.ui.designsystem.LocalUiComponents
-
-/** Retains the current Cyberpunk Android theme supplied by [TaskChainTheme]. */
-@Composable
-internal fun CyberAppearance(content: @Composable () -> Unit) = content()
 
 /**
  * Renders a labeled setting as a single accessible toggle row using the active UI provider.
@@ -42,7 +37,7 @@ internal fun LabeledSwitchRow(label: String, checked: Boolean, onCheckedChange: 
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(label, modifier = Modifier.weight(1f).padding(end = CyberPrimitives.Spacing.dp8))
+        Text(label, modifier = Modifier.weight(1f).padding(end = TaskChainDesignSystem.spacing().small))
         ui.switch(checked, null, Modifier.clearAndSetSemantics {})
     }
 }
