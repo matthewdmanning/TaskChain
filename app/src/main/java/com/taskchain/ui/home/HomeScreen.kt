@@ -63,6 +63,7 @@ import com.taskchain.ui.designsystem.Spacing
 import com.example.cyberpunkandroid.components.CyberButtonSize
 import com.example.cyberpunkandroid.components.CyberButtonStyle
 import com.example.cyberpunkandroid.components.CyberCard
+import com.taskchain.ui.designsystem.TaskCard
 import com.example.cyberpunkandroid.config.CyberPrimitives
 import com.example.cyberpunkandroid.effects.cyberGlowBorder
 import com.example.cyberpunkandroid.icons.CyberIcon
@@ -232,7 +233,7 @@ private fun TodayRoute(
             }
             if (projection.scheduled.isEmpty() && projection.manual.isEmpty() && projection.completed.isEmpty()) {
                 item {
-                    CyberCard(modifier = Modifier.fillMaxWidth()) {
+                    TaskCard(modifier = Modifier.fillMaxWidth()) {
                         Text(stringResource(R.string.today_empty), style = CyberTheme.typography.body)
                         Spacer(Modifier.height(CyberPrimitives.Spacing.dp16))
                         CyberButton(onClick = onCreate) { Text(stringResource(R.string.new_routine)) }
@@ -404,7 +405,7 @@ private fun RoutineCard(routine: RoutineTemplate, onEdit: (() -> Unit)?, onStart
             )
             .padding(spacing.small),
     ) {
-        CyberCard(modifier = Modifier.fillMaxWidth()) {
+        TaskCard(modifier = Modifier.fillMaxWidth()) {
             Column(verticalArrangement = Arrangement.spacedBy(spacing.medium)) {
             Text(
                 text = routine.title,
