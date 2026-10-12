@@ -82,7 +82,7 @@ fun TaskChainApp(
                         defaultValue = null
                     }),
                 ) { entry ->
-                    CyberAppearance {
+                    run {
                         RoutineBuilderRoute(
                             container = container,
                             animationsEnabled = preferences.screenTransitionsEnabled,
@@ -99,7 +99,7 @@ fun TaskChainApp(
                     route = RUNNER_ROUTE,
                     arguments = listOf(navArgument(ROUTINE_ID_ARGUMENT) { type = NavType.StringType }),
                 ) { entry ->
-                    CyberAppearance {
+                    run {
                         RoutineRunnerRoute(
                             container = container,
                             preferences = preferences,
