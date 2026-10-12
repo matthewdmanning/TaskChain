@@ -18,6 +18,7 @@ class DataStoreUserPreferenceRepository(private val context: Context) : UserPref
     override fun observe(): Flow<UserPreferences> = context.userPreferencesDataStore.data.map { values ->
         UserPreferences(
             selectedTheme = values[SELECTED_THEME] ?: DEFAULT_THEME,
+            selectedUiProvider = values[SELECTED_UI_PROVIDER] ?: DEFAULT_UI_PROVIDER,
             continueTimerPastZero = values[CONTINUE_PAST_ZERO] ?: true,
             vibrationIntensity = values[VIBRATION_INTENSITY] ?: 1f,
             screenTransitionsEnabled = values[SCREEN_TRANSITIONS_ENABLED] ?: true,
@@ -29,6 +30,11 @@ class DataStoreUserPreferenceRepository(private val context: Context) : UserPref
     /** Use this function when settings chooses a theme supported by the design system. */
     override suspend fun setTheme(theme: String) {
         context.userPreferencesDataStore.edit { it[SELECTED_THEME] = theme }
+    }
+
+    /** Persists a UI provider ID; unknown IDs safely resolve to the default at the theme boundary. */
+    override suspend fun setUiProvider(providerId: String) {
+        context.userPreferencesDataStore.edit { it[SELECTED_UI_PROVIDER] = providerId }
     }
 
     /** Use this function when settings changes whether countdowns show overtime. */
@@ -59,6 +65,8 @@ class DataStoreUserPreferenceRepository(private val context: Context) : UserPref
 
     private companion object {
         const val DEFAULT_THEME = "system"
+        const val DEFAULT_UI_PROVIDER = "cyberpunk"
+        val SELECTED_UI_PROVIDER = stringPreferencesKey("selected_ui_provider")
         val SELECTED_THEME = stringPreferencesKey("selected_theme")
         val CONTINUE_PAST_ZERO = booleanPreferencesKey("continue_timer_past_zero")
         val VIBRATION_INTENSITY = floatPreferencesKey("vibration_intensity")
