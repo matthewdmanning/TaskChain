@@ -59,7 +59,7 @@ Each row maps to an event in [navigation-events-review.md](../navigation-events-
 
 ## Screenshot tests
 
-Status: tooling installed, one test written, no reference recorded.
+Status: one test (`ScreenshotTest.routinesTab_matchesReference`), reference recorded and verified on Pixel 7 (Android 17), 2026-10-12.
 
 ### Tool choice
 
@@ -79,7 +79,8 @@ Status: tooling installed, one test written, no reference recorded.
   - `pullDeviceTestAndroidTestScreenshots` copies screenshots from the device.
   - `clearDeviceTestAndroidTestScreenshots` removes screenshots from the device.
 - Inject system Back with `Instrumentation.sendKeyDownUpSync(KEYCODE_BACK)` when a dialog is open. `Espresso.pressBack()` fails there because the dialog window holds focus. Javadoc: sends the key "to the currently focused window".
-- Existing test: `ScreenshotTest.routinesTab_matchesReference`. No reference image exists yet. Record on the reference device with the device unlocked, then review and commit the image.
+- Existing test: `ScreenshotTest.routinesTab_matchesReference`. Reference: `app/src/androidTest/screenshots/routines_tab.png`. Record on the reference device with the device unlocked, then review and commit the image.
+- Known issue (2026-10-12): `recordDeviceTestAndroidTestScreenshots` failed on Pixel 7, Android 17. The test wrote the image but the marker file `.isRecordingScreenshots` was not on the device afterwards. Cause not found. Workaround: run `adb shell` to create the marker in `/storage/emulated/0/Download/screenshots/com.taskchain.testapp/`, run `connectedDeviceTestAndroidTest`, then `adb pull` `reference/<name>.png` into `app/src/androidTest/screenshots`. Delete the device directory before the verify run.
 - Do not add Roborazzi or Paparazzi in the first pass. They render on the JVM and do not show real device rendering.
 
 ### What to capture
