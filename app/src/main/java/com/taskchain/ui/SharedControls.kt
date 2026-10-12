@@ -24,7 +24,13 @@ import com.taskchain.ui.designsystem.LocalUiComponents
 @Composable
 internal fun CyberAppearance(content: @Composable () -> Unit) = content()
 
-/** Use this function when a labeled setting should expose one accessible switch target for its whole row. */
+/**
+ * Renders a labeled setting as a single accessible toggle row using the active UI provider.
+ *
+ * @param label Visible and accessible setting name.
+ * @param checked Current externally owned state.
+ * @param onCheckedChange Callback invoked when the row is toggled.
+ */
 @Composable
 internal fun LabeledSwitchRow(label: String, checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
     val ui = LocalUiComponents.current
