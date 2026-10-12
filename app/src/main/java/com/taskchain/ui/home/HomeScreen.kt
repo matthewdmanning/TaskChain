@@ -75,7 +75,6 @@ import com.example.cyberpunkandroid.theme.CyberTheme
 import com.taskchain.ui.Button
 import com.taskchain.ui.CyberButton
 import com.taskchain.ui.SECONDS_PER_MINUTE
-import com.taskchain.ui.CyberAppearance
 import com.taskchain.ui.TextButton
 import com.taskchain.ui.progress.ProgressRoute
 import com.taskchain.ui.progress.ProgressViewModel
@@ -173,7 +172,7 @@ internal fun HomeShell(
             }
         }
     }
-    if (selectedTab == HomeTab.HOME || selectedTab == HomeTab.ROUTINES) CyberAppearance(screen) else screen()
+    screen()
 }
 
 /** Use this function to bind Today UI to the routine-list ViewModel. */
