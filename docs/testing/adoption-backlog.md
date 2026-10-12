@@ -9,7 +9,7 @@ Rank is by risk to user data and to the run flow.
 | --- | --- | --- | --- |
 | 1 | Upgrade (old APK to new) and reboot durability are unverified on a device | A failed upgrade loses user data | `docs/on-device-data.md` |
 | 2 | Bubble launch can replay after recreation. A test exists, so confirm it passes on a device | Duplicate runner entry | `docs/navigation-events-review.md` |
-| 3 | Runner system Back and predictive Back have no test | Custom handlers own these events | `docs/navigation-events-review.md` |
+| 3 | Runner and Home system Back tests are written but never run on a device. Predictive Back has no test | Custom handlers own these events | `docs/navigation-events-review.md` |
 | 4 | UI checks never ran on an unlocked device | Compose tests are unproven on hardware | `docs/on-device-data.md` |
 | 5 | No screenshot tooling | UI provider swap in #26 can change appearance unseen | #26 |
 | 6 | Device suite has no run record or trigger | Slow checks run by memory only | CI split in README |

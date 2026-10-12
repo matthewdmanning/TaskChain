@@ -42,11 +42,11 @@ Each row maps to an event in [navigation-events-review.md](../navigation-events-
 | Builder predictive Back: slow start, complete, cancel | Device gesture | Proposed |
 | Start or resume pushes runner | Compose | Proposed |
 | Runner Back on first task asks to abort | Compose | Proposed |
-| Runner system Back (not the visible button) | Device | Proposed |
+| Runner system Back (not the visible button) | Device | Written (`SystemBackNavigationTest`), compiles, not yet run on a device |
 | Runner predictive Back with confirmation open | Device gesture | Proposed |
 | Completion hold consumes Back | Compose | Proposed |
 | Bubble opens the active run | Device | Exists (recreation case only) |
-| Back from Home leaves the app | Device | Proposed |
+| Back from Home leaves the app | Device | Written (`SystemBackNavigationTest`), compiles, not yet run on a device |
 | Process death during a run restores the run | Device | Proposed |
 
 ### Method
