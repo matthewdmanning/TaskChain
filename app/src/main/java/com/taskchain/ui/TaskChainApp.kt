@@ -30,7 +30,8 @@ import com.taskchain.domain.model.RunStatus
 import com.taskchain.domain.model.UserPreferences
 import com.taskchain.ui.designsystem.TaskChainTheme
 import com.taskchain.ui.designsystem.ProvideUiComponents
-import com.taskchain.ui.designsystem.CyberpunkUiComponents
+import com.taskchain.ui.designsystem.UiProvider
+import com.taskchain.ui.designsystem.componentsFor
 import kotlinx.coroutines.flow.first
 import com.taskchain.ui.builder.RoutineBuilderRoute
 import com.taskchain.ui.home.HomeShell
@@ -40,7 +41,7 @@ import com.taskchain.ui.runner.RoutineRunnerRoute
 /**
  * Hosts TaskChain navigation and installs the selected appearance and UI component provider.
  *
- * The component provider is currently Cyberpunk-only until provider preference is introduced.
+ * The provider follows persisted preference while CyberTheme remains available for unmigrated screens.
  *
  * @param container App dependency graph and persisted preference repositories.
  * @param openActiveRun Whether to navigate to a persisted active run on initial composition.
@@ -53,8 +54,9 @@ fun TaskChainApp(
     providedNavController: NavHostController? = null,
 ) {
     val preferences by container.preferences.observe().collectAsStateWithLifecycle(UserPreferences())
-    TaskChainTheme(preferences.selectedTheme) {
-        ProvideUiComponents(CyberpunkUiComponents) {
+    val provider = UiProvider.fromId(preferences.selectedUiProvider)
+    TaskChainTheme(preferences.selectedTheme, provider.id) {
+        ProvideUiComponents(componentsFor(provider)) {
         CompositionLocalProvider(LocalVibrationIntensity provides preferences.vibrationIntensity) {
         Surface(modifier = Modifier.fillMaxSize()) {
             val navController = providedNavController ?: rememberNavController()
