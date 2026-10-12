@@ -103,3 +103,11 @@ Accordion surfaces consume expansion state and edit callbacks; each can use a na
 Prefer **one semantic contract per meaningful interaction**, not an interface per icon, glow, border, animation, or library primitive. Optional visual treatments belong in provider-specific surface packages. Keep Material 3 API and scope compatibility when possible, and only introduce adapters for actual semantic differences.
 
 Review migration against invariants: identical actions, validation, persistence, accessibility semantics, timer progression, and navigation regardless of selected surface. Visual equivalence is neither necessary nor desirable.
+
+## Review follow-up: semantic tokens, cleanup, and lightweight tests
+
+- Semantic spacing and subtask palette seed now flow through `LocalTaskChainTokens`. The theme resolves Cyberpunk or Material values at the provider boundary; feature-level `TaskChainDesignSystem` callers no longer need to query `CyberTheme` for those tokens. Existing spacing dimensions are preserved for layout compatibility; the Material seed uses `MaterialTheme.colorScheme.tertiary`.
+- Removed the redundant `CyberAppearance` pass-through and duplicate Home import. Settings title typography now uses the active Material typography bridge rather than directly referencing `CyberTheme`.
+- Extended provider unit tests for implementation dispatch, provider ID stability, and independence of provider/theme preference.
+- These are deliberately narrow tests: no UI instrumentation or timer behavioral-equivalence test is claimed.
+- The feature screens still contain direct Cyberpunk visuals, and the provider interface still needs further work. This change does not imply complete Material surface parity.
