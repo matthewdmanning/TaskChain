@@ -87,7 +87,7 @@ val CyberpunkUiComponents = UiComponents(
     card = { modifier, content -> CyberCard(modifier = modifier, content = content) },
 )
 
-/** Material 3 primitive implementation; a full Material theme is not yet installed. */
+/** Material 3 primitive implementation; the app installs the corresponding Material 3 theme overlay. */
 val MaterialUiComponents = UiComponents(
     button = { onClick, modifier, enabled, content ->
         Button(onClick = pressAction(onClick), modifier = modifier, enabled = enabled, content = content)
