@@ -51,6 +51,9 @@ interface UserPreferenceRepository {
     /** Use this function when the selected app theme changes. */
     suspend fun setTheme(theme: String)
 
+    /** Persists the chosen UI component implementation independently of appearance mode. */
+    suspend fun setUiProvider(providerId: String)
+
     /** Use this function when overtime behavior is toggled. */
     suspend fun setContinueTimerPastZero(enabled: Boolean)
 
