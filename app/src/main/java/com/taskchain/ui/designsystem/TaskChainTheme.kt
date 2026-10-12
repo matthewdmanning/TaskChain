@@ -13,6 +13,9 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.material3.Typography
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.darkColorScheme
+import androidx.compose.material3.lightColorScheme
 import com.example.cyberpunkandroid.theme.CyberTypography
 import com.example.cyberpunkandroid.theme.cyberMaterialTypography
 import androidx.compose.ui.platform.LocalContext
@@ -98,10 +101,11 @@ object TaskChainDesignSystem {
  * from cyberpunkAndroid while retaining the user's System/Light/Dark preference.
  *
  * @param selectedTheme Persisted theme option ID from [ThemeCatalog].
- * @param content Application content rendered inside [CyberTheme].
+ * @param selectedUiProvider Persisted component provider ID; Material receives an independent Material 3 overlay.
+ * @param content Application content rendered inside [CyberTheme], preserving legacy Cyber tokens during migration.
  */
 @Composable
-fun TaskChainTheme(selectedTheme: String, content: @Composable () -> Unit) {
+fun TaskChainTheme(selectedTheme: String, selectedUiProvider: String = UiProvider.CYBERPUNK.id, content: @Composable () -> Unit) {
     val context = LocalContext.current
     val options = remember(context) { ThemeCatalog.options(context) }
     val selected = options.firstOrNull { it.id == selectedTheme }
@@ -168,7 +172,13 @@ fun TaskChainTheme(selectedTheme: String, content: @Composable () -> Unit) {
                 terminal = CyberTypography().terminal.copy(fontSize = 22.sp, lineHeight = 30.sp),
                 body = CyberTypography().body.copy(fontSize = 22.sp, lineHeight = 30.sp)),
             materialTypography = typography,
-            content = content,
+            content = {
+                if (UiProvider.fromId(selectedUiProvider) == UiProvider.MATERIAL) {
+                    MaterialTheme(colorScheme = if (dark) darkColorScheme() else lightColorScheme()) { content() }
+                } else {
+                    content()
+                }
+            },
         )
     }
 }
