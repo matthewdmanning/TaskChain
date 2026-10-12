@@ -169,6 +169,8 @@ data class CompletionEvent(
 @Serializable
 data class UserPreferences(
     val selectedTheme: String = "system",
+    /** Persisted UI component implementation, independent of light/dark appearance. */
+    val selectedUiProvider: String = "cyberpunk",
     val continueTimerPastZero: Boolean = true,
     val vibrationIntensity: Float = 1f,
     val screenTransitionsEnabled: Boolean = true,
