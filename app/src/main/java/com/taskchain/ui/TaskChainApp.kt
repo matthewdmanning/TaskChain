@@ -37,7 +37,15 @@ import com.taskchain.ui.home.HomeShell
 import com.taskchain.ui.home.HomeTab
 import com.taskchain.ui.runner.RoutineRunnerRoute
 
-/** Use this function as the Compose application entry point. */
+/**
+ * Hosts TaskChain navigation and installs the selected appearance and UI component provider.
+ *
+ * The component provider is currently Cyberpunk-only until provider preference is introduced.
+ *
+ * @param container App dependency graph and persisted preference repositories.
+ * @param openActiveRun Whether to navigate to a persisted active run on initial composition.
+ * @param providedNavController Optional externally owned navigation controller for integration tests.
+ */
 @Composable
 fun TaskChainApp(
     container: AppContainer,
