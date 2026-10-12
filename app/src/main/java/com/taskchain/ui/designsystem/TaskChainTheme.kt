@@ -13,9 +13,10 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.material3.Typography
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
+import androidx.compose.runtime.compositionLocalOf
+import androidx.compose.material3.MaterialTheme
 import com.example.cyberpunkandroid.theme.CyberTypography
 import com.example.cyberpunkandroid.theme.cyberMaterialTypography
 import androidx.compose.ui.platform.LocalContext
@@ -56,29 +57,41 @@ object ThemeCatalog {
     }
 }
 
-/** Semantic spacing tokens backed directly by cyberpunkAndroid primitives. */
+/** Semantic layout spacing shared across UI providers. */
 data class Spacing(
     val small: androidx.compose.ui.unit.Dp,
     val medium: androidx.compose.ui.unit.Dp,
     val large: androidx.compose.ui.unit.Dp,
 )
 
-/** Hue step between neighbouring subtask colors; a prime so far-apart indexes stay distinct. */
-private const val SUBTASK_HUE_STEP_DEGREES = 47f
+/** Provider-independent semantic tokens resolved at the selected theme boundary. */
+data class TaskChainTokens(
+    val spacing: Spacing,
+    val subtaskColorSeed: Color,
+)
 
-private const val FULL_HUE_DEGREES = 360f
+/** Default tokens for previews and content without an installed app theme. */
+private val DefaultTaskChainTokens = TaskChainTokens(
+    spacing = Spacing(CyberPrimitives.Spacing.dp8, CyberPrimitives.Spacing.dp16, CyberPrimitives.Spacing.dp24),
+    subtaskColorSeed = CyberPrimitives.Colors.Cyan500,
+)
 
-/** Provides configured spacing to feature UI through the design-system boundary. */
+/** Current semantic token mapping; provider-specific values are resolved by the theme. */
+val LocalTaskChainTokens = compositionLocalOf { DefaultTaskChainTokens }
+
+/** Semantic tokens consumed by feature UI without direct Cyberpunk theme access. */
 object TaskChainDesignSystem {
     /** Finger travel along a drag handle that moves a task or subtask one place. */
     val reorderDragDistance = 48.dp
 
-    /** Semantic seed for the ordered subtask palette; configure its theme mapping here. */
+    /** Seed for the stable ordered subtask palette. */
     val subtaskColorSeed: Color
-        @Composable get() = CyberTheme.semantics.colors.info
+        @Composable get() = LocalTaskChainTokens.current.subtaskColorSeed
 
-    /** Use this function to generate a stable sequential subtask color from the design-system seed.
-     * Inputs: ordered subtask index. Dependencies: subtaskColorSeed and native HSV color conversion.
+    /**
+     * Returns a stable palette color for an ordered subtask.
+     *
+     * @param index Zero-based subtask position.
      */
     @Composable
     fun subtaskColor(index: Int): Color {
@@ -87,13 +100,9 @@ object TaskChainDesignSystem {
         return Color.hsv((hsv[0] + index * SUBTASK_HUE_STEP_DEGREES) % FULL_HUE_DEGREES, hsv[1], hsv[2])
     }
 
-    /** Use this function when feature UI needs semantic spacing from cyberpunkAndroid. */
+    /** Returns semantic spacing from the currently selected UI provider. */
     @Composable
-    fun spacing(): Spacing = Spacing(
-        small = CyberPrimitives.Spacing.dp8,
-        medium = CyberPrimitives.Spacing.dp16,
-        large = CyberPrimitives.Spacing.dp24,
-    )
+    fun spacing(): Spacing = LocalTaskChainTokens.current.spacing
 }
 
 /**
@@ -173,10 +182,29 @@ fun TaskChainTheme(selectedTheme: String, selectedUiProvider: String = UiProvide
                 body = CyberTypography().body.copy(fontSize = 22.sp, lineHeight = 30.sp)),
             materialTypography = typography,
             content = {
-                if (UiProvider.fromId(selectedUiProvider) == UiProvider.MATERIAL) {
-                    MaterialTheme(colorScheme = if (dark) darkColorScheme() else lightColorScheme()) { content() }
+                val provider = UiProvider.fromId(selectedUiProvider)
+                if (provider == UiProvider.MATERIAL) {
+                    MaterialTheme(colorScheme = if (dark) darkColorScheme() else lightColorScheme()) {
+                        CompositionLocalProvider(
+                            LocalTaskChainTokens provides TaskChainTokens(
+                                spacing = Spacing(
+                                    CyberPrimitives.Spacing.dp8,
+                                    CyberPrimitives.Spacing.dp16,
+                                    CyberPrimitives.Spacing.dp24,
+                                ),
+                                subtaskColorSeed = MaterialTheme.colorScheme.tertiary,
+                            ),
+                            content = content,
+                        )
+                    }
                 } else {
-                    content()
+                    CompositionLocalProvider(
+                        LocalTaskChainTokens provides TaskChainTokens(
+                            spacing = DefaultTaskChainTokens.spacing,
+                            subtaskColorSeed = CyberTheme.semantics.colors.info,
+                        ),
+                        content = content,
+                    )
                 }
             },
         )
