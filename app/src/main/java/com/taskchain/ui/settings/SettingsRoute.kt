@@ -36,6 +36,8 @@ import androidx.core.content.ContextCompat
 import com.taskchain.R
 import com.taskchain.ui.designsystem.TaskChainDesignSystem
 import com.taskchain.ui.designsystem.ThemeCatalog
+import com.taskchain.ui.designsystem.UiProvider
+import com.taskchain.ui.designsystem.LocalUiComponents
 import com.example.cyberpunkandroid.theme.CyberTheme
 import com.taskchain.ui.Button
 import com.taskchain.ui.LabeledSwitchRow
@@ -48,6 +50,7 @@ internal fun SettingsRoute(viewModel: SettingsViewModel, padding: PaddingValues)
     val state by viewModel.state.collectAsStateWithLifecycle()
     val spacing = TaskChainDesignSystem.spacing()
     val context = LocalContext.current
+    val ui = LocalUiComponents.current
     val notificationPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { }
     LazyColumn(
         modifier = Modifier.fillMaxSize().padding(padding).consumeWindowInsets(padding),
@@ -62,6 +65,23 @@ internal fun SettingsRoute(viewModel: SettingsViewModel, padding: PaddingValues)
                         Button(onClick = { viewModel.setTheme(option.id) }) { Text(stringResource(option.label)) }
                     } else {
                         OutlinedButton(onClick = { viewModel.setTheme(option.id) }) { Text(stringResource(option.label)) }
+                    }
+                }
+            }
+        }
+        item {
+            Text(stringResource(R.string.ui_component_style), style = MaterialTheme.typography.titleLarge)
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(spacing.small)) {
+                UiProvider.entries.forEach { provider ->
+                    ui.button(
+                        onClick = { viewModel.setUiProvider(provider.id) },
+                        modifier = Modifier,
+                        enabled = state.selectedUiProvider != provider.id,
+                    ) {
+                        Text(when (provider) {
+                            UiProvider.CYBERPUNK -> stringResource(R.string.ui_provider_cyberpunk)
+                            UiProvider.MATERIAL -> stringResource(R.string.ui_provider_material)
+                        })
                     }
                 }
             }
