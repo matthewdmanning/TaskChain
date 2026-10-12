@@ -91,3 +91,15 @@ Keep existing behavior during migration. Avoid moving expansion state, validatio
 - **Card scope:** A `ColumnScope` content slot is necessary to preserve `weight`, `align` and related layout behavior. A generic `@Composable () -> Unit` card slot would silently narrow the API.
 - **Incomplete appearance:** Material provider selection is not yet a full-screen material skin. Keep the selection labeled and documented as partial until direct Cyberpunk calls have been migrated.
 - **Build verification:** Repository edits made via GitHub API are not compilation evidence. Run the pinned Gradle wrapper and CI before merging.
+
+## Visual surface boundary (architecture decision)
+
+**Visual effects and rendering primitives are not part of the mandatory core component API.** The core contract exposes domain-derived state, intent callbacks, and flexible composable content slots. A visual surface may compose Material 3 controls, CyberpunkAndroid effects, Canvas drawings, or third-party Compose components without adding their decorative APIs to the shared contract.
+
+A runner surface consumes the same step/substep identity, durations, timer progress, completion state, and intent callbacks. The Cyberpunk surface can use sector rims, radial pulses and glowing labels; the Material surface can use cards, progress indicators and animations. Neither implementation owns timekeeping or progression.
+
+Accordion surfaces consume expansion state and edit callbacks; each can use a native library accordion or compose one from existing primitives. Preserve expansion state across provider changes in the feature/ViewModel boundary rather than inside the visual implementation.
+
+Prefer **one semantic contract per meaningful interaction**, not an interface per icon, glow, border, animation, or library primitive. Optional visual treatments belong in provider-specific surface packages. Keep Material 3 API and scope compatibility when possible, and only introduce adapters for actual semantic differences.
+
+Review migration against invariants: identical actions, validation, persistence, accessibility semantics, timer progression, and navigation regardless of selected surface. Visual equivalence is neither necessary nor desirable.
