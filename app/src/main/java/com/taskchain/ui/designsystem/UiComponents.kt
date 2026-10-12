@@ -1,5 +1,6 @@
 package com.taskchain.ui.designsystem
 
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.Switch
@@ -45,7 +46,7 @@ typealias UiSwitch = @Composable (
  * @param modifier Layout and accessibility modifier.
  * @param content Composable child content; no implementation-specific scope is exposed.
  */
-typealias UiCard = @Composable (modifier: Modifier, content: @Composable () -> Unit) -> Unit
+typealias UiCard = @Composable (modifier: Modifier, content: @Composable ColumnScope.() -> Unit) -> Unit
 
 /**
  * Identifies a component implementation independently of the light/dark theme mode.
@@ -83,7 +84,7 @@ val CyberpunkUiComponents = UiComponents(
     switch = { checked, onCheckedChange, modifier ->
         Switch(checked = checked, onCheckedChange = onCheckedChange, modifier = modifier)
     },
-    card = { modifier, content -> CyberCard(modifier = modifier) { content() } },
+    card = { modifier, content -> CyberCard(modifier = modifier, content = content) },
 )
 
 /** Material 3 primitive implementation; a full Material theme is not yet installed. */
@@ -94,7 +95,7 @@ val MaterialUiComponents = UiComponents(
     switch = { checked, onCheckedChange, modifier ->
         Switch(checked = checked, onCheckedChange = onCheckedChange, modifier = modifier)
     },
-    card = { modifier, content -> Card(modifier = modifier) { content() } },
+    card = { modifier, content -> Card(modifier = modifier, content = content) },
 )
 
 /** Returns the implementation associated with a persisted [UiProvider] choice. */
@@ -118,4 +119,19 @@ fun ProvideUiComponents(
     content: @Composable () -> Unit,
 ) {
     CompositionLocalProvider(LocalUiComponents provides components, content = content)
+}
+
+/**
+ * Displays a non-interactive content card with the active provider while retaining
+ * Compose's [ColumnScope] for child layout. Domain state remains owned by the caller.
+ *
+ * @param modifier Caller-owned layout and accessibility modifier.
+ * @param content Card contents, evaluated inside the active composition.
+ */
+@Composable
+fun TaskCard(
+    modifier: Modifier = Modifier,
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    LocalUiComponents.current.card(modifier, content)
 }
