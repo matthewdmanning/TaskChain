@@ -1,5 +1,6 @@
 package com.taskchain
 
+import android.view.KeyEvent
 import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
@@ -45,14 +46,14 @@ class SystemBackNavigationTest {
     fun runnerSystemBack_asksToAbortThenDismissesAndKeepsRun() {
         startMorningResetRun()
 
-        Espresso.pressBack()
+        sendSystemBack()
         waitForAbortPrompt(visible = true)
 
-        Espresso.pressBack()
+        sendSystemBack()
         waitForAbortPrompt(visible = false)
         activityRule.onNodeWithContentDescription("Task 1: Drink water, unfinished").assertExists()
 
-        Espresso.pressBack()
+        sendSystemBack()
         waitForAbortPrompt(visible = true)
         activityRule.onNode(hasText("Abort run") and hasClickAction()).performClick()
         activityRule.waitUntil(10_000) {
@@ -87,6 +88,11 @@ class SystemBackNavigationTest {
         activityRule.waitUntil(10_000) {
             activityRule.onAllNodesWithContentDescription("Task 1: Drink water, unfinished").fetchSemanticsNodes().isNotEmpty()
         }
+    }
+
+    /** Use this function to send a Back key to the focused window, including the abort dialog. Inputs: none. Dependencies: Instrumentation.sendKeyDownUpSync, which must run off the main thread. */
+    private fun sendSystemBack() {
+        InstrumentationRegistry.getInstrumentation().sendKeyDownUpSync(KeyEvent.KEYCODE_BACK)
     }
 
     /** Use this function to wait until the abort prompt is shown or gone. Inputs: visible. Dependencies: activityRule. */

@@ -42,11 +42,11 @@ Each row maps to an event in [navigation-events-review.md](../navigation-events-
 | Builder predictive Back: slow start, complete, cancel | Device gesture | Proposed |
 | Start or resume pushes runner | Compose | Proposed |
 | Runner Back on first task asks to abort | Compose | Proposed |
-| Runner system Back (not the visible button) | Device | Written (`SystemBackNavigationTest`), compiles, not yet run on a device |
+| Runner system Back (not the visible button) | Device | Exists (`SystemBackNavigationTest`, passed on Pixel 7, 2026-10-12) |
 | Runner predictive Back with confirmation open | Device gesture | Proposed |
 | Completion hold consumes Back | Compose | Proposed |
 | Bubble opens the active run | Device | Exists (recreation case only) |
-| Back from Home leaves the app | Device | Written (`SystemBackNavigationTest`), compiles, not yet run on a device |
+| Back from Home leaves the app | Device | Exists (`SystemBackNavigationTest`, passed on Pixel 7, 2026-10-12) |
 | Process death during a run restores the run | Device | Proposed |
 
 ### Method
@@ -78,6 +78,7 @@ Status: tooling installed, one test written, no reference recorded.
   - `recordDeviceTestAndroidTestScreenshots` writes new references.
   - `pullDeviceTestAndroidTestScreenshots` copies screenshots from the device.
   - `clearDeviceTestAndroidTestScreenshots` removes screenshots from the device.
+- Inject system Back with `Instrumentation.sendKeyDownUpSync(KEYCODE_BACK)` when a dialog is open. `Espresso.pressBack()` fails there because the dialog window holds focus. Javadoc: sends the key "to the currently focused window".
 - Existing test: `ScreenshotTest.routinesTab_matchesReference`. No reference image exists yet. Record on the reference device with the device unlocked, then review and commit the image.
 - Do not add Roborazzi or Paparazzi in the first pass. They render on the JVM and do not show real device rendering.
 
