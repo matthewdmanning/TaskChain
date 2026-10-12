@@ -76,7 +76,6 @@ import com.taskchain.ui.Button
 import com.taskchain.ui.CyberButton
 import com.taskchain.ui.SECONDS_PER_MINUTE
 import com.taskchain.ui.CyberAppearance
-import com.taskchain.ui.SECONDS_PER_MINUTE
 import com.taskchain.ui.TextButton
 import com.taskchain.ui.progress.ProgressRoute
 import com.taskchain.ui.progress.ProgressViewModel
