@@ -58,3 +58,21 @@ This matrix is a first-pass catalog. Verify the **published v1.0.8** API before 
 ## KDoc conventions
 
 Use Kotlin **KDoc** (`/** ... */`), not Java-specific Javadoc syntax, for Kotlin declarations. Document intended behavior, arguments, return values, accessibility/interaction semantics, and theme dependencies on public and internal reusable APIs. The provider API and the press-feedback seam are documented in source. Expand KDoc with each migrated component rather than adding misleading boilerplate to untouched files.
+
+## Architectural clarification: preserve TaskChain behavior and compose full UI implementations
+
+TaskChain domain and ViewModel state is authoritative for routine editing, accordion expansion, substep editing, duration handling, timer progression, persistence, and navigation. A UI provider is responsible only for presenting that state and dispatching user intent through callbacks.
+
+Material 3 is a **first-class implementation**, not a fallback or a lowest-common-denominator subset. Prefer direct Material 3 controls when their semantics match the TaskChain contract. For controls without an exact Material 3 counterpart (including accordion lists), compose a Material-themed implementation from existing Jetpack Compose or installed library primitives, keeping it outside feature screens. Do the equivalent with CyberpunkAndroid. A composable built from multiple library primitives is a normal component, not a workaround.
+
+Proposed structure:
+
+- `ui/designsystem/contracts/`: TaskChain semantic composable contracts and state/callback types.
+- `ui/designsystem/cyberpunk/`: CyberpunkAndroid-backed implementation and visual effects.
+- `ui/designsystem/material/`: Material 3-backed implementation, including composed accordions and timer presentation.
+- `ui/designsystem/components/`: library-neutral domain-level wrappers consumed by feature screens.
+- `ui/builder`, `ui/runner`, etc.: orchestration, state collection, and navigation only.
+
+Keep existing behavior during migration. Avoid moving expansion state, validation, time calculations, audio hooks, or persistence into presentation adapters. Provider-specific animation and visual feedback may differ, but actions, semantics, accessibility, and state transitions must remain equivalent. A direct Material 3 API may be used inside the Material adapter; dynamic provider selection still requires a Compose dispatch boundary.
+
+**Migration trap:** replacing an entire accordion with a generic card or assuming Material 3 lacks accordion patterns would regress feature semantics. Map full domain-level controls and their interactions, not only button/switch/card primitives.
