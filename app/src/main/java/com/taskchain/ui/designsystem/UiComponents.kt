@@ -1,12 +1,14 @@
 package com.taskchain.ui.designsystem
 
 import androidx.compose.material3.Button
+import androidx.compose.material3.Card
 import androidx.compose.material3.Switch
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Modifier
 import com.example.cyberpunkandroid.components.CyberButton
+import com.example.cyberpunkandroid.components.CyberCard
 import com.taskchain.ui.pressAction
 
 /**
@@ -38,14 +40,39 @@ typealias UiSwitch = @Composable (
 ) -> Unit
 
 /**
+ * Library-neutral content container with caller-owned layout.
+ *
+ * @param modifier Layout and accessibility modifier.
+ * @param content Composable child content; no implementation-specific scope is exposed.
+ */
+typealias UiCard = @Composable (modifier: Modifier, content: @Composable () -> Unit) -> Unit
+
+/**
+ * Identifies a component implementation independently of the light/dark theme mode.
+ *
+ * @property id Stable persisted identifier.
+ */
+enum class UiProvider(val id: String) {
+    CYBERPUNK("cyberpunk"),
+    MATERIAL("material");
+
+    companion object {
+        /** Resolves legacy or unrecognized stored values to the existing Cyberpunk appearance. */
+        fun fromId(id: String): UiProvider = entries.firstOrNull { it.id == id } ?: CYBERPUNK
+    }
+}
+
+/**
  * Collection of swappable UI primitives. Extend by semantic use case, not library API count.
  *
  * @property button Action implementation preserving the app's press feedback.
  * @property switch Toggle implementation with externally owned state.
+ * @property card Non-interactive semantic content container.
  */
 data class UiComponents(
     val button: UiButton,
     val switch: UiSwitch,
+    val card: UiCard,
 )
 
 /** Existing Cyberpunk appearance; the toggle remains Material-backed under CyberTheme. */
@@ -56,6 +83,7 @@ val CyberpunkUiComponents = UiComponents(
     switch = { checked, onCheckedChange, modifier ->
         Switch(checked = checked, onCheckedChange = onCheckedChange, modifier = modifier)
     },
+    card = { modifier, content -> CyberCard(modifier = modifier) { content() } },
 )
 
 /** Material 3 primitive implementation; a full Material theme is not yet installed. */
@@ -66,7 +94,14 @@ val MaterialUiComponents = UiComponents(
     switch = { checked, onCheckedChange, modifier ->
         Switch(checked = checked, onCheckedChange = onCheckedChange, modifier = modifier)
     },
+    card = { modifier, content -> Card(modifier = modifier) { content() } },
 )
+
+/** Returns the implementation associated with a persisted [UiProvider] choice. */
+fun componentsFor(provider: UiProvider): UiComponents = when (provider) {
+    UiProvider.CYBERPUNK -> CyberpunkUiComponents
+    UiProvider.MATERIAL -> MaterialUiComponents
+}
 
 /** Current UI implementation scoped to a Compose subtree; defaults to the legacy appearance. */
 val LocalUiComponents = staticCompositionLocalOf { CyberpunkUiComponents }
