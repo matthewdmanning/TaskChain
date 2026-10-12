@@ -74,9 +74,9 @@ internal fun SettingsRoute(viewModel: SettingsViewModel, padding: PaddingValues)
             FlowRow(horizontalArrangement = Arrangement.spacedBy(spacing.small)) {
                 UiProvider.entries.forEach { provider ->
                     ui.button(
-                        onClick = { viewModel.setUiProvider(provider.id) },
-                        modifier = Modifier,
-                        enabled = state.selectedUiProvider != provider.id,
+                        { viewModel.setUiProvider(provider.id) },
+                        Modifier,
+                        state.selectedUiProvider != provider.id,
                     ) {
                         Text(when (provider) {
                             UiProvider.CYBERPUNK -> stringResource(R.string.ui_provider_cyberpunk)
