@@ -2,6 +2,7 @@
 
 > Feature: [#26](https://github.com/matthewdmanning/TaskChain/issues/26). Branch: `feature/swappable-compose-ui`.
 > This is an incremental migration record, **not** a declaration that both themes are complete.
+> For the corrected separation of application logic from generic UI components, see [UI reference index](ui-reference/README.md) and [issue #35](https://github.com/matthewdmanning/TaskChain/issues/35).
 
 ## Ownership and boundaries
 
@@ -19,7 +20,7 @@ Keep provider contracts small and semantic; add slots only when an actual screen
 | Ghost/text action | `CyberButton(style = Ghost)` | `TextButton` | Pending. |
 | Elevated/content card | `CyberCard` | `Card` | Implemented for non-interactive cards via `TaskCard`; `ColumnScope` preserved. Cards with headers or interactive semantics remain pending. |
 | Text entry | `CyberTextField` / `CyberTextArea` | `TextField` / `OutlinedTextField` | Pending: compare value types, labels, placeholder, errors, keyboard actions, and focus behavior. |
-| Accordion / expanded step editor | `CyberAccordion` | Custom `Card` + `AnimatedVisibility` or equivalent | Pending: domain-specific composition, no direct Material 3 primitive. |
+| Generic accordion / disclosure | `CyberAccordion` if its published API fits | Composed disclosure using Material/Compose primitives or a compatible library | Pending: provider contract must be domain-agnostic; the step editor is feature composition, not a provider component. |
 | Checkbox | `CyberCheckbox` | `Checkbox` | Pending. |
 | Slider | `CyberSlider` | `Slider` | Pending. |
 | Dropdown | `CyberDropdown` | `ExposedDropdownMenuBox` or `DropdownMenu` | Pending; distinguish editable vs. selection-only. |
