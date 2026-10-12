@@ -29,6 +29,8 @@ import com.taskchain.domain.model.RoutineId
 import com.taskchain.domain.model.RunStatus
 import com.taskchain.domain.model.UserPreferences
 import com.taskchain.ui.designsystem.TaskChainTheme
+import com.taskchain.ui.designsystem.ProvideUiComponents
+import com.taskchain.ui.designsystem.CyberpunkUiComponents
 import kotlinx.coroutines.flow.first
 import com.taskchain.ui.builder.RoutineBuilderRoute
 import com.taskchain.ui.home.HomeShell
@@ -44,6 +46,7 @@ fun TaskChainApp(
 ) {
     val preferences by container.preferences.observe().collectAsStateWithLifecycle(UserPreferences())
     TaskChainTheme(preferences.selectedTheme) {
+        ProvideUiComponents(CyberpunkUiComponents) {
         CompositionLocalProvider(LocalVibrationIntensity provides preferences.vibrationIntensity) {
         Surface(modifier = Modifier.fillMaxSize()) {
             val navController = providedNavController ?: rememberNavController()
@@ -115,6 +118,7 @@ fun TaskChainApp(
             }
         }
     }
+}
 }
 
 }
