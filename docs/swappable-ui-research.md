@@ -1,6 +1,6 @@
 # Research reference: Swappable UI architecture in Jetpack Compose
 
-> Reference document for TaskChain's `feature/swappable-compose-ui` branch. This records architectural research and proposed application, not a claim that all recommendations are implemented.
+> Historical research for `feature/swappable-compose-ui`; not a claim of implementation. **Correction:** The feature-named provider examples below conflate feature composition with reusable component contracts. Use [the scoped reference index](ui-reference/README.md), especially [separation of concerns](ui-reference/separation-of-concerns.md), as the authoritative guidance for issue #35.
 
 ## Executive conclusion
 
@@ -15,7 +15,7 @@ Material 3 must be a first-class provider: it should be usable directly within i
 | Theme-driven components | Shared components read colors, typography, shapes, and tokens | Light/dark and other variations within one design system |
 | Wrapped library components | Application composables delegate to Material 3 or third-party controls | App defaults, semantics, and haptics around standard controls |
 | Swappable implementations | Stable semantic contract dispatches to different component implementations | Runtime switching between materially different design systems |
-| Composed feature components | Multiple primitives form one higher-level control with content slots | Step accordions, substep editors, timer panels |
+| Feature composition (not provider contracts) | Application screens assemble generic UI primitives | Routine editor, substep editor, timer presentation |
 | Headless/state-driven components | Interaction state and callbacks are separate from rendering | Complex interactions with significantly different visuals |
 
 These patterns can coexist; do not create an abstraction layer merely to hide all Compose APIs.
@@ -67,9 +67,9 @@ ui/
 
 A single app-level provider preference can be exposed via a `CompositionLocal`. Only semantic components requiring alternate implementations need a dispatch boundary; ordinary Material 3 controls can be used directly within the Material surface.
 
-## Illustrative semantic contract
+## Historical illustrative contract (superseded)
 
-This is an architectural example, **not existing TaskChain code**:
+**Do not implement this feature-named provider API as written.** It is preserved as a record of the original proposal; the corrected generic accordion contract is in [component contracts](ui-reference/component-contracts.md). This is **not existing TaskChain code**:
 
 ```kotlin
 /**
