@@ -43,7 +43,7 @@ internal fun LabeledSwitchRow(label: String, checked: Boolean, onCheckedChange: 
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(label, modifier = Modifier.weight(1f).padding(end = CyberPrimitives.Spacing.dp8))
-        ui.switch(checked = checked, onCheckedChange = null, modifier = Modifier.clearAndSetSemantics {})
+        ui.switch(checked, null, Modifier.clearAndSetSemantics {})
     }
 }
 
