@@ -21,24 +21,19 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.core.content.ContextCompat
 import com.taskchain.R
 import com.taskchain.ui.designsystem.TaskChainDesignSystem
 import com.taskchain.ui.designsystem.ThemeCatalog
 import com.taskchain.ui.designsystem.UiProvider
 import com.taskchain.ui.designsystem.LocalUiComponents
-import com.example.cyberpunkandroid.theme.CyberTheme
 import com.taskchain.ui.Button
 import com.taskchain.ui.LabeledSwitchRow
 import com.taskchain.ui.OutlinedButton
@@ -58,7 +53,7 @@ internal fun SettingsRoute(viewModel: SettingsViewModel, padding: PaddingValues)
         verticalArrangement = Arrangement.spacedBy(spacing.medium),
     ) {
         item {
-            Text(stringResource(R.string.theme), style = CyberTheme.typography.display)
+            Text(stringResource(R.string.theme), style = MaterialTheme.typography.headlineLarge)
             FlowRow(horizontalArrangement = Arrangement.spacedBy(spacing.small), verticalArrangement = Arrangement.spacedBy(spacing.small)) {
                 ThemeCatalog.options(context).forEach { option ->
                     if (state.selectedTheme == option.id) {
