@@ -7,6 +7,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Modifier
 import com.example.cyberpunkandroid.components.CyberButton
+import com.taskchain.ui.pressAction
 
 /**
  * Library-independent composable actions consumed by TaskChain screens.
@@ -37,7 +38,7 @@ data class UiComponents(
 /** Existing Cyberpunk appearance, retaining the current Material-backed switch. */
 val CyberpunkUiComponents = UiComponents(
     button = { onClick, modifier, enabled, content ->
-        CyberButton(onClick = onClick, modifier = modifier, enabled = enabled, content = content)
+        CyberButton(onClick = pressAction(onClick), modifier = modifier, enabled = enabled, content = content)
     },
     switch = { checked, onCheckedChange, modifier ->
         Switch(checked = checked, onCheckedChange = onCheckedChange, modifier = modifier)
@@ -47,7 +48,7 @@ val CyberpunkUiComponents = UiComponents(
 /** Material 3 implementation of the same component contracts. */
 val MaterialUiComponents = UiComponents(
     button = { onClick, modifier, enabled, content ->
-        Button(onClick = onClick, modifier = modifier, enabled = enabled, content = content)
+        Button(onClick = pressAction(onClick), modifier = modifier, enabled = enabled, content = content)
     },
     switch = { checked, onCheckedChange, modifier ->
         Switch(checked = checked, onCheckedChange = onCheckedChange, modifier = modifier)
