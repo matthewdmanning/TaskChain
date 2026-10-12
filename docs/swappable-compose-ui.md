@@ -17,7 +17,7 @@ Keep provider contracts small and semantic; add slots only when an actual screen
 | Binary toggle | Existing Material `Switch` under CyberTheme | `Switch` | Implemented in `UiComponents.switch`; `LabeledSwitchRow` uses provider. Entire row owns toggle semantics; nested switch is cleared. |
 | Outlined action | `CyberButton(style = Outline)` | `OutlinedButton` | Pending: requires shared variant contract and press-feedback parity. |
 | Ghost/text action | `CyberButton(style = Ghost)` | `TextButton` | Pending. |
-| Elevated/content card | `CyberCard` | `Card` | Pending: inspect scope and interaction semantics before mapping. |
+| Elevated/content card | `CyberCard` | `Card` | Implemented for non-interactive cards via `TaskCard`; `ColumnScope` preserved. Cards with headers or interactive semantics remain pending. |
 | Text entry | `CyberTextField` / `CyberTextArea` | `TextField` / `OutlinedTextField` | Pending: compare value types, labels, placeholder, errors, keyboard actions, and focus behavior. |
 | Accordion / expanded step editor | `CyberAccordion` | Custom `Card` + `AnimatedVisibility` or equivalent | Pending: domain-specific composition, no direct Material 3 primitive. |
 | Checkbox | `CyberCheckbox` | `Checkbox` | Pending. |
@@ -76,3 +76,18 @@ Proposed structure:
 Keep existing behavior during migration. Avoid moving expansion state, validation, time calculations, audio hooks, or persistence into presentation adapters. Provider-specific animation and visual feedback may differ, but actions, semantics, accessibility, and state transitions must remain equivalent. A direct Material 3 API may be used inside the Material adapter; dynamic provider selection still requires a Compose dispatch boundary.
 
 **Migration trap:** replacing an entire accordion with a generic card or assuming Material 3 lacks accordion patterns would regress feature semantics. Map full domain-level controls and their interactions, not only button/switch/card primitives.
+
+## Implementation checkpoint — provider persistence and initial screen migration
+
+- Persisted `selectedUiProvider` independently of `selectedTheme` using the existing preference repository and DataStore.
+- The application resolves unknown IDs to Cyberpunk and supplies either the Cyberpunk or Material 3 component provider. The Material option installs a Material 3 theme overlay while retaining the outer CyberTheme for unmigrated screens.
+- Settings exposes a provider selector. This is a **partial preview**: many controls, screens, typography choices, effects and layout surfaces still use Cyberpunk directly.
+- `TaskCard` now preserves `ColumnScope` and is used for simple routine cards in Home and Builder. Cyberpunk cards with named header/footer slots remain unchanged until an equivalent semantic contract is needed.
+- Added tests for legacy preference decoding, provider round-trip and unknown-ID fallback (not yet executed).
+
+### Additional traps
+
+- **Named arguments on function-type values:** Kotlin does not allow named arguments when invoking a function-type property. Call `ui.switch(checked, null, modifier)` rather than `ui.switch(checked = checked, ...)`. Prefer a named wrapper composable for public feature-screen use.
+- **Card scope:** A `ColumnScope` content slot is necessary to preserve `weight`, `align` and related layout behavior. A generic `@Composable () -> Unit` card slot would silently narrow the API.
+- **Incomplete appearance:** Material provider selection is not yet a full-screen material skin. Keep the selection labeled and documented as partial until direct Cyberpunk calls have been migrated.
+- **Build verification:** Repository edits made via GitHub API are not compilation evidence. Run the pinned Gradle wrapper and CI before merging.
