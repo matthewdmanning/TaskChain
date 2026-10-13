@@ -90,7 +90,7 @@ val CyberpunkUiComponents = UiComponents(
 /** Material 3 primitive implementation; the app installs the corresponding Material 3 theme overlay. */
 val MaterialUiComponents = UiComponents(
     button = { onClick, modifier, enabled, content ->
-        Button(onClick = pressAction(onClick), modifier = modifier, enabled = enabled, content = content)
+        Button(onClick = pressAction(onClick), modifier = modifier, enabled = enabled) { content() }
     },
     switch = { checked, onCheckedChange, modifier ->
         Switch(checked = checked, onCheckedChange = onCheckedChange, modifier = modifier)

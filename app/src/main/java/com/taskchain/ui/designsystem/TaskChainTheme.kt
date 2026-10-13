@@ -35,6 +35,11 @@ data class ThemeOption(
 /** Appearance variants a theme may choose to support. */
 enum class ThemeMode { SYSTEM, LIGHT, DARK }
 
+/** Hue step between neighbouring subtask colors; a prime so far-apart indexes stay distinct. */
+private const val SUBTASK_HUE_STEP_DEGREES = 47f
+
+private const val FULL_HUE_DEGREES = 360f
+
 /** Central catalog consumed by settings and the app theme boundary. */
 object ThemeCatalog {
     /** Use this function when a caller needs the configured appearance choices. */
