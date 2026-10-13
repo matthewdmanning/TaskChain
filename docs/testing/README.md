@@ -22,8 +22,8 @@ Status words in this folder:
 | --- | --- | --- | --- | --- |
 | Unit (JVM) | `app/src/test` | CI and local | Exists | Run engine, schedule, migration, validation, presentation math |
 | Compose and storage instrumentation | `app/src/androidTest` | Device | Exists | Builder, runner Back, bubble launch, startup recovery, legacy migration |
-| Navigation on device | `app/src/androidTest` | Physical device | Partly exists | Back, gesture, bubble, recreation. See [device-testing.md](device-testing.md) |
-| Screenshot on device | `app/src/androidTest` | Physical device | Proposed | Screen and component appearance. See [device-testing.md](device-testing.md) |
+| Navigation on device | `app/src/androidTest` | Physical device | Partly exists | Back, gesture, bubble, recreation. See [automated-physical-device-tests.md](automated-physical-device-tests.md) |
+| Screenshot on device | `app/src/androidTest` | Physical device | Proposed | Screen and component appearance. See [automated-physical-device-tests.md](automated-physical-device-tests.md) |
 | Upgrade and reboot | Manual script plus checks | Physical device | Proposed | Data survives update and reboot. See [on-device-data.md](../on-device-data.md) |
 | Manual device pass | Checklist | Physical device | Exists (informal) | TalkBack, haptics, sound, notifications |
 
@@ -46,60 +46,14 @@ Add a focused regression test when a change touches run transitions, persisted t
 - Real file storage: concurrent access, I/O errors, quarantine, unsupported schema.
 - Compose behavior with real semantics: tap, drag, text input, state restoration.
 - Activity recreation and process restore.
-- Match by semantic matcher first. Use `testTag` only when a match needs more than three matchers.
 
 ### Navigation and screenshots
 
-Both run on a physical device. See [device-testing.md](device-testing.md).
-
-## Profiling (optional)
-
-Profiling runs only when the user asks for it. Never run it as part of the default suite. Never add it to CI.
-
-- Target the `com.taskchain.testapp` package on the reference physical device. Never profile `com.taskchain`.
-- Profile one scenario at a time. Name the scenario and the metric before you start.
-- Keep the device state fixed: charge level, thermal state, animation scales and font scale. Record them.
-- Run each scenario at least 3 times. Report every run, not only the best one.
-- Report the numbers with the trace file path. Set no pass or fail gate. A number is a finding, not a verdict.
-
-| Scenario | Metric | Tool | Status |
-| --- | --- | --- | --- |
-| Cold start to Home | Startup time | Macrobenchmark `StartupTimingMetric` | Proposed |
-| Runner dial and subtask rims while running | Frame timing | `adb shell dumpsys gfxinfo <package> framestats`, Perfetto trace | Proposed |
-| Builder drag reorder with many tasks | Frame timing | `dumpsys gfxinfo framestats`, Perfetto trace | Proposed |
-| Long run (1 hour) | Battery use | `adb shell dumpsys batterystats --charged <package>` | Proposed |
-| Provider swap (#26) | Frame timing on both providers | `dumpsys gfxinfo framestats`, Perfetto trace | Proposed |
-
-Commands, checked against developer.android.com through Context7 on 2026-10-12:
-
-```text
-adb shell dumpsys gfxinfo <package> framestats
-adb shell perfetto --out <file> <atrace-category>
-adb pull /data/local/traces/ .
-adb shell dumpsys batterystats --charged <package>
-```
-
-- Macrobenchmark needs its own `com.android.test` module. The app under test must be `profileable`. Use `MacrobenchmarkRule.measureRepeated`.
-- Macrobenchmark writes reports and traces to `<module>/build/outputs/connected_android_test_additional_output/debugAndroidTest/connected/<device_id>/`.
-- Not found in the docs, so excluded: `am start -W` and `FrameTimingMetric`. Add them only after you verify them.
-- The Perfetto atrace categories for TaskChain are not chosen yet. Choose them before the first run.
-
-Put the results in the `profiling` block of the results artifact. Leave the block `null` when the user did not ask.
+Both run on a physical device. See [automated-physical-device-tests.md](automated-physical-device-tests.md).
 
 ## Results artifact
 
-Each test run that matters produces one results artifact. It is part of the strategy.
-
-- Start from [results-template.html](results-template.html). Copy it. Never edit the template in place.
-- Fill in only the JSON block. Keep every key. Use `not-run` for work you did not do.
-- Save the copy as `.scratch/test-results/<yyyy-mm-dd>-<branch>.html`.
-- Publish the copy as an artifact when the run is evidence for a pull request or a release.
-- Show a visual regression for each screen with a failed screenshot test.
-- Also show a visual regression for each screen that a changed file is expected to affect, even when the test did not fail.
-- Use a frame strip for a dynamic regression, such as the timer, an animation or a drag. Capture the frames on the device at fixed times.
-- In the published copy, embed every image as a `data:` URI. The page cannot load other images.
-- Never invent an image. An empty field shows "No image", which is itself a gap to report.
-- Report device evidence apart from JVM evidence.
+Each test run that matters produces one results artifact. Follow [results-artifact.md](results-artifact.md).
 
 ## Do not test
 
@@ -114,24 +68,10 @@ Each test run that matters produces one results artifact. It is part of the stra
 | --- | --- | --- |
 | Pull request and `main` | Unit tests, lint, debug APK build | Exists (`ci.yml`) |
 | Every push | Gitleaks scan | Exists (`ci.yml`) |
-| Before merge of UI or reminder changes | Device suite from [device-testing.md](device-testing.md), run by hand | Proposed |
+| Before merge of UI or reminder changes | Device suite from [automated-physical-device-tests.md](automated-physical-device-tests.md), run by hand | Proposed |
 | Release | Device suite, upgrade test, reboot test, manual pass | Proposed |
 
 Do not add an emulator job to the pull-request workflow. Emulator runs are slow and flaky for this app. The device suite needs real hardware for Back gestures, TalkBack and system UI.
-
-## Commands
-
-Use JDK 17. Humans use `./scripts/gradle.ps1`. Sandboxed agents use `scripts\gradle-agent.cmd`.
-
-```text
-:app:testDebugUnitTest
-:app:lintDebug
-:app:assembleDebug
-:app:assembleDeviceTest :app:assembleDeviceTestAndroidTest
-:app:connectedDeviceTestAndroidTest
-```
-
-On Windows, run Python tests with `uv run python -m pytest`. TaskChain has none today.
 
 ## Coverage targets
 
@@ -141,7 +81,13 @@ On Windows, run Python tests with `uv run python -m pytest`. TaskChain has none 
 
 ## Related documents
 
-- [device-testing.md](device-testing.md): physical-device navigation and screenshot tests.
+- [device-testing.md](device-testing.md): physical-device safety rules and setup.
+- [automated-physical-device-tests.md](automated-physical-device-tests.md): navigation and screenshot tests.
+- [human-driven-tests.md](human-driven-tests.md): manual device checks, upgrade and reboot.
+- [accessibility-testing.md](accessibility-testing.md): accessibility checks.
+- [profiling.md](profiling.md): optional profiling.
+- [unit-tests.md](unit-tests.md): JVM test and lint commands.
+- [results-artifact.md](results-artifact.md): how to produce the results artifact.
 - [results-template.html](results-template.html): template for the results artifact.
 - [adoption-backlog.md](adoption-backlog.md): gaps between this strategy and the repo.
 - [on-device-data.md](../on-device-data.md): data safety, snapshots, upgrade and reboot rules.
