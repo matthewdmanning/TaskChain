@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.selection.toggleable
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -17,16 +16,19 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.semantics
-import com.example.cyberpunkandroid.config.CyberPrimitives
-import com.taskchain.ui.designsystem.TaskChainTheme
+import com.taskchain.ui.designsystem.TaskChainDesignSystem
+import com.taskchain.ui.designsystem.LocalUiComponents
 
-/** Retains the current Cyberpunk Android theme supplied by [TaskChainTheme]. */
-@Composable
-internal fun CyberAppearance(content: @Composable () -> Unit) = content()
-
-/** Use this function when a labeled setting should expose one accessible switch target for its whole row. */
+/**
+ * Renders a labeled setting as a single accessible toggle row using the active UI provider.
+ *
+ * @param label Visible and accessible setting name.
+ * @param checked Current externally owned state.
+ * @param onCheckedChange Callback invoked when the row is toggled.
+ */
 @Composable
 internal fun LabeledSwitchRow(label: String, checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
+    val ui = LocalUiComponents.current
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -35,8 +37,8 @@ internal fun LabeledSwitchRow(label: String, checked: Boolean, onCheckedChange: 
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(label, modifier = Modifier.weight(1f).padding(end = CyberPrimitives.Spacing.dp8))
-        Switch(checked = checked, onCheckedChange = null, modifier = Modifier.clearAndSetSemantics {})
+        Text(label, modifier = Modifier.weight(1f).padding(end = TaskChainDesignSystem.spacing().small))
+        ui.switch(checked, null, Modifier.clearAndSetSemantics {})
     }
 }
 

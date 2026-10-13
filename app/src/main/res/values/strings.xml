@@ -42,6 +42,9 @@
     <string name="aborted_runs">Aborted runs: %1$d</string>
     <string name="settings_title">Settings</string>
     <string name="theme">Theme</string>
+    <string name="ui_component_style">Component style</string>
+    <string name="ui_provider_cyberpunk">Cyberpunk</string>
+    <string name="ui_provider_material">Material 3</string>
     <string name="theme_system">System</string>
     <string name="theme_light">Light</string>
     <string name="theme_dark">Dark</string>

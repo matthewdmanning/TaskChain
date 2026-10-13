@@ -19,6 +19,11 @@ class SettingsViewModel(private val container: AppContainer) : ViewModel() {
         viewModelScope.launch { container.preferences.setTheme(theme) }
     }
 
+    /** Saves the selected component provider independently of the light/dark appearance preference. */
+    fun setUiProvider(providerId: String) {
+        viewModelScope.launch { container.preferences.setUiProvider(providerId) }
+    }
+
     /** Use this function when overtime behavior is toggled in Settings. */
     fun setContinuePastZero(enabled: Boolean) {
         viewModelScope.launch { container.preferences.setContinueTimerPastZero(enabled) }

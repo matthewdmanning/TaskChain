@@ -29,13 +29,24 @@ import com.taskchain.domain.model.RoutineId
 import com.taskchain.domain.model.RunStatus
 import com.taskchain.domain.model.UserPreferences
 import com.taskchain.ui.designsystem.TaskChainTheme
+import com.taskchain.ui.designsystem.ProvideUiComponents
+import com.taskchain.ui.designsystem.UiProvider
+import com.taskchain.ui.designsystem.componentsFor
 import kotlinx.coroutines.flow.first
 import com.taskchain.ui.builder.RoutineBuilderRoute
 import com.taskchain.ui.home.HomeShell
 import com.taskchain.ui.home.HomeTab
 import com.taskchain.ui.runner.RoutineRunnerRoute
 
-/** Use this function as the Compose application entry point. */
+/**
+ * Hosts TaskChain navigation and installs the selected appearance and UI component provider.
+ *
+ * The provider follows persisted preference while CyberTheme remains available for unmigrated screens.
+ *
+ * @param container App dependency graph and persisted preference repositories.
+ * @param openActiveRun Whether to navigate to a persisted active run on initial composition.
+ * @param providedNavController Optional externally owned navigation controller for integration tests.
+ */
 @Composable
 fun TaskChainApp(
     container: AppContainer,
@@ -43,7 +54,9 @@ fun TaskChainApp(
     providedNavController: NavHostController? = null,
 ) {
     val preferences by container.preferences.observe().collectAsStateWithLifecycle(UserPreferences())
-    TaskChainTheme(preferences.selectedTheme) {
+    val provider = UiProvider.fromId(preferences.selectedUiProvider)
+    TaskChainTheme(preferences.selectedTheme, provider.id) {
+        ProvideUiComponents(componentsFor(provider)) {
         CompositionLocalProvider(LocalVibrationIntensity provides preferences.vibrationIntensity) {
         Surface(modifier = Modifier.fillMaxSize()) {
             val navController = providedNavController ?: rememberNavController()
@@ -69,7 +82,7 @@ fun TaskChainApp(
                         defaultValue = null
                     }),
                 ) { entry ->
-                    CyberAppearance {
+                    run {
                         RoutineBuilderRoute(
                             container = container,
                             animationsEnabled = preferences.screenTransitionsEnabled,
@@ -86,7 +99,7 @@ fun TaskChainApp(
                     route = RUNNER_ROUTE,
                     arguments = listOf(navArgument(ROUTINE_ID_ARGUMENT) { type = NavType.StringType }),
                 ) { entry ->
-                    CyberAppearance {
+                    run {
                         RoutineRunnerRoute(
                             container = container,
                             preferences = preferences,
@@ -115,6 +128,7 @@ fun TaskChainApp(
             }
         }
     }
+}
 }
 
 }

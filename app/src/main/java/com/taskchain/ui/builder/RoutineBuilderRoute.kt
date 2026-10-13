@@ -94,6 +94,7 @@ import com.taskchain.ui.designsystem.Spacing
 import com.example.cyberpunkandroid.components.CyberButtonSize
 import com.example.cyberpunkandroid.components.CyberButtonStyle
 import com.example.cyberpunkandroid.components.CyberCard
+import com.taskchain.ui.designsystem.TaskCard
 import com.example.cyberpunkandroid.config.CyberPrimitives
 import com.example.cyberpunkandroid.icons.CyberIcon
 import com.example.cyberpunkandroid.icons.CyberIcons
@@ -175,7 +176,7 @@ internal fun RoutineBuilderRoute(
         verticalArrangement = Arrangement.spacedBy(spacing.medium),
     ) {
         item {
-            CyberCard(modifier = Modifier.fillMaxWidth()) {
+            TaskCard(modifier = Modifier.fillMaxWidth()) {
                 Column(verticalArrangement = Arrangement.spacedBy(spacing.medium)) {
                     com.example.cyberpunkandroid.components.CyberField(
                         label = stringResource(R.string.routine_name),
@@ -206,7 +207,7 @@ internal fun RoutineBuilderRoute(
             }
         }
         item {
-            CyberCard(modifier = Modifier.fillMaxWidth()) {
+            TaskCard(modifier = Modifier.fillMaxWidth()) {
                 Column(verticalArrangement = Arrangement.spacedBy(spacing.medium)) {
                     Text(
                         stringResource(R.string.routine_settings),

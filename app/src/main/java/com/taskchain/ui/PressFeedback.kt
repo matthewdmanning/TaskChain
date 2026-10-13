@@ -12,9 +12,14 @@ import com.example.cyberpunkandroid.components.CyberButtonStyle
 
 internal val LocalVibrationIntensity = staticCompositionLocalOf { 1f }
 
-/** Use this function to add press feedback to an action; input is the action, dependencies are Android vibration and LocalVibrationIntensity. */
+/**
+ * Wraps an action with the existing semantic press vibration behavior.
+ *
+ * @param action Action invoked after the optional vibration attempt.
+ * @return Callback retaining the current vibration preference.
+ */
 @Composable
-private fun pressAction(action: () -> Unit): () -> Unit {
+internal fun pressAction(action: () -> Unit): () -> Unit {
     val context = LocalContext.current
     val intensity = LocalVibrationIntensity.current
     return {

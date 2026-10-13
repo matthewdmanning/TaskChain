@@ -63,6 +63,7 @@ import com.taskchain.ui.designsystem.Spacing
 import com.example.cyberpunkandroid.components.CyberButtonSize
 import com.example.cyberpunkandroid.components.CyberButtonStyle
 import com.example.cyberpunkandroid.components.CyberCard
+import com.taskchain.ui.designsystem.TaskCard
 import com.example.cyberpunkandroid.config.CyberPrimitives
 import com.example.cyberpunkandroid.effects.cyberGlowBorder
 import com.example.cyberpunkandroid.icons.CyberIcon
@@ -73,8 +74,6 @@ import androidx.compose.runtime.key
 import com.example.cyberpunkandroid.theme.CyberTheme
 import com.taskchain.ui.Button
 import com.taskchain.ui.CyberButton
-import com.taskchain.ui.SECONDS_PER_MINUTE
-import com.taskchain.ui.CyberAppearance
 import com.taskchain.ui.SECONDS_PER_MINUTE
 import com.taskchain.ui.TextButton
 import com.taskchain.ui.progress.ProgressRoute
@@ -173,7 +172,7 @@ internal fun HomeShell(
             }
         }
     }
-    if (selectedTab == HomeTab.HOME || selectedTab == HomeTab.ROUTINES) CyberAppearance(screen) else screen()
+    screen()
 }
 
 /** Use this function to bind Today UI to the routine-list ViewModel. */
@@ -232,7 +231,7 @@ private fun TodayRoute(
             }
             if (projection.scheduled.isEmpty() && projection.manual.isEmpty() && projection.completed.isEmpty()) {
                 item {
-                    CyberCard(modifier = Modifier.fillMaxWidth()) {
+                    TaskCard(modifier = Modifier.fillMaxWidth()) {
                         Text(stringResource(R.string.today_empty), style = CyberTheme.typography.body)
                         Spacer(Modifier.height(CyberPrimitives.Spacing.dp16))
                         CyberButton(onClick = onCreate) { Text(stringResource(R.string.new_routine)) }
@@ -404,7 +403,7 @@ private fun RoutineCard(routine: RoutineTemplate, onEdit: (() -> Unit)?, onStart
             )
             .padding(spacing.small),
     ) {
-        CyberCard(modifier = Modifier.fillMaxWidth()) {
+        TaskCard(modifier = Modifier.fillMaxWidth()) {
             Column(verticalArrangement = Arrangement.spacedBy(spacing.medium)) {
             Text(
                 text = routine.title,

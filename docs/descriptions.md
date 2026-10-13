@@ -2171,3 +2171,5 @@ Use this function to check append-before-clear ordering; input event is complete
 Use this script before development operations on valued app data to create a verified local snapshot.
 Inputs: AdbPath — SDK adb executable; DeviceSerial — selected device; PackageName — debuggable app; DestinationDirectory — new snapshot location.
 Dependencies: adb run-as, tar, SHA-256, binary process streams.
+
+- `ui/designsystem/UiComponents.kt`: Defines interchangeable Compose button/switch contracts, CyberpunkAndroid and Material 3 providers, and the `CompositionLocal` used to inject the active provider into screens. The app currently installs the Cyberpunk provider; runtime selection and broader component migration are future roadmap steps.
