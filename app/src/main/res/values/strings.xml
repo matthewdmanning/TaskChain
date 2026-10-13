@@ -9,6 +9,8 @@
     <string name="home_scheduled">Scheduled</string>
     <string name="home_manual">Manual</string>
     <string name="home_completed">Completed</string>
+    <string name="home_skipped">Skipped</string>
+    <string name="skip_routine">Skip this time</string>
     <string name="routines_title">Routines</string>
     <string name="your_routines">Your routines</string>
     <string name="starter_routines">Starter routines</string>

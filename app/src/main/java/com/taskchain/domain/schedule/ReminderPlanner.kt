@@ -214,8 +214,10 @@ object ReminderPlanner {
         val minutes = request.remindEveryMinutes?.takeIf { it > 0 }
         if (rule.frequency == ScheduleFrequency.ONCE && minutes == null) return null
         val regular = NextTriggerCalculator.nextTriggerEpochMillis(rule, nowEpochMillis)
-        val next = if (repeatNow) {
-            NextTriggerCalculator.nextRepeatedTriggerEpochMillis(rule, nowEpochMillis, minutes ?: 0)
+        val windowEnd = request.cycleStartEpochMillis?.takeIf { it > 0 }?.plus(REPEAT_WINDOW_MILLIS)
+        val repeated = NextTriggerCalculator.nextRepeatedTriggerEpochMillis(rule, nowEpochMillis, minutes ?: 0)
+        val next = if (repeatNow && (windowEnd == null || repeated.let { it != null && it <= windowEnd })) {
+            repeated
         } else {
             regular
         } ?: return null
@@ -230,6 +232,9 @@ object ReminderPlanner {
             cycleStartEpochMillis = cycleStart,
         )
     }
+
+    /** Repeats stop this long after the scheduled time; the next regular occurrence resumes after that. */
+    const val REPEAT_WINDOW_MILLIS = 2 * 60 * 60 * 1000L
 
     /** Use this function to map a stable RoutineId to the alarm code used by request mapping and cancellation. */
     private fun routineRequestCode(routineId: RoutineId): Int = routineId.value.hashCode()

@@ -2173,3 +2173,9 @@ Inputs: AdbPath — SDK adb executable; DeviceSerial — selected device; Packag
 Dependencies: adb run-as, tar, SHA-256, binary process streams.
 
 - `ui/designsystem/UiComponents.kt`: Defines interchangeable Compose button/switch contracts, CyberpunkAndroid and Material 3 providers, and the `CompositionLocal` used to inject the active provider into screens. The app currently installs the Cyberpunk provider; runtime selection and broader component migration are future roadmap steps.
+
+## `skipEvent` — domain/home/TodayProjection.kt
+Use this function when the user skips a scheduled routine's current occurrence; inputs are the routine, a new run id, and the clock, and it returns a task-less `SKIPPED` history event.
+
+## `ReminderPlanner.REPEAT_WINDOW_MILLIS` — domain/schedule/ReminderPlanner.kt
+Use this constant to end repeated reminders two hours after the scheduled time; delivery then rearms the next regular occurrence.

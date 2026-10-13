@@ -10,6 +10,7 @@ import com.taskchain.domain.model.RoutineTask
 import com.taskchain.domain.model.RoutineTaskId
 import com.taskchain.domain.model.RoutineTemplate
 import com.taskchain.domain.model.RunStatus
+import com.taskchain.domain.home.skipEvent
 import com.taskchain.domain.model.RunTaskStatus
 import com.taskchain.domain.model.ScheduleFrequency
 import com.taskchain.domain.model.ScheduleRule
@@ -46,6 +47,22 @@ class TodayProjectionTest {
         assertEquals(
             listOf(routine),
             projectTodayRoutines(listOf(routine), null, listOf(completion(routine, now)), beforeNextTrigger, zone).completed,
+        )
+    }
+
+    /** Use this check to verify a skipped occurrence leaves Scheduled until the next trigger. */
+    @Test
+    fun classifiesSkippedOccurrenceAsSkipped() {
+        val routine = routine("daily", ScheduleRule(ScheduleFrequency.DAILY, 9, 0))
+        val skip = skipEvent(routine, RoutineRunId("skip"), now)
+
+        assertEquals(
+            listOf(routine),
+            projectTodayRoutines(listOf(routine), null, listOf(skip), local("2026-01-06 08:59"), zone).skipped,
+        )
+        assertEquals(
+            listOf(routine),
+            projectTodayRoutines(listOf(routine), null, listOf(skip), local("2026-01-06 09:01"), zone).scheduled,
         )
     }
 

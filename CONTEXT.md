@@ -27,6 +27,8 @@ This is the source of truth for TaskChain's domain vocabulary, behavior invarian
 - Actual duration is distinct from configured duration and is retained per run task.
 - A routine's schedule cannot coexist with its deadline or one-time reminder.
 - Sound and Vibrate are independently configurable for task-timer and routine-reminder feedback.
+- A skipped occurrence moves a scheduled routine to Home "Skipped" and its reminder to the next recurrence; it adds no progress counts.
+- Repeated reminders stop two hours after the scheduled time.
 - A run snapshots its routine-level Sound and Vibrate gates and semantic sound settings. Routine mute takes precedence over task settings; missing or unplayable audio does not interrupt run behavior or enabled haptics.
 - Task nudges use active task time and are suppressed while paused, in confirmation, or outside the foreground Run screen. The default cadence is one minute, including untimed and overtime tasks, without replaying missed background nudges.
 - Completion effects delay presentation only; completion timestamps and run transitions are persisted immediately.

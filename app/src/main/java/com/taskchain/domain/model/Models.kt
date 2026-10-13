@@ -115,7 +115,7 @@ enum class RunTaskStatus { PENDING, COMPLETED, SKIPPED }
 
 /** Durable lifecycle status for a routine run. */
 @Serializable
-enum class RunStatus { ACTIVE, COMPLETED, ABORTED }
+enum class RunStatus { ACTIVE, COMPLETED, ABORTED, SKIPPED }
 
 /** Per-run task state, including timing and feedback state needed after process death. */
 @Serializable

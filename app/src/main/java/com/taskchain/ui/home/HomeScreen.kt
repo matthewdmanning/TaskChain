@@ -238,7 +238,7 @@ private fun TodayRoute(
                     }
                 }
             }
-            fun section(title: Int, routines: List<RoutineTemplate>, isCompleted: Boolean = false) {
+            fun section(title: Int, routines: List<RoutineTemplate>, isCompleted: Boolean = false, canSkip: Boolean = false) {
                 item {
                     Text(
                         stringResource(title).uppercase(),
@@ -260,12 +260,17 @@ private fun TodayRoute(
                     }
                 }
                 items(routines, key = { it.id.value }) { routine ->
-                    CompactRoutineRow(routine = routine, isCompleted = isCompleted) { onStart(routine) }
+                    CompactRoutineRow(
+                        routine = routine,
+                        isCompleted = isCompleted,
+                        onSkip = { viewModel.skip(routine) }.takeIf { canSkip && routine.schedule != null },
+                    ) { onStart(routine) }
                 }
             }
-            section(R.string.home_scheduled, projection.scheduled)
+            section(R.string.home_scheduled, projection.scheduled, canSkip = true)
             section(R.string.home_manual, projection.manual)
             section(R.string.home_completed, projection.completed, isCompleted = true)
+            if (projection.skipped.isNotEmpty()) section(R.string.home_skipped, projection.skipped, isCompleted = true)
         }
     }
 }
@@ -275,6 +280,7 @@ private fun TodayRoute(
 private fun CompactRoutineRow(
     routine: RoutineTemplate,
     isCompleted: Boolean,
+    onSkip: (() -> Unit)? = null,
     onStart: () -> Unit,
 ) {
     val shape = CyberTheme.shapes.cyberCutCornerShape
@@ -311,6 +317,9 @@ private fun CompactRoutineRow(
                 tint = CyberTheme.colors.textPrimary,
             )
         } else {
+            onSkip?.let {
+                TextButton(onClick = it) { Text(stringResource(R.string.skip_routine)) }
+            }
             CyberButton(
                 modifier = Modifier.size(CyberPrimitives.IconSizes.dp48),
                 onClick = onStart,

@@ -42,17 +42,19 @@ interface ReminderScheduler {
     fun cancel(requestCode: Int)
 }
 
-/** AlarmManager adapter for local, inexact routine reminders. */
+/** AlarmManager adapter for local routine reminders; exact when the permission allows it. */
 class AndroidReminderScheduler(private val context: Context) : ReminderScheduler {
     private val alarmManager = context.getSystemService(AlarmManager::class.java)
 
     /** Use this function when a domain reminder should become an Android alarm. */
     override fun schedule(request: ReminderRequest) {
-        alarmManager.setAndAllowWhileIdle(
-            AlarmManager.RTC_WAKEUP,
-            request.triggerAtEpochMillis,
-            pendingIntent(request),
-        )
+        val operation = pendingIntent(request)
+        // Inexact alarms drift by many minutes in Doze; exact ones need the exact-alarm permission.
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S || alarmManager.canScheduleExactAlarms()) {
+            alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, request.triggerAtEpochMillis, operation)
+        } else {
+            alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, request.triggerAtEpochMillis, operation)
+        }
     }
 
     /** Use this function when a domain reminder should no longer fire. */
