@@ -16,6 +16,7 @@ androidxTestExtJunit = "1.3.0"
 appcompat = "1.7.0"
 material = "1.12.0"
 espresso = "3.7.0"
+dropshots = "0.6.0"
 
 [libraries]
 androidx-core-ktx = { module = "androidx.core:core-ktx", version.ref = "core" }
@@ -48,4 +49,5 @@ android-application = { id = "com.android.application", version.ref = "agp" }
 kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
 kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
 android-library = { id = "com.android.library", version.ref = "agp" }
+dropshots = { id = "com.dropbox.dropshots", version.ref = "dropshots" }
 compose-compiler = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }

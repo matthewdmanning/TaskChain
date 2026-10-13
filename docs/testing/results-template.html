@@ -1,0 +1,333 @@
+<title>TaskChain Test Results</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;600&display=swap">
+<style>
+  /* Layout: one column. Verdict bar, layer summary, then detail tables. Data comes from #run-data. */
+  :root {
+    --bg: #f6f7f5;
+    --surface: #ffffff;
+    --fg: #1c211e;
+    --muted: #5d665f;
+    --line: #d9ddd8;
+    --pass: #1e7a43;
+    --pass-bg: #e2f3e8;
+    --fail: #b3261e;
+    --fail-bg: #fbe6e4;
+    --warn: #8a5a00;
+    --warn-bg: #fdf0d2;
+    --skip: #4b5563;
+    --skip-bg: #e8eaed;
+    --font-body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+    --font-data: "IBM Plex Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #141916; --surface: #1c231f; --fg: #e6eae7; --muted: #9aa59d; --line: #2f3a33;
+      --pass: #5fd08a; --pass-bg: #173a26; --fail: #ff8a80; --fail-bg: #4a1f1c;
+      --warn: #f0c060; --warn-bg: #3d2f0c; --skip: #b4bdc8; --skip-bg: #2a3038;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #141916; --surface: #1c231f; --fg: #e6eae7; --muted: #9aa59d; --line: #2f3a33;
+    --pass: #5fd08a; --pass-bg: #173a26; --fail: #ff8a80; --fail-bg: #4a1f1c;
+    --warn: #f0c060; --warn-bg: #3d2f0c; --skip: #b4bdc8; --skip-bg: #2a3038;
+    color-scheme: dark;
+  }
+  body { background: var(--bg); color: var(--fg); font: 14px/1.5 var(--font-body); }
+  main { max-width: 64rem; margin-inline: auto; padding-inline: 1rem; padding-block: 1.5rem 3rem; display: flex; flex-direction: column; gap: 1.5rem; }
+  h1 { font-size: 1.5rem; margin: 0; text-wrap: balance; }
+  h2 { font-size: 1rem; margin: 0 0 .5rem; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+  code, .mono { font-family: var(--font-data); font-size: .85em; }
+  section { min-width: 0; }
+  .banner { background: var(--warn-bg); color: var(--warn); padding: .5rem .75rem; border-radius: 4px; font-weight: 600; }
+  .verdict { display: flex; flex-wrap: wrap; gap: .75rem 1.5rem; align-items: center; justify-content: space-between; padding: 1rem; background: var(--surface); border: 1px solid var(--line); border-radius: 6px; }
+  .verdict .meta { display: flex; flex-wrap: wrap; gap: .25rem 1.25rem; color: var(--muted); }
+  .pill { display: inline-block; padding: .1rem .55rem; border-radius: 999px; font-family: var(--font-data); font-size: .8rem; font-weight: 600; white-space: nowrap; }
+  .pill.pass { background: var(--pass-bg); color: var(--pass); }
+  .pill.fail { background: var(--fail-bg); color: var(--fail); }
+  .pill.warn { background: var(--warn-bg); color: var(--warn); }
+  .pill.skip, .pill.not-run { background: var(--skip-bg); color: var(--skip); }
+  .big { font-size: 1.1rem; padding: .25rem .9rem; }
+  .layers { display: grid; grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr)); gap: .75rem; }
+  .layer { background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: .75rem; display: flex; flex-direction: column; gap: .35rem; min-width: 0; }
+  .layer .name { font-weight: 600; }
+  .layer .counts { font-family: var(--font-data); font-variant-numeric: tabular-nums; }
+  .layer .cmd { color: var(--muted); overflow-wrap: anywhere; }
+  .scroll { overflow-x: auto; background: var(--surface); border: 1px solid var(--line); border-radius: 6px; }
+  table { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nums; }
+  th, td { text-align: left; padding: .45rem .7rem; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { color: var(--muted); font-weight: 600; font-size: .8rem; text-transform: uppercase; letter-spacing: .05em; white-space: nowrap; }
+  tr:last-child td { border-bottom: 0; }
+  tr.is-fail td:first-child { box-shadow: inset 3px 0 0 var(--fail); }
+  .empty { color: var(--muted); padding: .75rem; }
+  dl { display: grid; grid-template-columns: max-content 1fr; gap: .25rem 1rem; margin: 0; background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: .75rem; }
+  dt { color: var(--muted); }
+  dd { margin: 0; font-family: var(--font-data); overflow-wrap: anywhere; }
+  .regression { background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: .75rem; display: flex; flex-direction: column; gap: .6rem; min-width: 0; }
+  .regression + .regression { margin-top: .75rem; }
+  .regression .head { display: flex; flex-wrap: wrap; gap: .4rem .75rem; align-items: center; justify-content: space-between; }
+  .regression .why { color: var(--muted); }
+  .shots { display: grid; grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr)); gap: .6rem; }
+  figure { margin: 0; display: flex; flex-direction: column; gap: .25rem; min-width: 0; }
+  figure img { width: 100%; height: auto; border: 1px solid var(--line); border-radius: 4px; background: var(--bg); }
+  figure .none { aspect-ratio: 9 / 19; max-width: 100%; display: grid; place-items: center; border: 1px dashed var(--line); border-radius: 4px; color: var(--muted); text-align: center; padding: .5rem; }
+  figcaption { color: var(--muted); font-size: .8rem; }
+  .strip { display: flex; gap: .6rem; overflow-x: auto; padding-bottom: .25rem; }
+  .strip figure { flex: 0 0 9rem; }
+  a:focus-visible, button:focus-visible { outline: 2px solid var(--fg); outline-offset: 2px; }
+  @media (max-width: 30rem) { dl { grid-template-columns: 1fr; } dt { margin-top: .4rem; } }
+</style>
+
+<main>
+  <div id="example-banner" class="banner" hidden>EXAMPLE DATA. Replace the JSON in #run-data before you use this page as evidence.</div>
+  <header>
+    <h1 id="title"></h1>
+  </header>
+  <div id="verdict" class="verdict"></div>
+  <section><h2>Layers</h2><div id="layers" class="layers"></div></section>
+  <section><h2>Failures</h2><div id="failures"></div></section>
+  <section><h2>Navigation events</h2><div id="navigation"></div></section>
+  <section><h2>Screenshots</h2><div id="screenshots"></div></section>
+  <section><h2>Visual regressions</h2><div id="regressions"></div></section>
+  <section id="profiling-section" hidden><h2>Profiling (on request only)</h2><div id="profiling"></div></section>
+  <section><h2>Manual device checks</h2><div id="manual"></div></section>
+  <section><h2>Upgrade and reboot</h2><div id="durability"></div></section>
+  <section><h2>Environment</h2><div id="environment"></div></section>
+</main>
+
+<!--
+  HOW TO USE THIS TEMPLATE (for agents and humans)
+  1. Copy this file to .scratch/test-results/<yyyy-mm-dd>-<branch>.html. Do not edit the template in place.
+  2. Replace only the JSON below. Keep every key. Use "not-run" for work you did not do.
+  3. Allowed status values: pass, fail, warn, skip, not-run.
+  4. Set "example" to false. Never leave sample values in a real report.
+  5. Report device evidence apart from JVM evidence. Do not mark a device row "pass" from a JVM run.
+  6. Visual regressions: list every screen with a failed screenshot test AND every screen a changed file is expected to affect.
+     Use kind "dynamic" for a regression that shows only over time (timer, animation, drag). Give frames in time order.
+     Image fields hold a repo-relative path in the repo copy. In the published artifact copy, embed each image as a data: URI.
+     Never invent an image. Leave the field empty and the page shows "No image".
+  7. Profiling is optional. Set "profiling" to null unless the user asked for it.
+  8. Strategy reference: docs/testing/README.md and docs/testing/device-testing.md.
+-->
+<script type="application/json" id="run-data">
+{
+  "example": true,
+  "title": "TaskChain test run",
+  "branch": "docs-testing-strategy",
+  "commit": "dcf3ea4",
+  "date": "2026-10-12",
+  "trigger": "before merge",
+  "layers": [
+    { "name": "Unit (JVM)", "command": ":app:testDebugUnitTest", "status": "pass", "passed": 116, "failed": 0, "skipped": 0, "evidence": "build/reports/tests" },
+    { "name": "Lint", "command": ":app:lintDebug", "status": "pass", "passed": 1, "failed": 0, "skipped": 0, "evidence": "build/reports/lint-results-debug.html" },
+    { "name": "Instrumentation (device)", "command": ":app:connectedDeviceTestAndroidTest", "status": "warn", "passed": 6, "failed": 0, "skipped": 1, "evidence": "build/reports/androidTests" },
+    { "name": "Navigation (device)", "command": "UI Automator suite", "status": "not-run", "passed": 0, "failed": 0, "skipped": 0, "evidence": "" },
+    { "name": "Screenshots (device)", "command": "Dropshots suite", "status": "not-run", "passed": 0, "failed": 0, "skipped": 0, "evidence": "" }
+  ],
+  "failures": [
+    { "layer": "Instrumentation (device)", "test": "com.taskchain.ExampleTest.exampleCase", "message": "Example only. Paste the first assertion line here.", "artifact": "" }
+  ],
+  "navigation": [
+    { "event": "Builder Back with unsaved change shows discard dialog", "test": "MainActivityTest.builderCancelAndBack_offerDiscardChoicesAndKeepDraftInput", "status": "pass", "note": "" },
+    { "event": "Runner system Back", "test": "", "status": "not-run", "note": "No test yet. See adoption-backlog.md item 3." },
+    { "event": "Bubble opens the active run after recreation", "test": "BubbleNavigationTest.bubbleRequestAfterRecreation_doesNotLeaveDuplicateRunnerEntry", "status": "pass", "note": "" }
+  ],
+  "screenshots": [
+    { "screen": "Runner, running", "variant": "font scale 1.5", "status": "not-run", "reference": "", "diff": "" }
+  ],
+  "regressions": [
+    {
+      "screen": "Runner, running",
+      "variant": "font scale 1.5",
+      "kind": "static",
+      "source": "screenshot-test-failure",
+      "status": "fail",
+      "cause": "Example: ScreenshotRunnerTest failed. Name the test or the changed file here.",
+      "baseline": "", "actual": "", "diff": "",
+      "frames": [],
+      "note": "Example only."
+    },
+    {
+      "screen": "Runner dial, subtask behind schedule",
+      "variant": "dynamic",
+      "kind": "dynamic",
+      "source": "expected-from-change",
+      "status": "warn",
+      "cause": "Example: a change to SubtaskRimGeometry is expected to move the rim during advancement.",
+      "baseline": "", "actual": "", "diff": "",
+      "frames": [ { "label": "t=0 s", "src": "" }, { "label": "t=5 s", "src": "" }, { "label": "t=10 s", "src": "" } ],
+      "note": "Capture frames on the device at fixed times. Example only."
+    }
+  ],
+  "profiling": null,
+  "manual": [
+    { "check": "Drag reorder with TalkBack on", "status": "not-run", "note": "" },
+    { "check": "Haptics and sound for task nudges", "status": "not-run", "note": "" },
+    { "check": "Bubble placement and tap", "status": "not-run", "note": "" }
+  ],
+  "durability": [
+    { "check": "In-place update from older testapp APK keeps data", "status": "not-run", "note": "" },
+    { "check": "Data intact after reboot and unlock", "status": "not-run", "note": "" }
+  ],
+  "environment": {
+    "Device": "Pixel 7",
+    "Serial": "example-serial",
+    "Android version": "16",
+    "Application ID under test": "com.taskchain.testapp",
+    "Regular app untouched": "yes",
+    "JDK": "17",
+    "Font scale": "1.0",
+    "Theme": "light",
+    "Animation scales": "0"
+  }
+}
+</script>
+
+<script>
+(function () {
+  var data = JSON.parse(document.getElementById("run-data").textContent);
+  var LABEL = { "pass": "PASS", "fail": "FAIL", "warn": "WARN", "skip": "SKIP", "not-run": "NOT RUN" };
+
+  function el(tag, cls, text) {
+    var node = document.createElement(tag);
+    if (cls) node.className = cls;
+    if (text !== undefined && text !== null) node.textContent = text;
+    return node;
+  }
+  function pill(status, big) {
+    return el("span", "pill " + status + (big ? " big" : ""), LABEL[status] || status);
+  }
+  function table(headers, rows, failStatusIndex) {
+    if (!rows.length) return el("div", "empty", "No rows.");
+    var wrap = el("div", "scroll");
+    var t = el("table");
+    var head = el("tr");
+    headers.forEach(function (h) { head.appendChild(el("th", null, h)); });
+    t.appendChild(head);
+    rows.forEach(function (cells) {
+      var tr = el("tr");
+      cells.forEach(function (c, i) {
+        var td = el("td");
+        if (c && c.nodeType) td.appendChild(c);
+        else td.textContent = c === undefined || c === null || c === "" ? "-" : c;
+        tr.appendChild(td);
+        if (i === failStatusIndex && c && c.className && c.className.indexOf("fail") > -1) tr.className = "is-fail";
+      });
+      t.appendChild(tr);
+    });
+    wrap.appendChild(t);
+    return wrap;
+  }
+  function figure(src, caption) {
+    var f = el("figure");
+    if (src) { var img = el("img"); img.src = src; img.alt = caption; f.appendChild(img); }
+    else f.appendChild(el("div", "none", "No image"));
+    f.appendChild(el("figcaption", null, caption));
+    return f;
+  }
+  function regressionCard(r) {
+    var card = el("div", "regression");
+    var head = el("div", "head");
+    head.appendChild(el("strong", null, r.screen + " (" + r.variant + ")"));
+    var tags = el("span");
+    tags.appendChild(el("span", "pill skip", r.kind));
+    tags.appendChild(document.createTextNode(" "));
+    tags.appendChild(pill(r.status));
+    head.appendChild(tags);
+    card.appendChild(head);
+    card.appendChild(el("div", "why", r.source + ": " + r.cause));
+    if (r.kind === "dynamic") {
+      var strip = el("div", "strip");
+      if (!r.frames.length) strip.appendChild(figure("", "no frames"));
+      r.frames.forEach(function (fr) { strip.appendChild(figure(fr.src, fr.label)); });
+      card.appendChild(strip);
+    } else {
+      var shots = el("div", "shots");
+      shots.appendChild(figure(r.baseline, "Baseline"));
+      shots.appendChild(figure(r.actual, "Actual"));
+      shots.appendChild(figure(r.diff, "Diff"));
+      card.appendChild(shots);
+    }
+    if (r.note) card.appendChild(el("div", null, r.note));
+    return card;
+  }
+  function worst(statuses) {
+    if (statuses.indexOf("fail") > -1) return "fail";
+    if (statuses.indexOf("warn") > -1) return "warn";
+    if (statuses.every(function (s) { return s === "not-run"; })) return "not-run";
+    if (statuses.indexOf("not-run") > -1) return "warn";
+    return "pass";
+  }
+
+  document.title = data.title || "TaskChain Test Results";
+  document.getElementById("title").textContent = data.title;
+  document.getElementById("example-banner").hidden = !data.example;
+
+  var all = [].concat(
+    data.layers.map(function (l) { return l.status; }),
+    data.navigation.map(function (n) { return n.status; }),
+    data.screenshots.map(function (s) { return s.status; }),
+    data.manual.map(function (m) { return m.status; }),
+    data.durability.map(function (d) { return d.status; }),
+    data.regressions.map(function (r) { return r.status; })
+  );
+  var verdict = document.getElementById("verdict");
+  var meta = el("div", "meta");
+  [["Branch", data.branch], ["Commit", data.commit], ["Date", data.date], ["Trigger", data.trigger]].forEach(function (p) {
+    var s = el("span");
+    s.appendChild(document.createTextNode(p[0] + " "));
+    s.appendChild(el("code", null, p[1]));
+    meta.appendChild(s);
+  });
+  verdict.appendChild(meta);
+  verdict.appendChild(pill(worst(all), true));
+
+  var layers = document.getElementById("layers");
+  data.layers.forEach(function (l) {
+    var card = el("div", "layer");
+    var top = el("div");
+    top.style.display = "flex";
+    top.style.justifyContent = "space-between";
+    top.style.gap = ".5rem";
+    top.appendChild(el("span", "name", l.name));
+    top.appendChild(pill(l.status));
+    card.appendChild(top);
+    card.appendChild(el("div", "counts", l.passed + " passed, " + l.failed + " failed, " + l.skipped + " skipped"));
+    card.appendChild(el("code", "cmd", l.command));
+    if (l.evidence) card.appendChild(el("code", "cmd", l.evidence));
+    layers.appendChild(card);
+  });
+
+  var failures = document.getElementById("failures");
+  failures.appendChild(data.failures.length
+    ? table(["Layer", "Test", "Message", "Artifact"], data.failures.map(function (f) { return [f.layer, f.test, f.message, f.artifact]; }))
+    : el("div", "empty", "No failures."));
+
+  document.getElementById("navigation").appendChild(
+    table(["Event", "Test", "Status", "Note"], data.navigation.map(function (n) { return [n.event, n.test, pill(n.status), n.note]; }), 2));
+  document.getElementById("screenshots").appendChild(
+    table(["Screen", "Variant", "Status", "Reference", "Diff"], data.screenshots.map(function (s) { return [s.screen, s.variant, pill(s.status), s.reference, s.diff]; }), 2));
+  var reg = document.getElementById("regressions");
+  if (data.regressions.length) data.regressions.forEach(function (r) { reg.appendChild(regressionCard(r)); });
+  else reg.appendChild(el("div", "empty", "No visual regressions detected or expected."));
+
+  if (data.profiling) {
+    document.getElementById("profiling-section").hidden = false;
+    document.getElementById("profiling").appendChild(
+      table(["Scenario", "Metric", "Baseline", "Measured", "Status", "Trace"],
+        data.profiling.map(function (p) { return [p.scenario, p.metric, p.baseline, p.measured, pill(p.status), p.trace]; }), 4));
+  }
+
+  document.getElementById("manual").appendChild(
+    table(["Check", "Status", "Note"], data.manual.map(function (m) { return [m.check, pill(m.status), m.note]; }), 1));
+  document.getElementById("durability").appendChild(
+    table(["Check", "Status", "Note"], data.durability.map(function (d) { return [d.check, pill(d.status), d.note]; }), 1));
+
+  var dl = el("dl");
+  Object.keys(data.environment).forEach(function (k) {
+    dl.appendChild(el("dt", null, k));
+    dl.appendChild(el("dd", null, data.environment[k]));
+  });
+  document.getElementById("environment").appendChild(dl);
+})();
+</script>
