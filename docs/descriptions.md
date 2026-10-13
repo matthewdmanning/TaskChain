@@ -2179,3 +2179,9 @@ Use this function when the user skips a scheduled routine's current occurrence; 
 
 ## `ReminderPlanner.REPEAT_WINDOW_MILLIS` — domain/schedule/ReminderPlanner.kt
 Use this constant to end repeated reminders two hours after the scheduled time; delivery then rearms the next regular occurrence.
+
+## `skipUndoneEvent` — domain/home/TodayProjection.kt
+Use this function when the user undoes a skip; inputs are the routine, a new run id, and the clock, and the newer `SKIP_UNDONE` event cancels the older `SKIPPED` one in Home projection.
+
+## `nextDayStartEpochMillis` — domain/home/TodayProjection.kt
+Use this function to find the first local day start (configured hour) after an instant; Home returns handled routines to Scheduled then.

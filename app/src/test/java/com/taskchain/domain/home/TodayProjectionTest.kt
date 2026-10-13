@@ -10,7 +10,6 @@ import com.taskchain.domain.model.RoutineTask
 import com.taskchain.domain.model.RoutineTaskId
 import com.taskchain.domain.model.RoutineTemplate
 import com.taskchain.domain.model.RunStatus
-import com.taskchain.domain.home.skipEvent
 import com.taskchain.domain.model.RunTaskStatus
 import com.taskchain.domain.model.ScheduleFrequency
 import com.taskchain.domain.model.ScheduleRule
@@ -18,6 +17,7 @@ import java.text.SimpleDateFormat
 import java.util.Locale
 import java.util.TimeZone
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /** Verifies Home categorizes each routine from its schedule and occurrence completion. */
@@ -31,39 +31,53 @@ class TodayProjectionTest {
         val routine = routine("manual")
         val history = listOf(completion(routine, now))
 
-        assertEquals(listOf(routine), projectTodayRoutines(listOf(routine), null, history, now, zone).manual)
+        assertEquals(listOf(routine), projectTodayRoutines(listOf(routine), null, history, now, 2, zone).manual)
     }
 
     /** Use this check to verify active and durable scheduled completions remain Completed until the next trigger. */
     @Test
     fun classifiesActiveAndDurableCompletionsAsCompleted() {
         val routine = routine("daily", ScheduleRule(ScheduleFrequency.DAILY, 9, 0))
-        val beforeNextTrigger = local("2026-01-06 08:59")
+        val beforeNextTrigger = local("2026-01-06 01:59")
 
         assertEquals(
             listOf(routine),
-            projectTodayRoutines(listOf(routine), activeRun(routine, now), emptyList(), beforeNextTrigger, zone).completed,
+            projectTodayRoutines(listOf(routine), activeRun(routine, now), emptyList(), beforeNextTrigger, 2, zone).completed,
         )
         assertEquals(
             listOf(routine),
-            projectTodayRoutines(listOf(routine), null, listOf(completion(routine, now)), beforeNextTrigger, zone).completed,
+            projectTodayRoutines(listOf(routine), null, listOf(completion(routine, now)), beforeNextTrigger, 2, zone).completed,
         )
     }
 
-    /** Use this check to verify a skipped occurrence leaves Scheduled until the next trigger. */
+    /** Use this check to verify a skip moves a card to Completed with a flag until the next day start. */
     @Test
-    fun classifiesSkippedOccurrenceAsSkipped() {
+    fun skippedRoutineStaysCompletedAndFlaggedUntilDayStart() {
         val routine = routine("daily", ScheduleRule(ScheduleFrequency.DAILY, 9, 0))
-        val skip = skipEvent(routine, RoutineRunId("skip"), now)
+        val skipBeforeTrigger = skipEvent(routine, RoutineRunId("skip"), local("2026-01-05 07:00"))
 
-        assertEquals(
-            listOf(routine),
-            projectTodayRoutines(listOf(routine), null, listOf(skip), local("2026-01-06 08:59"), zone).skipped,
+        fun project(at: String, history: List<CompletionEvent>) =
+            projectTodayRoutines(listOf(routine), null, history, local(at), 2, zone)
+
+        val flagged = project("2026-01-05 12:00", listOf(skipBeforeTrigger))
+        assertEquals(listOf(routine), flagged.completed)
+        assertEquals(setOf(routine.id), flagged.skipped)
+        assertEquals(listOf(routine), project("2026-01-06 01:59", listOf(skipBeforeTrigger)).completed)
+        assertEquals(listOf(routine), project("2026-01-06 02:00", listOf(skipBeforeTrigger)).scheduled)
+    }
+
+    /** Use this check to verify undoing a skip returns the card to Scheduled without a flag. */
+    @Test
+    fun undoneSkipReturnsToScheduled() {
+        val routine = routine("daily", ScheduleRule(ScheduleFrequency.DAILY, 9, 0))
+        val history = listOf(
+            skipEvent(routine, RoutineRunId("skip"), local("2026-01-05 07:00")),
+            skipUndoneEvent(routine, RoutineRunId("undo"), local("2026-01-05 07:05")),
         )
-        assertEquals(
-            listOf(routine),
-            projectTodayRoutines(listOf(routine), null, listOf(skip), local("2026-01-06 09:01"), zone).scheduled,
-        )
+
+        val projection = projectTodayRoutines(listOf(routine), null, history, local("2026-01-05 12:00"), 2, zone)
+        assertEquals(listOf(routine), projection.scheduled)
+        assertTrue(projection.skipped.isEmpty())
     }
 
     /** Use this check to keep a run pending until its final confirmation is accepted. */
@@ -78,19 +92,20 @@ class TodayProjectionTest {
 
         assertEquals(
             listOf(routine),
-            projectTodayRoutines(listOf(routine), awaitingConfirmation, emptyList(), now, zone).scheduled,
+            projectTodayRoutines(listOf(routine), awaitingConfirmation, emptyList(), now, 2, zone).scheduled,
         )
     }
 
-    /** Use this check to verify the next local schedule trigger moves completion back to Scheduled. */
+    /** Use this check to verify completion returns to Scheduled at the day start in the supplied time zone. */
     @Test
-    fun returnsToScheduledAtNextTriggerInSuppliedTimeZone() {
+    fun returnsToScheduledAtDayStartInSuppliedTimeZone() {
         val routine = routine("daily", ScheduleRule(ScheduleFrequency.DAILY, 9, 0))
         val history = listOf(completion(routine, local("2026-01-05 08:59")))
-        val atNewYorkTrigger = local("2026-01-05 09:00")
+        val newYorkOneFiftyNine = local("2026-01-06 01:59")
+        val utc = TimeZone.getTimeZone("UTC")
 
-        assertEquals(listOf(routine), projectTodayRoutines(listOf(routine), null, history, atNewYorkTrigger, zone).scheduled)
-        assertEquals(listOf(routine), projectTodayRoutines(listOf(routine), null, history, atNewYorkTrigger, TimeZone.getTimeZone("UTC")).completed)
+        assertEquals(listOf(routine), projectTodayRoutines(listOf(routine), null, history, newYorkOneFiftyNine, 2, zone).completed)
+        assertEquals(listOf(routine), projectTodayRoutines(listOf(routine), null, history, newYorkOneFiftyNine, 2, utc).scheduled)
     }
 
     /** Use this check to verify Home follows the terminal run time when completion crosses a schedule trigger. */
@@ -105,7 +120,7 @@ class TodayProjectionTest {
 
         assertEquals(
             listOf(routine),
-            projectTodayRoutines(listOf(routine), null, history, local("2026-01-05 09:02"), zone).completed,
+            projectTodayRoutines(listOf(routine), null, history, local("2026-01-05 09:02"), 2, zone).completed,
         )
     }
 
@@ -117,7 +132,7 @@ class TodayProjectionTest {
         val completed = routine("completed", ScheduleRule(ScheduleFrequency.DAILY, 9, 0))
         val routines = listOf(manual, scheduled, completed)
 
-        val projection = projectTodayRoutines(routines, null, listOf(completion(completed, now)), now, zone)
+        val projection = projectTodayRoutines(routines, null, listOf(completion(completed, now)), now, 2, zone)
         val categorized = projection.scheduled + projection.manual + projection.completed
 
         assertEquals(listOf(manual), projection.manual)
