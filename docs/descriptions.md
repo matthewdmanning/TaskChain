@@ -2183,5 +2183,8 @@ Use this constant to end repeated reminders two hours after the scheduled time; 
 ## `skipUndoneEvent` — domain/home/TodayProjection.kt
 Use this function when the user undoes a skip; inputs are the routine, a new run id, and the clock, and the newer `SKIP_UNDONE` event cancels the older `SKIPPED` one in Home projection.
 
-## `nextDayStartEpochMillis` — domain/home/TodayProjection.kt
-Use this function to find the first local day start (configured hour) after an instant; Home returns handled routines to Scheduled then.
+## `dayStartAtOrBeforeEpochMillis` — domain/home/TodayProjection.kt
+Use this function to find the last local day start (configured hour) at or before an instant.
+
+## `returnToScheduledEpochMillis` — domain/home/TodayProjection.kt
+Use this function to find when a handled routine returns to Scheduled: the day start of the day of its next occurrence, never before the next day start.

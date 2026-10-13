@@ -7,6 +7,8 @@ import com.taskchain.domain.model.RoutineRunId
 import com.taskchain.domain.model.RoutineTemplate
 import com.taskchain.domain.model.RunStatus
 import com.taskchain.domain.model.RunTaskStatus
+import com.taskchain.domain.model.ScheduleRule
+import com.taskchain.domain.schedule.NextTriggerCalculator
 import java.util.Calendar
 import java.util.TimeZone
 
@@ -38,15 +40,11 @@ private fun markerEvent(routine: RoutineTemplate, runId: RoutineRunId, nowEpochM
         tasks = emptyList(),
     )
 
-/**
- * Use this function to find the first local day start after [epochMillis]; a day starts at [dayStartHour].
- * Handled routines return to Scheduled at that instant.
- */
-fun nextDayStartEpochMillis(epochMillis: Long, dayStartHour: Int, timeZone: TimeZone = TimeZone.getDefault()): Long =
+/** Use this function to find the last local day start at or before [epochMillis]; a day starts at [dayStartHour]. */
+fun dayStartAtOrBeforeEpochMillis(epochMillis: Long, dayStartHour: Int, timeZone: TimeZone = TimeZone.getDefault()): Long =
     Calendar.getInstance(timeZone).apply {
         timeInMillis = epochMillis
         add(Calendar.HOUR_OF_DAY, -dayStartHour)
-        add(Calendar.DAY_OF_YEAR, 1)
         set(Calendar.HOUR_OF_DAY, dayStartHour)
         set(Calendar.MINUTE, 0)
         set(Calendar.SECOND, 0)
@@ -54,8 +52,28 @@ fun nextDayStartEpochMillis(epochMillis: Long, dayStartHour: Int, timeZone: Time
     }.timeInMillis
 
 /**
+ * Use this function to find when a routine handled at [handledAtEpochMillis] returns to Scheduled.
+ * That is the day start of the day of its next occurrence, never earlier than the next day start;
+ * a schedule with no next occurrence never returns.
+ */
+fun returnToScheduledEpochMillis(
+    schedule: ScheduleRule,
+    handledAtEpochMillis: Long,
+    dayStartHour: Int,
+    timeZone: TimeZone = TimeZone.getDefault(),
+): Long {
+    val nextDayStart = Calendar.getInstance(timeZone).apply {
+        timeInMillis = dayStartAtOrBeforeEpochMillis(handledAtEpochMillis, dayStartHour, timeZone)
+        add(Calendar.DAY_OF_YEAR, 1)
+    }.timeInMillis
+    val occurrence = NextTriggerCalculator.nextTriggerEpochMillis(schedule, nextDayStart - 1, timeZone)
+        ?: return Long.MAX_VALUE
+    return maxOf(nextDayStart, dayStartAtOrBeforeEpochMillis(occurrence, dayStartHour, timeZone))
+}
+
+/**
  * Categorizes every routine by schedule and by whether its current day was completed or skipped.
- * A completed or skipped routine stays in Completed until the next day start ([dayStartHour]).
+ * A completed or skipped routine stays in Completed until the day start ([dayStartHour]) of its next occurrence.
  */
 fun projectTodayRoutines(
     routines: List<RoutineTemplate>,
@@ -71,7 +89,8 @@ fun projectTodayRoutines(
     val skipped = mutableSetOf<RoutineId>()
 
     routines.forEach { routine ->
-        if (routine.schedule == null) {
+        val schedule = routine.schedule
+        if (schedule == null) {
             manual += routine
             return@forEach
         }
@@ -91,7 +110,7 @@ fun projectTodayRoutines(
             ?.takeIf { skip -> latest(RunStatus.SKIP_UNDONE)?.let { it < skip } ?: true }
 
         val handledAt = listOfNotNull(completedAt, skippedAt).maxOrNull()
-        if (handledAt != null && nowEpochMillis < nextDayStartEpochMillis(handledAt, dayStartHour, timeZone)) {
+        if (handledAt != null && nowEpochMillis < returnToScheduledEpochMillis(schedule, handledAt, dayStartHour, timeZone)) {
             completed += routine
             if (skippedAt == handledAt) skipped += routine.id
         } else {

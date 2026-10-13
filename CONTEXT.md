@@ -28,7 +28,7 @@ This is the source of truth for TaskChain's domain vocabulary, behavior invarian
 - A routine's schedule cannot coexist with its deadline or one-time reminder.
 - Sound and Vibrate are independently configurable for task-timer and routine-reminder feedback.
 - Skipping a scheduled routine moves its Home card to Completed with a Skipped flag and its reminder to the next recurrence; it adds no progress counts. Pressing the flag offers to undo the skip.
-- Completed or skipped cards return to Scheduled at the day start (`home_day_start_hour` in `integers.xml`, default 2 AM local).
+- Completed or skipped cards return to Scheduled at the day start (`home_day_start_hour` in `integers.xml`, default 2 AM local) of the day of their next occurrence.
 - Repeated reminders stop two hours after the scheduled time.
 - A run snapshots its routine-level Sound and Vibrate gates and semantic sound settings. Routine mute takes precedence over task settings; missing or unplayable audio does not interrupt run behavior or enabled haptics.
 - Task nudges use active task time and are suppressed while paused, in confirmation, or outside the foreground Run screen. The default cadence is one minute, including untimed and overtime tasks, without replaying missed background nudges.

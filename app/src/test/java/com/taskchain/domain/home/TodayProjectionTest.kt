@@ -66,6 +66,19 @@ class TodayProjectionTest {
         assertEquals(listOf(routine), project("2026-01-06 02:00", listOf(skipBeforeTrigger)).scheduled)
     }
 
+    /** Use this check to verify a weekly routine returns at day start on the day it is next due, not the day after. */
+    @Test
+    fun weeklyRoutineReturnsAtDayStartOfItsNextOccurrence() {
+        val monday = ScheduleRule(ScheduleFrequency.SELECTED_DAYS, 9, 0, daysOfWeek = setOf(1))
+        val routine = routine("weekly", monday)
+        val history = listOf(completion(routine, local("2026-01-05 09:30")))
+
+        fun project(at: String) = projectTodayRoutines(listOf(routine), null, history, local(at), 2, zone)
+
+        assertEquals(listOf(routine), project("2026-01-12 01:59").completed)
+        assertEquals(listOf(routine), project("2026-01-12 02:00").scheduled)
+    }
+
     /** Use this check to verify undoing a skip returns the card to Scheduled without a flag. */
     @Test
     fun undoneSkipReturnsToScheduled() {
