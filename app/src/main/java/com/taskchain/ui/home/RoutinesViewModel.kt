@@ -5,6 +5,9 @@ import androidx.lifecycle.viewModelScope
 import com.taskchain.AppContainer
 import com.taskchain.domain.home.TodayProjection
 import com.taskchain.domain.home.projectTodayRoutines
+import com.taskchain.domain.home.skipEvent
+import com.taskchain.domain.home.skipUndoneEvent
+import com.taskchain.domain.schedule.ReminderPlanner
 import com.taskchain.domain.model.RoutineRun
 import com.taskchain.domain.model.RoutineTemplate
 import com.taskchain.domain.model.RunStatus
@@ -48,7 +51,7 @@ class RoutinesViewModel(private val container: AppContainer) : ViewModel() {
         RoutinesState(
             routines = routines,
             builtIns = visibleBuiltIns,
-            todayRoutines = projectTodayRoutines(homeSource, activeRun, history, now),
+            todayRoutines = projectTodayRoutines(homeSource, activeRun, history, now, container.homeDayStartHour),
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_TIMEOUT_MILLIS), RoutinesState())
 
@@ -78,6 +81,28 @@ class RoutinesViewModel(private val container: AppContainer) : ViewModel() {
             mutableBlockedRoutine.value = routine
         } else {
             mutablePendingStart.value = routine
+        }
+    }
+
+    /** Use this function when the user skips the routine's current occurrence; the next recurrence is scheduled. */
+    fun skip(routine: RoutineTemplate) {
+        viewModelScope.launch {
+            val now = container.now()
+            container.completions.append(skipEvent(routine, container.newRunId(), now))
+            val plan = ReminderPlanner.afterCompletion(routine, routine.id, now)
+            plan.cancelRequestCodes.forEach(container.reminders::cancel)
+            plan.requests.forEach(container.reminders::schedule)
+        }
+    }
+
+    /** Use this function when the user undoes a skip; the routine returns to Scheduled with its normal reminder. */
+    fun undoSkip(routine: RoutineTemplate) {
+        viewModelScope.launch {
+            val now = container.now()
+            container.completions.append(skipUndoneEvent(routine, container.newRunId(), now))
+            val plan = ReminderPlanner.forRestore(routine, now)
+            plan.cancelRequestCodes.forEach(container.reminders::cancel)
+            plan.requests.forEach(container.reminders::schedule)
         }
     }
 

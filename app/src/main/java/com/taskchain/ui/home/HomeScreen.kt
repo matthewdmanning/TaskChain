@@ -43,6 +43,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -188,6 +189,20 @@ private fun TodayRoute(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val projection = state.todayRoutines
+    var undoTarget by remember { mutableStateOf<RoutineTemplate?>(null) }
+    undoTarget?.let { routine ->
+        AlertDialog(
+            onDismissRequest = { undoTarget = null },
+            title = { Text(stringResource(R.string.undo_skip_title)) },
+            text = { Text(stringResource(R.string.undo_skip_message, routine.title)) },
+            confirmButton = {
+                Button(onClick = { viewModel.undoSkip(routine); undoTarget = null }) {
+                    Text(stringResource(R.string.undo_skip))
+                }
+            },
+            dismissButton = { TextButton(onClick = { undoTarget = null }) { Text(stringResource(R.string.cancel)) } },
+        )
+    }
     Box(
         modifier = Modifier.fillMaxSize().padding(padding).consumeWindowInsets(padding)
             .background(CyberTheme.colors.background),
@@ -238,7 +253,7 @@ private fun TodayRoute(
                     }
                 }
             }
-            fun section(title: Int, routines: List<RoutineTemplate>, isCompleted: Boolean = false) {
+            fun section(title: Int, routines: List<RoutineTemplate>, isCompleted: Boolean = false, canSkip: Boolean = false) {
                 item {
                     Text(
                         stringResource(title).uppercase(),
@@ -260,10 +275,16 @@ private fun TodayRoute(
                     }
                 }
                 items(routines, key = { it.id.value }) { routine ->
-                    CompactRoutineRow(routine = routine, isCompleted = isCompleted) { onStart(routine) }
+                    CompactRoutineRow(
+                        routine = routine,
+                        isCompleted = isCompleted,
+                        isSkipped = routine.id in projection.skipped,
+                        onUndoSkip = { undoTarget = routine },
+                        onSkip = { viewModel.skip(routine) }.takeIf { canSkip && routine.schedule != null },
+                    ) { onStart(routine) }
                 }
             }
-            section(R.string.home_scheduled, projection.scheduled)
+            section(R.string.home_scheduled, projection.scheduled, canSkip = true)
             section(R.string.home_manual, projection.manual)
             section(R.string.home_completed, projection.completed, isCompleted = true)
         }
@@ -275,6 +296,9 @@ private fun TodayRoute(
 private fun CompactRoutineRow(
     routine: RoutineTemplate,
     isCompleted: Boolean,
+    isSkipped: Boolean = false,
+    onUndoSkip: () -> Unit = {},
+    onSkip: (() -> Unit)? = null,
     onStart: () -> Unit,
 ) {
     val shape = CyberTheme.shapes.cyberCutCornerShape
@@ -304,13 +328,18 @@ private fun CompactRoutineRow(
                 .weight(1f)
                 .padding(end = CyberPrimitives.Spacing.dp12),
         )
-        if (isCompleted) {
+        if (isSkipped) {
+            TextButton(onClick = onUndoSkip) { Text(stringResource(R.string.skipped_flag).uppercase()) }
+        } else if (isCompleted) {
             CyberIcon(
                 iconRes = SemanticIcons.Success,
                 contentDescription = stringResource(R.string.status_completed),
                 tint = CyberTheme.colors.textPrimary,
             )
         } else {
+            onSkip?.let {
+                TextButton(onClick = it) { Text(stringResource(R.string.skip_routine)) }
+            }
             CyberButton(
                 modifier = Modifier.size(CyberPrimitives.IconSizes.dp48),
                 onClick = onStart,

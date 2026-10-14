@@ -1,5 +1,7 @@
 <resources>
     <integer name="run_nudge_interval_seconds">60</integer>
+    <!-- Local hour at which completed or skipped routines return to Scheduled on Home. -->
+    <integer name="home_day_start_hour">2</integer>
     <integer name="repeated_path_parallel_count">5</integer>
     <integer name="repeated_path_radial_count">16</integer>
 </resources>

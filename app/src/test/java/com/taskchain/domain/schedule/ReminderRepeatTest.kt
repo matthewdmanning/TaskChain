@@ -51,6 +51,25 @@ class ReminderRepeatTest {
         )
     }
 
+    /** Verifies repeats stop after the repeat window and resume at the next regular occurrence. */
+    @Test
+    fun repeatsStopAfterWindowAndResumeNextDay() {
+        val zone = java.util.TimeZone.getDefault()
+        val rule = ScheduleRule(ScheduleFrequency.DAILY, 9, 0)
+        val cycleStart = NextTriggerCalculator.nextTriggerEpochMillis(rule, 0, zone)!!
+        val request = ReminderRequest(
+            requestCode = 1, routineId = "r", title = "t", triggerAtEpochMillis = cycleStart,
+            schedule = rule, remindEveryMinutes = 30, cycleStartEpochMillis = cycleStart,
+        )
+        val inWindow = cycleStart + 60 * 60_000L
+        val pastWindow = cycleStart + ReminderPlanner.REPEAT_WINDOW_MILLIS
+        assertEquals(inWindow + 30 * 60_000L, ReminderPlanner.afterDelivery(request, inWindow)!!.triggerAtEpochMillis)
+        assertEquals(
+            NextTriggerCalculator.nextTriggerEpochMillis(rule, pastWindow, zone),
+            ReminderPlanner.afterDelivery(request, pastWindow)!!.triggerAtEpochMillis,
+        )
+    }
+
     /** Use this function to verify active and historical completions stop repeats without hiding a new occurrence. */
     @Test
     fun completedTaskStopsOnlyItsCurrentCycle() {

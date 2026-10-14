@@ -149,7 +149,7 @@ class ReminderPlannerTest {
             triggerAtEpochMillis = deliveredAt,
             schedule = ScheduleRule(ScheduleFrequency.DAILY, 9, 0),
             remindEveryMinutes = 15,
-            cycleStartEpochMillis = 123L,
+            cycleStartEpochMillis = deliveredAt - 60_000L,
             soundEnabled = false,
             vibrateEnabled = true,
         )
@@ -159,7 +159,7 @@ class ReminderPlannerTest {
 
         assertNotNull(repeated)
         assertEquals(deliveredAt + 15 * 60_000L, repeated!!.triggerAtEpochMillis)
-        assertEquals(123L, repeated.cycleStartEpochMillis)
+        assertEquals(deliveredAt - 60_000L, repeated.cycleStartEpochMillis)
         assertEquals(false, repeated.soundEnabled)
         assertEquals(regular!!.triggerAtEpochMillis, regular.cycleStartEpochMillis)
         assertTrue(regular.triggerAtEpochMillis > repeated.triggerAtEpochMillis)

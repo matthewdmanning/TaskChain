@@ -43,6 +43,7 @@ class AppContainer(context: Context) {
     val reminders: ReminderScheduler = AndroidReminderScheduler(appContext)
     val timerFeedback = TimerFeedback(appContext)
     val taskFeedback: TaskFeedback = AndroidTaskFeedback(appContext)
+    val homeDayStartHour = appContext.resources.getInteger(R.integer.home_day_start_hour)
     val taskNudgeIntervalMillis = appContext.resources
         .getInteger(R.integer.run_nudge_interval_seconds)
         .toLong() * 1000L
