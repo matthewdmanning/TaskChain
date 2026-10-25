@@ -97,6 +97,13 @@ internal fun SettingsRoute(viewModel: SettingsViewModel, padding: PaddingValues)
         item {
             Text(stringResource(R.string.settings_default_sounds), style = MaterialTheme.typography.titleLarge)
         }
+        item {
+            LabeledSwitchRow(
+                label = stringResource(R.string.keep_screen_on_during_run),
+                checked = state.keepScreenOnDuringRun,
+                onCheckedChange = viewModel::setKeepScreenOnDuringRun,
+            )
+        }
         items(SoundToken.entries) { token ->
             SoundPickerRow(
                 label = stringResource(soundTokenLabel(token)),

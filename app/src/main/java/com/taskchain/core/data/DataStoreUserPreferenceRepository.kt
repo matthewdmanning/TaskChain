@@ -23,6 +23,7 @@ class DataStoreUserPreferenceRepository(private val context: Context) : UserPref
             continueTimerPastZero = values[CONTINUE_PAST_ZERO] ?: true,
             vibrationIntensity = values[VIBRATION_INTENSITY] ?: 1f,
             screenTransitionsEnabled = values[SCREEN_TRANSITIONS_ENABLED] ?: true,
+            keepScreenOnDuringRun = values[KEEP_SCREEN_ON_DURING_RUN] ?: true,
             showSubtaskTimeRemaining = values[SHOW_SUBTASK_TIME_REMAINING] ?: false,
             defaultSoundUris = SoundToken.entries.mapNotNull { token ->
                 values[defaultSoundKey(token)]?.let { token to it }
@@ -68,7 +69,13 @@ class DataStoreUserPreferenceRepository(private val context: Context) : UserPref
         }
     }
 
+    /** Persists whether the Run screen keeps the display awake. */
+    override suspend fun setKeepScreenOnDuringRun(enabled: Boolean) {
+        context.userPreferencesDataStore.edit { it[KEEP_SCREEN_ON_DURING_RUN] = enabled }
+    }
+
     private companion object {
+        val KEEP_SCREEN_ON_DURING_RUN = booleanPreferencesKey("keep_screen_on_during_run")
         fun defaultSoundKey(token: SoundToken) = stringPreferencesKey("default_sound_${token.name}")
         const val DEFAULT_THEME = "system"
         const val DEFAULT_UI_PROVIDER = "cyberpunk"

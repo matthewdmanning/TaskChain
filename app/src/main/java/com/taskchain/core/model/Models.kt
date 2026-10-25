@@ -179,6 +179,8 @@ data class UserPreferences(
     val vibrationIntensity: Float = 1f,
     val screenTransitionsEnabled: Boolean = true,
     val showSubtaskTimeRemaining: Boolean = false,
+    /** Keeps the display awake on the Run screen while a run is active. */
+    val keepScreenOnDuringRun: Boolean = true,
     /** Device sound the user picked per semantic token; a missing token keeps the built-in sound. */
     val defaultSoundUris: Map<SoundToken, String> = emptyMap(),
 ) {
