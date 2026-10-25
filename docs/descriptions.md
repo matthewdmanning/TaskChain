@@ -2445,3 +2445,12 @@ Dependencies: JUnit assertions, `startIsBlocked`, core run models.
 Use this function to guard start eligibility for absent, same and different active runs.
 Inputs: none.
 Dependencies: `startIsBlocked`, `RoutineRun`, `RunStatus`, JUnit.
+
+## `runKeepsScreenOn` — app/src/main/java/com/taskchain/ui/runner/RunnerKeepScreenOn.kt
+Use this function to decide whether the Run screen must keep the display awake; input run is the shown run snapshot or null, and it returns true only for an active run.
+
+## `KeepScreenOnEffect` — app/src/main/java/com/taskchain/ui/runner/RunnerKeepScreenOn.kt
+Use this composable to keep the display awake while the Run screen is in composition; input enabled gates the effect, dependency is `LocalView`, and it restores the previous `View.keepScreenOn` value on exit.
+
+## `RunnerKeepScreenOnTest` — app/src/test/java/com/taskchain/ui/runner/RunnerKeepScreenOnTest.kt
+Verifies that only an active run keeps the display awake; dependency is `runKeepsScreenOn`.
