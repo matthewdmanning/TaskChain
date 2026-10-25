@@ -2188,3 +2188,12 @@ Use this function to find the last local day start (configured hour) at or befor
 
 ## `returnToScheduledEpochMillis` — domain/home/TodayProjection.kt
 Use this function to find when a handled routine returns to Scheduled: the day start of the day of its next occurrence, never before the next day start.
+
+## `runKeepsScreenOn` — app/src/main/java/com/taskchain/ui/runner/RunnerKeepScreenOn.kt
+Use this function to decide whether the Run screen must keep the display awake; input run is the shown run snapshot or null, and it returns true only for an active run.
+
+## `KeepScreenOnEffect` — app/src/main/java/com/taskchain/ui/runner/RunnerKeepScreenOn.kt
+Use this composable to keep the display awake while the Run screen is in composition; input enabled gates the effect, dependency is `LocalView`, and it restores the previous `View.keepScreenOn` value on exit.
+
+## `RunnerKeepScreenOnTest` — app/src/test/java/com/taskchain/ui/runner/RunnerKeepScreenOnTest.kt
+Verifies that only an active run keeps the display awake; dependency is `runKeepsScreenOn`.

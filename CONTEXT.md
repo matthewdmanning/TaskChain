@@ -32,6 +32,7 @@ This is the source of truth for TaskChain's domain vocabulary, behavior invarian
 - Repeated reminders stop two hours after the scheduled time.
 - A run snapshots its routine-level Sound and Vibrate gates and semantic sound settings. Routine mute takes precedence over task settings; missing or unplayable audio does not interrupt run behavior or enabled haptics.
 - Task nudges use active task time and are suppressed while paused, in confirmation, or outside the foreground Run screen. The default cadence is one minute, including untimed and overtime tasks, without replaying missed background nudges.
+- The display stays on while a Routine run is active on the Run screen, including while a task is paused. It can sleep again when the run ends or the user leaves the screen. Android still overrides this when the app is in the background.
 - Completion effects delay presentation only; completion timestamps and run transitions are persisted immediately.
 - With task transitions enabled, a newly started next task waits for the completion effect and readiness countdown before its active timer begins; the start timestamp is persisted so recreation retains that delay.
 
