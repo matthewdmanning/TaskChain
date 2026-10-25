@@ -162,7 +162,7 @@ internal fun RoutineRunnerRoute(
     LaunchedEffect(animationsEnabled) { viewModel.setTransitionsEnabled(animationsEnabled) }
     val backState = rememberNavigationEventState(currentInfo = NavigationEventInfo.None)
     val run = presentation.run
-    KeepScreenOnEffect(enabled = runKeepsScreenOn(run))
+    KeepScreenOnEffect(enabled = runKeepsScreenOn(run, preferences.keepScreenOnDuringRun))
     NavigationBackHandler(
         state = backState,
         isBackEnabled = run?.status == RunStatus.ACTIVE || presentation.holdingCompletion,

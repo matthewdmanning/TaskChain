@@ -105,6 +105,13 @@ internal fun SettingsRoute(viewModel: SettingsViewModel, padding: PaddingValues)
                 checked = state.screenTransitionsEnabled, onCheckedChange = viewModel::setScreenTransitionsEnabled)
         }
         item {
+            LabeledSwitchRow(
+                label = stringResource(R.string.keep_screen_on_during_run),
+                checked = state.keepScreenOnDuringRun,
+                onCheckedChange = viewModel::setKeepScreenOnDuringRun,
+            )
+        }
+        item {
             LabeledSwitchRow(label = stringResource(R.string.punch_bubble_minimize),
                 checked = state.bubbleOnMinimize, onCheckedChange = { enabled ->
                     viewModel.setBubbleOnMinimize(enabled)

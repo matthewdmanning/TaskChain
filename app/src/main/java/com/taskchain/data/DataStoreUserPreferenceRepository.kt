@@ -24,6 +24,7 @@ class DataStoreUserPreferenceRepository(private val context: Context) : UserPref
             screenTransitionsEnabled = values[SCREEN_TRANSITIONS_ENABLED] ?: true,
             bubbleOnMinimize = values[BUBBLE_ON_MINIMIZE] ?: false,
             showSubtaskTimeRemaining = values[SHOW_SUBTASK_TIME_REMAINING] ?: false,
+            keepScreenOnDuringRun = values[KEEP_SCREEN_ON_DURING_RUN] ?: true,
         )
     }
 
@@ -63,6 +64,11 @@ class DataStoreUserPreferenceRepository(private val context: Context) : UserPref
         context.userPreferencesDataStore.edit { it[SHOW_SUBTASK_TIME_REMAINING] = enabled }
     }
 
+    /** Use this function when Settings changes whether the Run screen keeps the display awake. */
+    override suspend fun setKeepScreenOnDuringRun(enabled: Boolean) {
+        context.userPreferencesDataStore.edit { it[KEEP_SCREEN_ON_DURING_RUN] = enabled }
+    }
+
     private companion object {
         const val DEFAULT_THEME = "system"
         const val DEFAULT_UI_PROVIDER = "cyberpunk"
@@ -73,5 +79,6 @@ class DataStoreUserPreferenceRepository(private val context: Context) : UserPref
         val SCREEN_TRANSITIONS_ENABLED = booleanPreferencesKey("screen_transitions_enabled")
         val BUBBLE_ON_MINIMIZE = booleanPreferencesKey("bubble_on_minimize")
         val SHOW_SUBTASK_TIME_REMAINING = booleanPreferencesKey("show_subtask_time_remaining")
+        val KEEP_SCREEN_ON_DURING_RUN = booleanPreferencesKey("keep_screen_on_during_run")
     }
 }

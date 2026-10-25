@@ -2190,10 +2190,22 @@ Use this function to find the last local day start (configured hour) at or befor
 Use this function to find when a handled routine returns to Scheduled: the day start of the day of its next occurrence, never before the next day start.
 
 ## `runKeepsScreenOn` — app/src/main/java/com/taskchain/ui/runner/RunnerKeepScreenOn.kt
-Use this function to decide whether the Run screen must keep the display awake; input run is the shown run snapshot or null, and it returns true only for an active run.
+Use this function to decide whether the Run screen must keep the display awake; inputs are the shown run snapshot or null and the user's setting, and it returns true only for an active run with the setting on.
 
 ## `KeepScreenOnEffect` — app/src/main/java/com/taskchain/ui/runner/RunnerKeepScreenOn.kt
 Use this composable to keep the display awake while the Run screen is in composition; input enabled gates the effect, dependency is `LocalView`, and it restores the previous `View.keepScreenOn` value on exit.
 
 ## `RunnerKeepScreenOnTest` — app/src/test/java/com/taskchain/ui/runner/RunnerKeepScreenOnTest.kt
-Verifies that only an active run keeps the display awake; dependency is `runKeepsScreenOn`.
+Verifies that only an active run with the setting on keeps the display awake, and that the setting defaults to on; dependencies are `runKeepsScreenOn` and `UserPreferences`.
+
+## `UserPreferences.keepScreenOnDuringRun` — app/src/main/java/com/taskchain/domain/model/Models.kt
+Use this preference to decide whether the Run screen keeps the display awake during an active run; it defaults to true.
+
+## `setKeepScreenOnDuringRun` — app/src/main/java/com/taskchain/data/Repositories.kt
+Use this function when Settings toggles whether the Run screen keeps the display awake; input enabled is the new value.
+
+## `setKeepScreenOnDuringRun` — app/src/main/java/com/taskchain/data/DataStoreUserPreferenceRepository.kt
+Use this function to persist the keep-screen-on setting under `keep_screen_on_during_run`; input enabled is the new value, dependency is the preferences DataStore.
+
+## `setKeepScreenOnDuringRun` — app/src/main/java/com/taskchain/ui/settings/SettingsViewModel.kt
+Use this function when Settings toggles whether the Run screen keeps the display awake; input enabled is the new value, dependency is the preference repository.
