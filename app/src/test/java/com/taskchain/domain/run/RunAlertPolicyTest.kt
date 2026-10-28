@@ -83,18 +83,27 @@ class RunAlertPolicyTest {
         assertNull(RunAlertPolicy.nextAlertAt(started, engine, idleLimit, interval, idleLimit))
     }
 
-    /** Use this function to verify a due reminder is reported once and a timer expiry once. */
+    /** Use this function to verify a due reminder is reported once. */
     @Test
-    fun dueAlertsAreReportedOnce() {
-        val run = engine.start(routine(30L), RoutineRunId("run"), 0)
+    fun dueReminderIsReportedOnce() {
+        val run = engine.start(routine(120L), RoutineRunId("run"), 0)
 
         val first = RunAlertPolicy.takeDue(run, engine, 60_000L, interval, idleLimit)
         assertTrue(first.nudge)
+        assertFalse(first.timerExpired)
+
+        assertFalse(RunAlertPolicy.takeDue(first.run, engine, 60_000L, interval, idleLimit).nudge)
+    }
+
+    /** Use this function to verify a timer expiry is reported once. */
+    @Test
+    fun timerExpiryIsReportedOnce() {
+        val run = engine.start(routine(30L), RoutineRunId("run"), 0)
+
+        val first = RunAlertPolicy.takeDue(run, engine, 30_000L, interval, idleLimit)
         assertTrue(first.timerExpired)
 
-        val repeat = RunAlertPolicy.takeDue(first.run, engine, 60_000L, interval, idleLimit)
-        assertFalse(repeat.nudge)
-        assertFalse(repeat.timerExpired)
+        assertFalse(RunAlertPolicy.takeDue(first.run, engine, 30_000L, interval, idleLimit).timerExpired)
     }
 
     /** Use this function to verify an exhausted run still acknowledges buckets but stays silent. */
