@@ -2210,3 +2210,9 @@ Store a picked sound URI for a task or a token; null resets.
 ## `RunAlertPolicyTest`, `taskSoundReplacesNudgeAndTimerExpiryOnly`, `userDefaultsKeepRoutineCustomization` — app/src/test
 Cover alert timing, idle limit restarts, once-only delivery, and sound overrides.
 
+## `RoutineRunEngine.requiresRunnerScreen` — app/src/main/java/com/taskchain/domain/run/RoutineRunEngine.kt
+True when the run is active and its clock or a confirmation dialog is live. False when paused, current task not pending, or run not active. `TaskChainApp` reopens the Run screen whenever this is true elsewhere.
+
+## `onlyRunningOrConfirmingRunRequiresRunnerScreen` — app/src/test/java/com/taskchain/domain/run/RoutineRunEngineTest.kt
+Covers running, paused, confirming, skipped, and aborted runs.
+

@@ -330,6 +330,18 @@ class RoutineRunEngine {
     fun activeSubtaskIndex(task: RoutineRunTask): Int =
         task.source.subtasks.indexOfFirst { it.id == task.activeSubtaskId }
 
+    /**
+     * Use this function to decide whether the Run screen must stay open: the run is active and its clock or a
+     * confirmation dialog is live. A paused run, or one whose current task is not pending, may leave for Home.
+     * Inputs: `run` — the persisted routine run.
+     */
+    fun requiresRunnerScreen(run: RoutineRun): Boolean {
+        if (run.status != RunStatus.ACTIVE) return false
+        if (run.finishConfirmationRequested || run.abortConfirmationRequested) return true
+        val task = run.tasks.getOrNull(run.currentTaskIndex) ?: return false
+        return task.status == RunTaskStatus.PENDING && task.pausedAtEpochMillis == null
+    }
+
     /** Use this function to total every task's configured time; zero means the run has no timer. */
     fun plannedRunMillis(run: RoutineRun): Long =
         run.tasks.sumOf { task -> task.source.durationSeconds?.let(::durationMillis) ?: 0L }

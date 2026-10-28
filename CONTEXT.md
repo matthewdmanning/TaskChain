@@ -21,6 +21,7 @@ This is the source of truth for TaskChain's domain vocabulary, behavior invarian
 - Completing the final task ends the run directly when no task remains unfinished. If any tasks remain pending or skipped, finishing requests confirmation and shows the unfinished tasks.
 - Confirmation shows unfinished tasks and lets the user jump to one before finalizing.
 - Back on the first task requests abort confirmation.
+- No flow leaves a running run for another screen. While the run is active and its current task is pending and unpaused, or a confirmation is open, the app reopens the Run screen. Pausing, completing, or aborting lifts this.
 - Aborting keeps the run as an Aborted run and returns Home without creating completed or aborted history or changing the routine's scheduled-completion state. Settings changes are preserved.
 - Starting a new Routine run deletes that routine's Aborted or Unfinished run.
 - An Aborted or Unfinished run is deleted 18 hours after its last Skip or Complete, or 18 hours after it started if no task was skipped or completed. Opening, closing, pausing, resuming, and aborting do not reset this time.

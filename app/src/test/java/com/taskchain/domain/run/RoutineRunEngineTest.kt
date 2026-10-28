@@ -422,4 +422,17 @@ class RoutineRunEngineTest {
         // Duration does not grow after completion
         assertEquals(8_000L, engine.remainingMillis(completedTask1.copy(currentTaskIndex = 1), 20_000L))
     }
+
+    /** Use this function to verify only a running or confirming run must keep the Run screen open. */
+    @Test
+    fun onlyRunningOrConfirmingRunRequiresRunnerScreen() {
+        val engine = RoutineRunEngine()
+        val started = engine.start(routine(timerSeconds = 60), RoutineRunId("run"), 0)
+
+        assertTrue(engine.requiresRunnerScreen(started))
+        assertFalse(engine.requiresRunnerScreen(engine.pauseCurrent(started, 1_000)))
+        assertTrue(engine.requiresRunnerScreen(engine.back(engine.pauseCurrent(started, 1_000), 2_000)))
+        assertFalse(engine.requiresRunnerScreen(engine.skipCurrent(started, 1_000).copy(currentTaskIndex = 0)))
+        assertFalse(engine.requiresRunnerScreen(started.copy(status = RunStatus.ABORTED)))
+    }
 }
