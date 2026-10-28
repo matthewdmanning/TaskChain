@@ -212,7 +212,8 @@ class RoutineRunnerViewModel(
             run,
             now,
             container.taskNudgeIntervalMillis,
-            emit = true,
+            // Reminders stop once active time reaches the sum of all task times; buckets are still acknowledged.
+            emit = !container.runEngine.isPastPlannedRunTime(run, now),
         )
         if (nudge.run != run) {
             try {

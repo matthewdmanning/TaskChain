@@ -319,6 +319,21 @@ class RoutineRunEngine {
     fun activeSubtaskIndex(task: RoutineRunTask): Int =
         task.source.subtasks.indexOfFirst { it.id == task.activeSubtaskId }
 
+    /**
+     * Use this function to decide whether periodic reminders have run past the whole run's planned time.
+     * Inputs: `run` — the persisted routine run; `nowEpochMillis` — the wall-clock sample.
+     * Dependencies: task durations and per-task active time. A run with no timed task never runs out.
+     */
+    fun isPastPlannedRunTime(run: RoutineRun, nowEpochMillis: Long): Boolean {
+        val plannedMillis = run.tasks.sumOf { task -> task.source.durationSeconds?.let(::durationMillis) ?: 0L }
+        if (plannedMillis <= 0L) return false
+        val activeMillis = run.tasks.withIndex().sumOf { (index, task) ->
+            val confirmation = if (index == run.currentTaskIndex) run.confirmationStartedAtEpochMillis else null
+            elapsedMillis(task, confirmation, nowEpochMillis)
+        }
+        return activeMillis >= plannedMillis
+    }
+
     /** Use this function before firing audio and haptics so zero feedback occurs only once. */
     fun needsTimerFeedback(run: RoutineRun, nowEpochMillis: Long): Boolean {
         require(run.status == RunStatus.ACTIVE)

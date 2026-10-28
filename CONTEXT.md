@@ -35,7 +35,7 @@ This is the source of truth for TaskChain's domain vocabulary, behavior invarian
 - The run notification's Skip and Complete apply the same engine transitions as the Run screen to the persisted run, without opening the app, and ignore a press built for an earlier step. On the last main task, and while a finish or abort confirmation is open, both buttons open the Run screen instead, because ending the run needs its dialog.
 - The readiness countdown gives one short haptic pulse at each of 3, 2, and 1 when the routine and upcoming task allow vibration and haptic intensity is above zero. Get Ready does not pulse.
 - A run snapshots its routine-level Sound and Vibrate gates and semantic sound settings. Routine mute takes precedence over task settings; missing or unplayable audio does not interrupt run behavior or enabled haptics.
-- Task nudges use active task time and are suppressed while paused, in confirmation, or outside the foreground Run screen. The default cadence is one minute, including untimed and overtime tasks, without replaying missed background nudges.
+- Task nudges use active task time and are suppressed while paused, in confirmation, or outside the foreground Run screen. The default cadence is one minute, including untimed and overtime tasks, without replaying missed background nudges. Nudges stop once the run's total active time reaches the sum of all task times; a run with no timed task is never capped.
 - Completion effects delay presentation only; completion timestamps and run transitions are persisted immediately.
 - With task transitions enabled, a newly started next task waits for the completion effect and readiness countdown before its active timer begins; the start timestamp is persisted so recreation retains that delay.
 
