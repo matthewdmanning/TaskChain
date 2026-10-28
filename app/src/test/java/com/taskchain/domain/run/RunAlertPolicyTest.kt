@@ -48,13 +48,18 @@ class RunAlertPolicyTest {
         assertFalse(RunAlertPolicy.remindersExhausted(navigated, engine, 840_000L + idleLimit - 1, idleLimit))
     }
 
-    /** Use this function to verify a timed run follows its planned total, not the idle limit. */
+    /** Use this function to verify the limit is the configured sum, whatever the tasks' remaining or passed time. */
     @Test
-    fun timedRunIgnoresIdleLimit() {
-        val run = engine.start(routine(1_800L), RoutineRunId("run"), 0)
+    fun timedRunLimitIsConfiguredSumFromLatestInteraction() {
+        val started = engine.start(routine(60L, 120L), RoutineRunId("run"), 0)
 
-        assertFalse(RunAlertPolicy.remindersExhausted(run, engine, 1_799_999L, idleLimit))
-        assertTrue(RunAlertPolicy.remindersExhausted(run, engine, 1_800_000L, idleLimit))
+        assertFalse(RunAlertPolicy.remindersExhausted(started, engine, 179_999L, idleLimit))
+        assertTrue(RunAlertPolicy.remindersExhausted(started, engine, 180_000L, idleLimit))
+
+        // Completing the first task early does not shorten the limit; it restarts the same 180 s.
+        val advanced = engine.completeCurrent(started, 10_000L)
+        assertFalse(RunAlertPolicy.remindersExhausted(advanced, engine, 189_999L, idleLimit))
+        assertTrue(RunAlertPolicy.remindersExhausted(advanced, engine, 190_000L, idleLimit))
     }
 
     /** Use this function to verify the next alarm is the earlier of timer expiry and the next reminder. */

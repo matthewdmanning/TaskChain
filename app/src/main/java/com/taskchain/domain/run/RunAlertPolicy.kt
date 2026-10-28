@@ -19,8 +19,9 @@ data class DueRunAlerts(
 object RunAlertPolicy {
     /**
      * Use this function to decide whether periodic reminders must stop for this run.
-     * They stop when active time reaches the sum of all task times. A run with no timer stops them
-     * `untimedIdleLimitMillis` after the latest navigation, pause, resume, skip, or complete.
+     * The limit is the sum of all configured task times, fixed when the run starts. A run with no timer
+     * uses `untimedIdleLimitMillis`. It counts from the latest navigation, pause, resume, skip, or complete,
+     * or from the run start before any of those. Time remaining or passed in tasks does not change it.
      */
     fun remindersExhausted(
         run: RoutineRun,
@@ -28,9 +29,9 @@ object RunAlertPolicy {
         nowEpochMillis: Long,
         untimedIdleLimitMillis: Long,
     ): Boolean {
-        if (engine.plannedRunMillis(run) > 0L) return engine.isPastPlannedRunTime(run, nowEpochMillis)
-        val idleSince = run.lastInteractionAtEpochMillis ?: run.startedAtEpochMillis
-        return nowEpochMillis - idleSince >= untimedIdleLimitMillis
+        val limitMillis = engine.plannedRunMillis(run).takeIf { it > 0L } ?: untimedIdleLimitMillis
+        val since = run.lastInteractionAtEpochMillis ?: run.startedAtEpochMillis
+        return nowEpochMillis - since >= limitMillis
     }
 
     /**

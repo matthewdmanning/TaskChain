@@ -422,29 +422,4 @@ class RoutineRunEngineTest {
         // Duration does not grow after completion
         assertEquals(8_000L, engine.remainingMillis(completedTask1.copy(currentTaskIndex = 1), 20_000L))
     }
-
-    /** Use this function to verify reminders stop once active time reaches the sum of all task times. */
-    @Test
-    fun plannedRunTimeCapsPeriodicReminders() {
-        val engine = RoutineRunEngine()
-        val timed = RoutineTemplate(
-            id = RoutineId("routine"),
-            metadata = EntityMetadata(0, 0),
-            title = "Morning",
-            tasks = listOf(
-                RoutineTask(RoutineTaskId("one"), "One", timerSeconds = 60),
-                RoutineTask(RoutineTaskId("two"), "Two", timerSeconds = 120),
-            ),
-        )
-        val started = engine.start(timed, RoutineRunId("run"), 0)
-
-        assertFalse(engine.isPastPlannedRunTime(started, 179_999L))
-        assertTrue(engine.isPastPlannedRunTime(started, 180_000L))
-        // Time already spent on a finished task counts toward the same total.
-        val second = engine.completeCurrent(started, 50_000L)
-        assertFalse(engine.isPastPlannedRunTime(second, 179_999L - 50_000L + 40_000L))
-        assertTrue(engine.isPastPlannedRunTime(second, 180_000L))
-        // A run with no timed task is never capped.
-        assertFalse(engine.isPastPlannedRunTime(engine.start(routine(), RoutineRunId("run"), 0), Long.MAX_VALUE / 4))
-    }
 }

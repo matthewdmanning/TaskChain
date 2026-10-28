@@ -2171,16 +2171,9 @@ Use this function to map a routine id to its alarm and notification code.
 ## `MainActivity.EXTRA_OPEN_ACTIVE_RUN` — MainActivity.kt
 Intent extra that asks the app to open the persisted active run, for example from the run notification.
 
-## `isPastPlannedRunTime` — app/src/main/java/com/taskchain/domain/run/RoutineRunEngine.kt
-Use this function to decide whether periodic reminders ran past the whole run's planned time.
-Inputs: `run`, `nowEpochMillis`. Dependencies: task durations and per-task active time. A run with no timed task never runs out.
-
-## `plannedRunTimeCapsPeriodicReminders` — app/src/test/java/com/taskchain/domain/run/RoutineRunEngineTest.kt
-Use this function to verify reminders stop once active time reaches the sum of all task times.
-
 ## `RunAlertPolicy` — app/src/main/java/com/taskchain/domain/run/RunAlertPolicy.kt
 Platform-neutral policy for run alerts while the Run screen is hidden. `DueRunAlerts(run, nudge, timerExpired)` carries the acknowledged run and what to play.
-- `remindersExhausted(run, engine, now, untimedIdleLimitMillis)`: true at the planned run total, or for a run with no timer after the idle limit since `lastInteractionAtEpochMillis` (else `startedAtEpochMillis`).
+- `remindersExhausted(run, engine, now, untimedIdleLimitMillis)`: true once the limit has passed since `lastInteractionAtEpochMillis` (else `startedAtEpochMillis`). Limit is `plannedRunMillis`, or the idle limit when no task has a timer.
 - `nextAlertAt(run, engine, now, nudgeIntervalMillis, untimedIdleLimitMillis)`: next nudge or timer-expiry time, never before `now`; null when paused, confirming, not active, or nothing remains.
 - `takeDue(...)`: acknowledges due nudge bucket and timer expiry; reports nudge only when not exhausted.
 
