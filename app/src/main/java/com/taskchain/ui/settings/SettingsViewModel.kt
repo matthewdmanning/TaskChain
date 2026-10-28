@@ -50,6 +50,11 @@ class SettingsViewModel(private val container: AppContainer) : ViewModel() {
         viewModelScope.launch { container.preferences.setDefaultSoundUri(token, uri) }
     }
 
+    /** Use this function when Settings toggles whether the Run screen keeps the display awake. */
+    fun setKeepScreenOnDuringRun(enabled: Boolean) {
+        viewModelScope.launch { container.preferences.setKeepScreenOnDuringRun(enabled) }
+    }
+
     private companion object {
         const val STOP_TIMEOUT_MILLIS = 5_000L
     }

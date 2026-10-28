@@ -181,6 +181,8 @@ data class UserPreferences(
     val showSubtaskTimeRemaining: Boolean = false,
     /** Device sound the user picked per semantic token; a missing token keeps the built-in sound. */
     val defaultSoundUris: Map<SoundToken, String> = emptyMap(),
+    /** Keeps the display awake on the Run screen while a run is active. */
+    val keepScreenOnDuringRun: Boolean = true,
 ) {
     init {
         require(vibrationIntensity in 0f..1f)
