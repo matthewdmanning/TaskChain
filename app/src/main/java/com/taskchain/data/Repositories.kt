@@ -68,4 +68,7 @@ interface UserPreferenceRepository {
 
     /** Use this function when Settings toggles subtask countdown visibility in the runner. */
     suspend fun setShowSubtaskTimeRemaining(enabled: Boolean)
+
+    /** Use this function when Settings toggles whether the Run screen keeps the display awake. */
+    suspend fun setKeepScreenOnDuringRun(enabled: Boolean)
 }

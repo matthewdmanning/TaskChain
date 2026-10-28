@@ -176,6 +176,8 @@ data class UserPreferences(
     val screenTransitionsEnabled: Boolean = true,
     val bubbleOnMinimize: Boolean = false,
     val showSubtaskTimeRemaining: Boolean = false,
+    /** Keeps the display awake on the Run screen while a run is active. */
+    val keepScreenOnDuringRun: Boolean = true,
 ) {
     init {
         require(vibrationIntensity in 0f..1f)
