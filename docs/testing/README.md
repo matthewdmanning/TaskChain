@@ -21,8 +21,8 @@ Status words in this folder:
 | Layer | Location | Runs on | Status | Covers |
 | --- | --- | --- | --- | --- |
 | Unit (JVM) | `app/src/test` | CI and local | Exists | Run engine, schedule, migration, validation, presentation math |
-| Compose and storage instrumentation | `app/src/androidTest` | Device | Exists | Builder, runner Back, bubble launch, startup recovery, legacy migration |
-| Navigation on device | `app/src/androidTest` | Physical device | Partly exists | Back, gesture, bubble, recreation. See [automated-physical-device-tests.md](automated-physical-device-tests.md) |
+| Compose and storage instrumentation | `app/src/androidTest` | Device | Exists | Builder, runner Back, open-active-run launch, startup recovery, legacy migration |
+| Navigation on device | `app/src/androidTest` | Physical device | Partly exists | Back, gesture, run notification launch, recreation. See [automated-physical-device-tests.md](automated-physical-device-tests.md) |
 | Screenshot on device | `app/src/androidTest` | Physical device | Proposed | Screen and component appearance. See [automated-physical-device-tests.md](automated-physical-device-tests.md) |
 | Upgrade and reboot | Manual script plus checks | Physical device | Proposed | Data survives update and reboot. See [on-device-data.md](../on-device-data.md) |
 | Manual device pass | Checklist | Physical device | Exists (informal) | TalkBack, haptics, sound, notifications |

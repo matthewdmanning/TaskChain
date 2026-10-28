@@ -3,6 +3,7 @@ package com.taskchain.ui.settings
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.taskchain.AppContainer
+import com.taskchain.domain.model.SoundToken
 import com.taskchain.domain.model.UserPreferences
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -39,14 +40,14 @@ class SettingsViewModel(private val container: AppContainer) : ViewModel() {
         viewModelScope.launch { container.preferences.setScreenTransitionsEnabled(enabled) }
     }
 
-    /** Use this function to opt into native run bubbles; input is the enabled gate, dependency is the preference repository. */
-    fun setBubbleOnMinimize(enabled: Boolean) {
-        viewModelScope.launch { container.preferences.setBubbleOnMinimize(enabled) }
-    }
-
     /** Use this function when subtask countdown visibility is toggled in Settings. */
     fun setShowSubtaskTimeRemaining(enabled: Boolean) {
         viewModelScope.launch { container.preferences.setShowSubtaskTimeRemaining(enabled) }
+    }
+
+    /** Use this function when Settings picks or resets the default device sound for one semantic token. */
+    fun setDefaultSound(token: SoundToken, uri: String?) {
+        viewModelScope.launch { container.preferences.setDefaultSoundUri(token, uri) }
     }
 
     /** Use this function when Settings toggles whether the Run screen keeps the display awake. */

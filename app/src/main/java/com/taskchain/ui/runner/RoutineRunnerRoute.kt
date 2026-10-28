@@ -155,6 +155,10 @@ internal fun RoutineRunnerRoute(
         animationsEnabled = preferences.screenTransitionsEnabled && runnerAnimationsEnabled(LocalContext.current),
         foreground = foreground,
     )
+    val readyPhase = TaskReadyPhase.entries.firstOrNull { it.label == presentation.readyLabel }
+    LaunchedEffect(readyPhase) {
+        if (readyPhase?.isCountdownNumber() == true) viewModel.countdownPulse()
+    }
     LaunchedEffect(state.finished, presentation.holdingCompletion) {
         if (state.finished && !presentation.holdingCompletion) onFinished()
     }

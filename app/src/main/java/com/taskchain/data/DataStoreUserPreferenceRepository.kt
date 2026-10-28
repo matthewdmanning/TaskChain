@@ -6,6 +6,7 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import com.taskchain.domain.model.SoundToken
 import com.taskchain.domain.model.UserPreferences
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -22,8 +23,10 @@ class DataStoreUserPreferenceRepository(private val context: Context) : UserPref
             continueTimerPastZero = values[CONTINUE_PAST_ZERO] ?: true,
             vibrationIntensity = values[VIBRATION_INTENSITY] ?: 1f,
             screenTransitionsEnabled = values[SCREEN_TRANSITIONS_ENABLED] ?: true,
-            bubbleOnMinimize = values[BUBBLE_ON_MINIMIZE] ?: false,
             showSubtaskTimeRemaining = values[SHOW_SUBTASK_TIME_REMAINING] ?: false,
+            defaultSoundUris = SoundToken.entries.mapNotNull { token ->
+                values[defaultSoundKey(token)]?.let { token to it }
+            }.toMap(),
             keepScreenOnDuringRun = values[KEEP_SCREEN_ON_DURING_RUN] ?: true,
         )
     }
@@ -54,14 +57,16 @@ class DataStoreUserPreferenceRepository(private val context: Context) : UserPref
         context.userPreferencesDataStore.edit { it[SCREEN_TRANSITIONS_ENABLED] = enabled }
     }
 
-    /** Use this function when settings changes whether the app requests a minimize bubble. */
-    override suspend fun setBubbleOnMinimize(enabled: Boolean) {
-        context.userPreferencesDataStore.edit { it[BUBBLE_ON_MINIMIZE] = enabled }
-    }
-
     /** Use this function when Settings changes whether the active subtask shows remaining time. */
     override suspend fun setShowSubtaskTimeRemaining(enabled: Boolean) {
         context.userPreferencesDataStore.edit { it[SHOW_SUBTASK_TIME_REMAINING] = enabled }
+    }
+
+    /** Use this function when Settings picks or clears a default device sound for one token. */
+    override suspend fun setDefaultSoundUri(token: SoundToken, uri: String?) {
+        context.userPreferencesDataStore.edit {
+            if (uri == null) it.remove(defaultSoundKey(token)) else it[defaultSoundKey(token)] = uri
+        }
     }
 
     /** Use this function when Settings changes whether the Run screen keeps the display awake. */
@@ -70,6 +75,7 @@ class DataStoreUserPreferenceRepository(private val context: Context) : UserPref
     }
 
     private companion object {
+        fun defaultSoundKey(token: SoundToken) = stringPreferencesKey("default_sound_${token.name}")
         const val DEFAULT_THEME = "system"
         const val DEFAULT_UI_PROVIDER = "cyberpunk"
         val SELECTED_UI_PROVIDER = stringPreferencesKey("selected_ui_provider")
@@ -77,7 +83,6 @@ class DataStoreUserPreferenceRepository(private val context: Context) : UserPref
         val CONTINUE_PAST_ZERO = booleanPreferencesKey("continue_timer_past_zero")
         val VIBRATION_INTENSITY = floatPreferencesKey("vibration_intensity")
         val SCREEN_TRANSITIONS_ENABLED = booleanPreferencesKey("screen_transitions_enabled")
-        val BUBBLE_ON_MINIMIZE = booleanPreferencesKey("bubble_on_minimize")
         val SHOW_SUBTASK_TIME_REMAINING = booleanPreferencesKey("show_subtask_time_remaining")
         val KEEP_SCREEN_ON_DURING_RUN = booleanPreferencesKey("keep_screen_on_during_run")
     }

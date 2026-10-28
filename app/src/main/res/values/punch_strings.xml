@@ -4,7 +4,4 @@
     <string name="punch_vibration_intensity">Vibration intensity</string>
     <string name="punch_screen_transitions">Task transitions</string>
     <string name="keep_screen_on_during_run">Keep screen on during a run</string>
-    <string name="punch_bubble_minimize">Run bubble when app is in background</string>
-    <string name="punch_bubble_system_help">Requires Android bubble support and notification permission. Enable bubbles for TaskChain in system notification settings.</string>
-    <string name="punch_bubble_system_settings">Notification and bubble settings</string>
 </resources>

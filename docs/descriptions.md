@@ -1414,68 +1414,6 @@ Use this function to verify visible builder handles reorder collapsed and expand
 Inputs: None.
 Dependencies: `MainActivity`, `activityRule`, the built-in Morning reset routine.
 
-## RunBubble - app/src/main/java/com/taskchain/reminder/RunBubble.kt
-
-Posts the native Android bubble for an active run when the user and platform allow it.
-Inputs: context: Context
-Dependencies: NotificationCompat, NotificationManagerCompat, ShortcutManager, MainActivity, RoutineRun, Android notification permission and bubble settings.
-
-## isAvailable - app/src/main/java/com/taskchain/reminder/RunBubble.kt
-
-Use this function before rendering or posting the bubble to check Android version, notification permission, app notification state, global bubble state, and channel bubble state.
-Inputs: none.
-Dependencies: Context, NotificationManager, NotificationManagerCompat, Settings channel state.
-Returns: Boolean availability result.
-
-## show - app/src/main/java/com/taskchain/reminder/RunBubble.kt
-
-Use this function when the activity leaves the foreground to post one silent ongoing bubble for an active run.
-Inputs: run: RoutineRun
-Dependencies: RoutineRun.status, run tasks, NotificationCompat.MessagingStyle, conversation shortcut, MainActivity pending intent, Android notification policy.
-Returns: none; denied platform settings are handled as a no-op.
-
-## cancel - app/src/main/java/com/taskchain/reminder/RunBubble.kt
-
-Use this function when the activity returns to the foreground to remove the active-run bubble.
-Inputs: none.
-Dependencies: NotificationManagerCompat.
-Returns: none.
-
-## settingsIntent - app/src/main/java/com/taskchain/reminder/RunBubble.kt
-
-Use this function to route a settings affordance to Android app bubble controls, falling back to app notification settings when unavailable.
-Inputs: none.
-Dependencies: Settings actions, package manager, app package name.
-Returns: Intent.
-
-## channelSettingsIntent - app/src/main/java/com/taskchain/reminder/RunBubble.kt
-
-Use this function when Android reports the active-run channel has bubbles disabled.
-Inputs: none.
-Dependencies: Settings channel notification action, channel id, app package name.
-Returns: Intent.
-
-## createChannel - app/src/main/java/com/taskchain/reminder/RunBubble.kt
-
-Use this function before bubble availability checks or posting to create the user-controlled active-run notification channel.
-Inputs: none.
-Dependencies: NotificationManager, notification channel resources.
-Returns: none.
-
-## createShortcut - app/src/main/java/com/taskchain/reminder/RunBubble.kt
-
-Use this function before posting a shortcut bubble to register its long-lived conversation shortcut and person metadata.
-Inputs: routineTitle: String
-Dependencies: ShortcutManager, ShortcutInfo, MainActivity, notification icon resource.
-Returns: none; registration failures are contained.
-
-## pendingIntentMutability - app/src/main/java/com/taskchain/reminder/RunBubble.kt
-
-Use this function to select the bubble launch PendingIntent mutability required by the device API.
-Inputs: none.
-Dependencies: Build.VERSION and PendingIntent flags.
-Returns: Int flag value.
-
 ## setVibrationIntensity - app/src/main/java/com/taskchain/data/DataStoreUserPreferenceRepository.kt
 
 Use this function when settings changes haptic feedback strength.
@@ -1486,13 +1424,6 @@ Returns: none.
 ## setScreenTransitionsEnabled - app/src/main/java/com/taskchain/data/DataStoreUserPreferenceRepository.kt
 
 Use this function when settings changes completion transition presentation.
-Inputs: enabled: Boolean
-Dependencies: DataStore boolean preference.
-Returns: none.
-
-## setBubbleOnMinimize - app/src/main/java/com/taskchain/data/DataStoreUserPreferenceRepository.kt
-
-Use this function when settings changes whether the app requests a minimize bubble.
 Inputs: enabled: Boolean
 Dependencies: DataStore boolean preference.
 Returns: none.
@@ -1561,12 +1492,6 @@ Dependencies: `container.preferences`, `viewModelScope`.
 
 Use this function to persist the task-transition preference.
 Inputs: `enabled` — transition gate.
-Dependencies: `container.preferences`, `viewModelScope`.
-
-## `setBubbleOnMinimize` — app/src/main/java/com/taskchain/ui/FeatureViewModels.kt
-
-Use this function to persist the native bubble opt-in.
-Inputs: `enabled` — bubble preference.
 Dependencies: `container.preferences`, `viewModelScope`.
 
 ## `advanceToNextFinishedTask` — app/src/main/java/com/taskchain/ui/FeatureViewModels.kt
@@ -1948,15 +1873,15 @@ Use this function to preview an intercepted Back gesture from its transition sta
 Inputs: transitionState — current gesture lifecycle and event; enabled — motion/confirmation gate; receiver — screen modifier.
 Dependencies: NavigationEventTransitionState.
 
-## `BubbleNavigationTest` — app/src/androidTest/java/com/taskchain/BubbleNavigationTest.kt
-Verifies that a bubble launch request does not duplicate a restored runner entry.
+## `OpenActiveRunNavigationTest` — app/src/androidTest/java/com/taskchain/OpenActiveRunNavigationTest.kt
+Verifies that an open-active-run request does not duplicate a restored runner entry.
 Constructor inputs: none.
-Dependencies: MainActivity, RunBubble, and Compose test semantics.
+Dependencies: MainActivity and Compose test semantics.
 
-## `bubbleRequestAfterRecreation_doesNotLeaveDuplicateRunnerEntry` — app/src/androidTest/java/com/taskchain/BubbleNavigationTest.kt
-Use this function to verify recreation consumes the bubble request after restoration.
+## `openActiveRunRequestAfterRecreation_doesNotLeaveDuplicateRunnerEntry` — app/src/androidTest/java/com/taskchain/OpenActiveRunNavigationTest.kt
+Use this function to verify recreation consumes the open-active-run request after restoration.
 Inputs: none.
-Dependencies: activityRule, MainActivity, RunBubble.EXTRA_OPEN_ACTIVE_RUN, and Compose test semantics.
+Dependencies: activityRule, MainActivity, MainActivity.EXTRA_OPEN_ACTIVE_RUN, and Compose test semantics.
 
 ## `NavigationBackHandlerTest` — app/src/androidTest/java/com/taskchain/ui/NavigationBackHandlerTest.kt
 Tests predictive progress, cancellation, and completion through ComponentActivity's dispatcher.
@@ -1968,15 +1893,15 @@ Use this function to verify gesture previews reset without committing the Back a
 Inputs: none.
 Dependencies: compose dispatcher, NavigationBackHandler, navigationBackPreview.
 
-## `BubbleNavigationTest` — app/src/androidTest/java/com/taskchain/BubbleNavigationTest.kt
-Verifies that a bubble launch request does not duplicate a restored runner entry.
+## `OpenActiveRunNavigationTest` — app/src/androidTest/java/com/taskchain/OpenActiveRunNavigationTest.kt
+Verifies that an open-active-run request does not duplicate a restored runner entry.
 Constructor inputs: none.
-Dependencies: AppContainer, TaskChainApp, RunBubble, NavHostController, and StateRestorationTester.
+Dependencies: AppContainer, TaskChainApp, MainActivity, NavHostController, and StateRestorationTester.
 
-## `bubbleRequestAfterRecreation_doesNotLeaveDuplicateRunnerEntry` — app/src/androidTest/java/com/taskchain/BubbleNavigationTest.kt
-Use this function to verify recreation consumes the bubble request after restoration.
+## `openActiveRunRequestAfterRecreation_doesNotLeaveDuplicateRunnerEntry` — app/src/androidTest/java/com/taskchain/OpenActiveRunNavigationTest.kt
+Use this function to verify recreation consumes the open-active-run request after restoration.
 Inputs: none.
-Dependencies: composeRule, AppContainer, RunBubble.EXTRA_OPEN_ACTIVE_RUN, TaskChainApp, and NavHostController back-stack state.
+Dependencies: composeRule, AppContainer, MainActivity.EXTRA_OPEN_ACTIVE_RUN, TaskChainApp, and NavHostController back-stack state.
 
 ## `UnsupportedSchemaVersionException` — app/src/main/java/com/taskchain/data/StoredJson.kt
 Represents a stored file whose schema is newer than this app can safely interpret. Input: `version`; dependency: [IOException].
@@ -2098,11 +2023,11 @@ Use this function before each builder error test to remove prior isolated test r
 ## `clearIsolatedTestStateAfterTest` — app/src/androidTest/java/com/taskchain/BuilderErrorFlowTest.kt
 Use this function after each builder error test to remove only state created in the isolated test package. Inputs: none. Dependencies: instrumentation target context and resetTestAppState.
 
-## `clearIsolatedTestState` — app/src/androidTest/java/com/taskchain/BubbleNavigationTest.kt
-Use this function before the bubble test to remove prior isolated test routines and runs. Inputs: none. Dependencies: instrumentation target context and resetTestAppState.
+## `clearIsolatedTestState` — app/src/androidTest/java/com/taskchain/OpenActiveRunNavigationTest.kt
+Use this function before the open-active-run test to remove prior isolated test routines and runs. Inputs: none. Dependencies: instrumentation target context and resetTestAppState.
 
-## `clearIsolatedTestStateAfterTest` — app/src/androidTest/java/com/taskchain/BubbleNavigationTest.kt
-Use this function after the bubble test to remove only state created in the isolated test package. Inputs: none. Dependencies: instrumentation target context and resetTestAppState.
+## `clearIsolatedTestStateAfterTest` — app/src/androidTest/java/com/taskchain/OpenActiveRunNavigationTest.kt
+Use this function after the open-active-run test to remove only state created in the isolated test package. Inputs: none. Dependencies: instrumentation target context and resetTestAppState.
 
 ## `StoredJsonTest` — app/src/test/java/com/taskchain/data/StoredJsonTest.kt
 Verifies versioned envelopes, legacy payloads, and unsupported-file preservation. Constructor inputs: none; dependencies: [Json] and the storage helpers.
@@ -2188,6 +2113,109 @@ Use this function to find the last local day start (configured hour) at or befor
 
 ## `returnToScheduledEpochMillis` — domain/home/TodayProjection.kt
 Use this function to find when a handled routine returns to Scheduled: the day start of the day of its next occurrence, never before the next day start.
+
+## `RunNotificationClock` — domain/run/RunNotificationPolicy.kt
+Time display for the ongoing run notification: Hidden, Paused with frozen remaining time, CountDown to an end time, or CountUp from a start time.
+
+## `RunNotificationTarget` — domain/run/RunNotificationPolicy.kt
+The run, main task index, and active subtask a notification button was built for, used to ignore a press after the step changed.
+
+## `RunNotificationContent` — domain/run/RunNotificationPolicy.kt
+Platform-neutral notification content: title (active subtask or task name), main task title when a subtask is shown, routine title, clock, and whether Skip or Complete must open the app.
+
+## `RunNotificationAction` — domain/run/RunNotificationPolicy.kt
+The two transitions the run notification applies without opening the app: SKIP and COMPLETE.
+
+## `RunNotificationPolicy.content` — domain/run/RunNotificationPolicy.kt
+Use this function to build notification content for the displayed step; inputs are the run, engine, and clock, and it returns null for a run that is not active.
+
+## `RunNotificationPolicy.applyAction` — domain/run/RunNotificationPolicy.kt
+Use this function to apply Skip or Complete from the notification; it returns the updated run, or null when the press is stale or the transition needs the app.
+
+## `RunNotification` — reminder/RunNotification.kt
+Posts the one ongoing run notification with Skip and Complete buttons and a system-ticked chronometer; `show` posts or removes it from policy content and `sync` derives that content from a run.
+
+## `RunActionReceiver` — reminder/RunNotification.kt
+Use this receiver for Skip and Complete presses on the run notification; it applies the transition under `AppContainer.runMutex`, saves it, increments `runRevision`, and refreshes the notification.
+
+## `AppContainer.runMutex` — AppContainer.kt
+Lock shared by the runner ViewModel and notification actions so neither saves a stale run over the other.
+
+## `AppContainer.runRevision` — AppContainer.kt
+Counter incremented after a run change made outside the runner ViewModel; a live ViewModel reloads the saved run when it changes.
+
+## `adoptExternalRunChange` — ui/runner/RoutineRunnerViewModel.kt
+Use this function inside the run lock to adopt a run saved by a notification action before reading state.
+
+## `countdownPulse` — ui/runner/RoutineRunnerViewModel.kt
+Use this function once per readiness countdown number to give one short pulse when foreground, routine and task vibration are on, and intensity is above zero.
+
+## `TaskFeedback.pulse` — reminder/TaskFeedback.kt
+Use this function for one 40 ms haptic pulse, gated by the caller and silenced at zero intensity.
+
+## `TaskReadyPhase.isCountdownNumber` — ui/runner/TaskReadyTransition.kt
+Use this function to tell the numbered countdown steps, which pulse, from the Get Ready lead-in.
+
+## `ReminderActionReceiver` — reminder/ReminderScheduler.kt
+Use this receiver for Snooze and Dismiss on a reminder notification; both remove it and end the cycle's pending repeat, and Snooze also sets a delivery after `reminder_snooze_minutes`.
+
+## `ReminderScheduler.clearDelivered` — reminder/ReminderScheduler.kt
+Use this function to remove a delivered reminder notification, for example when its routine starts.
+
+## `rearmReminder` — reminder/ReminderScheduler.kt
+Use this function after delivery or a dismiss to schedule the next occurrence from the delivered alarm's extras; it returns false when nothing remains to schedule.
+
+## `ReminderPlanner.routineRequestCode` — domain/schedule/ReminderPlanner.kt
+Use this function to map a routine id to its alarm and notification code.
+
+## `MainActivity.EXTRA_OPEN_ACTIVE_RUN` — MainActivity.kt
+Intent extra that asks the app to open the persisted active run, for example from the run notification.
+
+## `RunAlertPolicy` — app/src/main/java/com/taskchain/domain/run/RunAlertPolicy.kt
+Platform-neutral policy for run alerts while the Run screen is hidden. `DueRunAlerts(run, nudge, timerExpired)` carries the acknowledged run and what to play.
+- `remindersExhausted(run, engine, now, untimedIdleLimitMillis)`: true once the limit has passed since `lastInteractionAtEpochMillis` (else `startedAtEpochMillis`). Limit is `plannedRunMillis`, or the idle limit when no task has a timer.
+- `nextAlertAt(run, engine, now, nudgeIntervalMillis, untimedIdleLimitMillis)`: next nudge or timer-expiry time, never before `now`; null when paused, confirming, not active, or nothing remains.
+- `takeDue(...)`: acknowledges due nudge bucket and timer expiry; reports nudge only when not exhausted.
+
+## `RoutineRunEngine.plannedRunMillis` — app/src/main/java/com/taskchain/domain/run/RoutineRunEngine.kt
+Sum of all task timers in milliseconds; zero means no timer.
+
+## `RoutineRun.lastInteractionAtEpochMillis` — app/src/main/java/com/taskchain/domain/model/Models.kt
+Time of latest navigation, pause, resume, skip, or complete. Set by engine transitions; restarts the idle reminder limit.
+
+## `RoutineTask.soundUri` — app/src/main/java/com/taskchain/domain/model/Models.kt
+Device sound for this task; replaces nudge and timer-expiry sounds.
+
+## `UserPreferences.defaultSoundUris` — app/src/main/java/com/taskchain/domain/model/Models.kt
+Device sound per `SoundToken` picked in Settings; missing token keeps the built-in sound.
+
+## `SoundSetting.uri`, `withTaskSound`, `withUserDefaults` — app/src/main/java/com/taskchain/domain/model/SoundSettings.kt
+`uri` is a picked device sound and wins over `assetPath`. `withTaskSound(soundUri)` overrides nudge and timer expiry. `withUserDefaults(defaults)` fills tokens the routine left at built-in settings.
+
+## `setDefaultSoundUri` — app/src/main/java/com/taskchain/data/Repositories.kt
+Saves or clears (null) the default device sound for one token in DataStore key `default_sound_<token>`.
+
+## `RunAlerts`, `RunAlertReceiver` — app/src/main/java/com/taskchain/reminder/RunAlerts.kt
+`RunAlerts.sync(run, now, runnerVisible)` sets one exact alarm for the next alert, or cancels it. `RunAlertReceiver` plays due alerts under `runMutex`, saves acknowledgements, re-arms, and keeps the broadcast open 3 s for audio.
+
+## `AppContainer.runnerVisible`, `runAlerts`, `untimedReminderLimitMillis` — app/src/main/java/com/taskchain/AppContainer.kt
+Run screen visibility flag; alert alarm adapter; idle limit from `run_untimed_reminder_limit_minutes`.
+
+## `SoundPickerRow` — app/src/main/java/com/taskchain/ui/SoundPickerRow.kt
+Label plus button opening the system sound picker, and Reset. Used for Settings default sounds and per-task sound.
+
+## `setTaskSound`, `setDefaultSound` — RoutineBuilderViewModel.kt, SettingsViewModel.kt
+Store a picked sound URI for a task or a token; null resets.
+
+## `RunAlertPolicyTest`, `taskSoundReplacesNudgeAndTimerExpiryOnly`, `userDefaultsKeepRoutineCustomization` — app/src/test
+Cover alert timing, idle limit restarts, once-only delivery, and sound overrides.
+
+## `RoutineRunEngine.requiresRunnerScreen` — app/src/main/java/com/taskchain/domain/run/RoutineRunEngine.kt
+True when the run is active and its clock or a confirmation dialog is live. False when paused, current task not pending, or run not active. `TaskChainApp` reopens the Run screen whenever this is true elsewhere.
+
+## `onlyRunningOrConfirmingRunRequiresRunnerScreen` — app/src/test/java/com/taskchain/domain/run/RoutineRunEngineTest.kt
+Covers running, paused, confirming, skipped, and aborted runs.
+
 
 ## `runKeepsScreenOn` — app/src/main/java/com/taskchain/ui/runner/RunnerKeepScreenOn.kt
 Use this function to decide whether the Run screen must keep the display awake; inputs are the shown run snapshot or null and the user's setting, and it returns true only for an active run with the setting on.

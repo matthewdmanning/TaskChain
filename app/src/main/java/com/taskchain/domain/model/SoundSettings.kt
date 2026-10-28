@@ -18,6 +18,8 @@ enum class SoundToken {
 data class SoundSetting(
     val enabled: Boolean = false,
     val assetPath: String? = null,
+    /** Content URI of a device sound the user picked; it takes precedence over [assetPath]. */
+    val uri: String? = null,
 )
 
 /** Per-routine sound policy, with missing token entries resolved to current defaults. */
@@ -27,6 +29,37 @@ data class SoundSettings(
 ) {
     /** Use this function when a playback adapter needs the setting for one semantic token. */
     operator fun get(token: SoundToken): SoundSetting = entries[token] ?: defaultSoundEntries()[token] ?: SoundSetting()
+}
+
+/**
+ * Use this function to give one task its own alert sound.
+ * Inputs: `soundUri` — the task's picked sound, or null to keep the routine's sounds.
+ * The task sound replaces the nudge and timer-expiry sounds and keeps their enabled flags.
+ */
+fun SoundSettings.withTaskSound(soundUri: String?): SoundSettings {
+    if (soundUri == null) return this
+    return SoundSettings(
+        entries + mapOf(
+            SoundToken.TaskNudge to this[SoundToken.TaskNudge].copy(uri = soundUri),
+            SoundToken.TimerExpired to this[SoundToken.TimerExpired].copy(uri = soundUri),
+        ),
+    )
+}
+
+/**
+ * Use this function to apply the user's default sounds from Settings to a routine's sound policy.
+ * Inputs: `defaults` — picked sound URI per token. A token the routine already customized keeps its own sound.
+ */
+fun SoundSettings.withUserDefaults(defaults: Map<SoundToken, String>): SoundSettings {
+    if (defaults.isEmpty()) return this
+    val builtIn = defaultSoundSettings()
+    return SoundSettings(
+        SoundToken.entries.associateWith { token ->
+            val setting = this[token]
+            val uri = defaults[token]
+            if (uri != null && setting == builtIn[token]) setting.copy(uri = uri) else setting
+        },
+    )
 }
 
 /** Use this function when creating a routine with the backward-compatible sound policy. */

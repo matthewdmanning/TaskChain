@@ -8,7 +8,7 @@
 
 TaskChain currently uses Navigation Compose 2.10.2 with a small `Home → Builder/Runner` graph. Its back-stack ownership and screen callbacks are easy to follow. Navigation 3 is not in use, and the current graph does not need Navigation 3 features such as multiple retained top-level back stacks or adaptive multi-pane destinations. A migration is not recommended from this review alone.
 
-Two areas merit follow-up: custom back handlers do not expose predictive-gesture progress, and the bubble launch flag can replay after Activity recreation when a runner entry is restored.
+Two areas merit follow-up: custom back handlers do not expose predictive-gesture progress, and the open-active-run launch flag can replay after Activity recreation when a runner entry is restored.
 
 ## Action-index freshness
 
@@ -24,7 +24,7 @@ Two areas merit follow-up: custom back handlers do not expose predictive-gesture
 | Start or resume a run | Pushes the runner route for the routine ID. | `TaskChainApp.kt:60-64,87-96` |
 | Android Back in the runner | While active, forwards to the run engine's back transition; if an abort/finish confirmation is open, dismisses it through `continueRun`. Completion hold intentionally consumes Back. | `RoutineRunnerRoute.kt:231-239`; `RoutineRunnerViewModel.kt:95-108` |
 | Runner completion | Pops the runner after finish. The runner's visible Back control uses the same runner back intent as Android Back. | `TaskChainApp.kt:87-96`; `RoutineRunnerRoute.kt:169-186` |
-| Open the active run from the bubble | The bubble PendingIntent sets `EXTRA_OPEN_ACTIVE_RUN`; `MainActivity` passes the flag into `TaskChainApp`, which navigates to the active routine in a `LaunchedEffect`. | `RunBubble.kt:51-62`; `MainActivity.kt:23-30`; `TaskChainApp.kt:45-50` |
+| Open the active run from the run notification | The notification PendingIntent sets `EXTRA_OPEN_ACTIVE_RUN`; `MainActivity` passes the flag into `TaskChainApp`, which navigates to the active routine in a `LaunchedEffect`. | `RunNotification.kt` (`openActiveRun`); `MainActivity.kt`; `TaskChainApp.kt:45-50` |
 | Back from Home | No app-level handler is installed on Home; the root navigation/activity behavior applies. | `TaskChainApp.kt:54-64` |
 
 ## Findings
@@ -37,13 +37,13 @@ The app already meets the platform setup prerequisite (`compileSdk = 37`, `targe
 
 **Validation needed:** exercise slow-start, complete, and cancelled edge swipes on the builder and active runner, including an open discard/abort/finish confirmation. Existing instrumentation tests cover builder Back and runner's visible Back button, but not predictive gesture progress or runner hardware/system Back (`MainActivityTest.kt:99-166`).
 
-### P2 — Bubble launch request can replay after Activity recreation
+### P2 — Open-active-run request can replay after Activity recreation
 
 `TaskChainApp` navigates whenever `openActiveRun` is true (`TaskChainApp.kt:46-50`). The value comes directly from the Activity's launch Intent (`MainActivity.kt:27-30`), while `rememberNavController()` restores its navigation state (`TaskChainApp.kt:45`). If the Activity is recreated after the runner entry has been restored, the still-true Intent extra can make the effect push a second runner entry.
 
-Treat this as a one-shot navigation request that is acknowledged/consumed, or check the restored current destination before navigating. Add a recreation or process-restore test that launches from the bubble, restores the Activity, and verifies there is only one runner entry.
+Treat this as a one-shot navigation request that is acknowledged/consumed, or check the restored current destination before navigating. Add a recreation or process-restore test that launches from the run notification, restores the Activity, and verifies there is only one runner entry.
 
-The bubble's `PendingIntent` uses `SINGLE_TOP | CLEAR_TOP` (`RunBubble.kt:54-62`), but the Activity declares `documentLaunchMode="always"` (`AndroidManifest.xml:15-23`). Android documents `always` as creating a new document task for each launch, so the absence of `onNewIntent` is not itself a confirmed bubble-routing defect in this configuration. Recheck that assumption if the document launch mode or Intent flags change.
+The run notification's `PendingIntent` uses `SINGLE_TOP | CLEAR_TOP` (`RunNotification.kt`, `openActiveRun`), but the Activity declares `documentLaunchMode="always"` (`AndroidManifest.xml:15-23`). Android documents `always` as creating a new document task for each launch, so the absence of `onNewIntent` is not itself a confirmed routing defect in this configuration. Recheck that assumption if the document launch mode or Intent flags change.
 
 ## Practices that currently fit
 

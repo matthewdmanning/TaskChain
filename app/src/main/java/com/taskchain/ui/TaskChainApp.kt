@@ -32,7 +32,10 @@ import com.taskchain.ui.designsystem.TaskChainTheme
 import com.taskchain.ui.designsystem.ProvideUiComponents
 import com.taskchain.ui.designsystem.UiProvider
 import com.taskchain.ui.designsystem.componentsFor
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import com.taskchain.ui.builder.RoutineBuilderRoute
 import com.taskchain.ui.home.HomeShell
 import com.taskchain.ui.home.HomeTab
@@ -108,6 +111,23 @@ fun TaskChainApp(
                         )
                     }
                 }
+            }
+            // No flow may leave a running run for another screen: only pausing, completing, or aborting allows it.
+            LaunchedEffect(navController) {
+                combine(
+                    container.activeRun.observeActive().map { run ->
+                        run?.takeIf(container.runEngine::requiresRunnerScreen)?.routineId
+                    }.distinctUntilChanged(),
+                    navController.currentBackStackEntryFlow,
+                ) { runningRoutineId, entry -> runningRoutineId to entry }
+                    .collect { (runningRoutineId, entry) ->
+                        if (runningRoutineId == null) return@collect
+                        val onRunningRunner = entry.destination.route == RUNNER_ROUTE &&
+                            entry.arguments?.getString(ROUTINE_ID_ARGUMENT) == runningRoutineId.value
+                        if (!onRunningRunner) {
+                            navController.navigate(runnerRoute(runningRoutineId)) { launchSingleTop = true }
+                        }
+                    }
             }
             LaunchedEffect(openActiveRun) {
                 if (openActiveRun && !openActiveRunConsumed) {

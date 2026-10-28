@@ -8,16 +8,22 @@ import com.taskchain.domain.model.RoutineRun
 import com.taskchain.domain.model.RunStatus
 import com.taskchain.domain.model.RunTaskStatus
 import com.taskchain.domain.model.SoundToken
+import com.taskchain.domain.model.withTaskSound
+import com.taskchain.domain.model.withUserDefaults
+import com.taskchain.domain.run.RunAlertPolicy
 import com.taskchain.domain.run.RunFeedbackEvent
 import com.taskchain.domain.run.RunFeedbackPolicy
+import com.taskchain.domain.run.RunNotificationPolicy
 import com.taskchain.domain.schedule.ReminderPlanner
 import com.taskchain.ui.designsystem.RunnerMotion
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
 /** Runner UI state with persisted run state plus current wall-clock display time. */
@@ -34,7 +40,8 @@ class RoutineRunnerViewModel(
     private val routineId: RoutineId,
 ) : ViewModel() {
     val state = MutableStateFlow(RunnerState(nowEpochMillis = container.now()))
-    private val runMutex = Mutex()
+    private val runMutex = container.runMutex
+    private var seenRunRevision = container.runRevision.value
     private var foreground = false
     private var foregroundSynchronized = false
     private var initialRunningFeedbackPending = false
@@ -60,6 +67,30 @@ class RoutineRunnerViewModel(
                 tick()
             }
         }
+        viewModelScope.launch {
+            // Equal content means the step, its pause state, and its clock anchors are unchanged, so nothing is reposted.
+            state.filter { it.run != null }
+                .map { RunNotificationPolicy.content(it.run!!, container.runEngine, it.nowEpochMillis) }
+                .distinctUntilChanged()
+                .collect { container.runNotification.show(it) }
+        }
+    }
+
+    /**
+     * Use this function once per readiness countdown number (3, 2, 1) before a task starts.
+     * It gives one short pulse only while the screen is foreground, the routine and upcoming task allow vibration,
+     * and the user's haptic intensity is above zero.
+     */
+    fun countdownPulse() {
+        val run = state.value.run ?: return
+        val task = run.tasks.getOrNull(run.currentTaskIndex) ?: return
+        if (!foreground) return
+        runCatching {
+            container.taskFeedback.pulse(
+                vibrateEnabled = run.routineVibrateEnabled && task.source.vibrateEnabled,
+                intensity = feedbackIntensity,
+            )
+        }
     }
 
     /** Use this function when the runner route enters or leaves the foreground lifecycle state. */
@@ -67,6 +98,13 @@ class RoutineRunnerViewModel(
         if (foreground == active) return
         foreground = active
         foregroundSynchronized = false
+        container.runnerVisible = active
+        // Hiding the screen hands reminders and timer expiry to an alarm; showing it hands them back.
+        viewModelScope.launch {
+            runMutex.withLock {
+                container.runAlerts.sync(container.activeRun.observeActive().first(), container.now(), active)
+            }
+        }
     }
 
     /** Use this function when the route combines the user transition setting with the system animator gate. */
@@ -150,6 +188,7 @@ class RoutineRunnerViewModel(
     /** Use this function on the runner clock cadence to update display and fire zero feedback once. */
     private suspend fun tick() = runMutex.withLock {
         val now = container.now()
+        adoptExternalRunChange()
         state.value = state.value.copy(nowEpochMillis = now)
         var run = state.value.run ?: return@withLock
         if (foreground && !foregroundSynchronized) {
@@ -183,7 +222,8 @@ class RoutineRunnerViewModel(
             run,
             now,
             container.taskNudgeIntervalMillis,
-            emit = true,
+            // Reminders stop at the run's planned time, or after the idle limit for runs without timers.
+            emit = !RunAlertPolicy.remindersExhausted(run, container.runEngine, now, container.untimedReminderLimitMillis),
         )
         if (nudge.run != run) {
             try {
@@ -210,10 +250,22 @@ class RoutineRunnerViewModel(
             container.timerFeedback.fire(
                 soundEnabled = run.routineSoundEnabled && task.soundEnabled,
                 vibrateEnabled = run.routineVibrateEnabled && task.vibrateEnabled,
-                soundSettings = run.soundSettings,
+                soundSettings = run.soundSettings.withTaskSound(task.soundUri),
                 intensity = feedbackIntensity,
             )
         }
+    }
+
+    /**
+     * Use this function inside the run lock, before reading the run, to adopt a change a notification action saved.
+     * A change to a different run is ignored.
+     */
+    private suspend fun adoptExternalRunChange() {
+        val revision = container.runRevision.value
+        if (revision == seenRunRevision) return
+        seenRunRevision = revision
+        val persisted = container.activeRun.observeActive().first() ?: return
+        if (persisted.id == state.value.run?.id) state.value = state.value.copy(run = persisted)
     }
 
     /** Use this function to persist one ordinary active-run transition. */
@@ -242,6 +294,7 @@ class RoutineRunnerViewModel(
         val expected = state.value.run ?: return
         viewModelScope.launch {
             runMutex.withLock {
+                adoptExternalRunChange()
                 val run = state.value.run ?: return@withLock
                 if (run.status != RunStatus.ACTIVE || run.currentTaskIndex != expected.currentTaskIndex ||
                     run.tasks.getOrNull(run.currentTaskIndex)?.activeSubtaskId !=
@@ -310,7 +363,7 @@ class RoutineRunnerViewModel(
                 token = event.token,
                 soundEnabled = soundEnabled,
                 vibrateEnabled = vibrateEnabled,
-                soundSettings = run.soundSettings,
+                soundSettings = run.soundSettings.withTaskSound(task.source.soundUri),
                 intensity = feedbackIntensity,
             )
         }
@@ -330,7 +383,14 @@ class RoutineRunnerViewModel(
     private suspend fun startRun(): RoutineRun {
         val routine = container.routines.get(routineId)
             ?: container.builtInLibrary.load(container.now()).first { it.id == routineId }
-        return container.runEngine.start(routine, container.newRunId(), container.now())
+        // Starting the routine answers its reminder, so the delivered reminder notification leaves the shade.
+        container.reminders.clearDelivered(ReminderPlanner.routineRequestCode(routineId))
+        val defaults = container.preferences.observe().first().defaultSoundUris
+        return container.runEngine.start(
+            routine.copy(soundSettings = routine.soundSettings.withUserDefaults(defaults)),
+            container.newRunId(),
+            container.now(),
+        )
     }
 
     private companion object {

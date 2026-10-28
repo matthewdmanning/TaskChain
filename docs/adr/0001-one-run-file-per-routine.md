@@ -15,5 +15,5 @@ The rules for Aborted and Unfinished runs in `CONTEXT.md` (one per routine, repl
 
 ## Consequences
 
-- Home, the run bubble, and run nudges currently assume a single run. Showing more than one routine's run at a time needs its own decision.
+- Home, the run notification, and run nudges currently assume a single run. Showing more than one routine's run at a time needs its own decision.
 - The existing `active-session.json` must be migrated into the matching routine's file on first launch.

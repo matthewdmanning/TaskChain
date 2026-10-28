@@ -38,14 +38,16 @@ class RoutineRunEngine {
 
     /** Use this function when Complete is pressed for the currently displayed run task. */
     fun completeCurrent(run: RoutineRun, nowEpochMillis: Long): RoutineRun =
-        finishCurrent(run, nowEpochMillis, RunTaskStatus.COMPLETED)
+        finishCurrent(run, nowEpochMillis, RunTaskStatus.COMPLETED).touched(nowEpochMillis)
 
     /** Use this function when Skip is pressed for the currently displayed run task. */
     fun skipCurrent(run: RoutineRun, nowEpochMillis: Long): RoutineRun =
-        finishCurrent(run, nowEpochMillis, RunTaskStatus.SKIPPED)
+        finishCurrent(run, nowEpochMillis, RunTaskStatus.SKIPPED).touched(nowEpochMillis)
 
     /** Use this function to pause the current pending task without losing elapsed time. */
-    fun pauseCurrent(run: RoutineRun, nowEpochMillis: Long): RoutineRun {
+    fun pauseCurrent(run: RoutineRun, nowEpochMillis: Long): RoutineRun = pauseCurrentUntouched(run, nowEpochMillis).touched(nowEpochMillis)
+
+    private fun pauseCurrentUntouched(run: RoutineRun, nowEpochMillis: Long): RoutineRun {
         require(run.status == RunStatus.ACTIVE)
         require(!run.finishConfirmationRequested && !run.abortConfirmationRequested)
         val index = run.currentTaskIndex
@@ -56,7 +58,9 @@ class RoutineRunEngine {
     }
 
     /** Use this function to resume a paused pending task or explicitly reopen the skipped current task. */
-    fun resumeCurrent(run: RoutineRun, nowEpochMillis: Long): RoutineRun {
+    fun resumeCurrent(run: RoutineRun, nowEpochMillis: Long): RoutineRun = resumeCurrentUntouched(run, nowEpochMillis).touched(nowEpochMillis)
+
+    private fun resumeCurrentUntouched(run: RoutineRun, nowEpochMillis: Long): RoutineRun {
         require(run.status == RunStatus.ACTIVE)
         require(!run.finishConfirmationRequested && !run.abortConfirmationRequested)
         val index = run.currentTaskIndex
@@ -90,7 +94,10 @@ class RoutineRunEngine {
         )
     }
 
-    fun selectTask(run: RoutineRun, index: Int, nowEpochMillis: Long): RoutineRun {
+    fun selectTask(run: RoutineRun, index: Int, nowEpochMillis: Long): RoutineRun =
+        selectTaskUntouched(run, index, nowEpochMillis).touched(nowEpochMillis)
+
+    private fun selectTaskUntouched(run: RoutineRun, index: Int, nowEpochMillis: Long): RoutineRun {
         require(run.status == RunStatus.ACTIVE)
         require(index in run.tasks.indices)
         val currentIndex = run.currentTaskIndex
@@ -171,7 +178,9 @@ class RoutineRunEngine {
     }
 
     /** Use this function when Back is pressed so the first task can request abort confirmation. */
-    fun back(run: RoutineRun, nowEpochMillis: Long): RoutineRun {
+    fun back(run: RoutineRun, nowEpochMillis: Long): RoutineRun = backUntouched(run, nowEpochMillis).touched(nowEpochMillis)
+
+    private fun backUntouched(run: RoutineRun, nowEpochMillis: Long): RoutineRun {
         require(run.status == RunStatus.ACTIVE)
         require(run.currentTaskIndex in run.tasks.indices)
         return if (run.currentTaskIndex == 0) {
@@ -187,7 +196,9 @@ class RoutineRunEngine {
     }
 
     /** Use this function when a user cancels either run-ending confirmation dialog. */
-    fun continueRun(run: RoutineRun, nowEpochMillis: Long): RoutineRun {
+    fun continueRun(run: RoutineRun, nowEpochMillis: Long): RoutineRun = continueRunUntouched(run, nowEpochMillis).touched(nowEpochMillis)
+
+    private fun continueRunUntouched(run: RoutineRun, nowEpochMillis: Long): RoutineRun {
         require(run.status == RunStatus.ACTIVE)
         val index = run.currentTaskIndex
         require(index in run.tasks.indices)
@@ -318,6 +329,22 @@ class RoutineRunEngine {
      */
     fun activeSubtaskIndex(task: RoutineRunTask): Int =
         task.source.subtasks.indexOfFirst { it.id == task.activeSubtaskId }
+
+    /**
+     * Use this function to decide whether the Run screen must stay open: the run is active and its clock or a
+     * confirmation dialog is live. A paused run, or one whose current task is not pending, may leave for Home.
+     * Inputs: `run` — the persisted routine run.
+     */
+    fun requiresRunnerScreen(run: RoutineRun): Boolean {
+        if (run.status != RunStatus.ACTIVE) return false
+        if (run.finishConfirmationRequested || run.abortConfirmationRequested) return true
+        val task = run.tasks.getOrNull(run.currentTaskIndex) ?: return false
+        return task.status == RunTaskStatus.PENDING && task.pausedAtEpochMillis == null
+    }
+
+    /** Use this function to total every task's configured time; zero means the run has no timer. */
+    fun plannedRunMillis(run: RoutineRun): Long =
+        run.tasks.sumOf { task -> task.source.durationSeconds?.let(::durationMillis) ?: 0L }
 
     /** Use this function before firing audio and haptics so zero feedback occurs only once. */
     fun needsTimerFeedback(run: RoutineRun, nowEpochMillis: Long): Boolean {
@@ -455,6 +482,9 @@ class RoutineRunEngine {
         val effectiveNow = task.pausedAtEpochMillis ?: confirmationStartedAtEpochMillis ?: nowEpochMillis
         return (effectiveNow - startedAt).coerceAtLeast(0L)
     }
+
+    /** Use this function to record the user's latest navigation or pause so idle-based reminder limits restart. */
+    private fun RoutineRun.touched(nowEpochMillis: Long): RoutineRun = copy(lastInteractionAtEpochMillis = nowEpochMillis)
 
     /** Use this function to immutably replace one run task without a mutable collection. */
     private fun List<RoutineRunTask>.replaceAt(index: Int, value: RoutineRunTask): List<RoutineRunTask> =

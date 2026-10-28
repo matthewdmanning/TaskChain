@@ -19,12 +19,16 @@ import com.taskchain.domain.run.RoutineRunEngine
 import com.taskchain.reminder.AndroidReminderScheduler
 import com.taskchain.reminder.AndroidTaskFeedback
 import com.taskchain.reminder.ReminderScheduler
+import com.taskchain.reminder.RunAlerts
+import com.taskchain.reminder.RunNotification
 import com.taskchain.reminder.TaskFeedback
 import com.taskchain.reminder.TimerFeedback
 import java.io.File
 import java.util.UUID
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.serialization.json.Json
 
@@ -41,12 +45,26 @@ class AppContainer(context: Context) {
     val builtInLibrary = BuiltInRoutineLibrary(appContext, json)
     val runEngine = RoutineRunEngine()
     val reminders: ReminderScheduler = AndroidReminderScheduler(appContext)
+
+    /** Serializes every change to the active run between the runner ViewModel and notification actions. */
+    val runMutex = Mutex()
+
+    /** Counts changes made to the active run outside the runner ViewModel, so a live ViewModel reloads them. */
+    val runRevision = MutableStateFlow(0L)
+    val runNotification = RunNotification(appContext, runEngine)
+
+    /** True while the Run screen is visible; run alerts then come from the screen, not from an alarm. */
+    @Volatile var runnerVisible = false
     val timerFeedback = TimerFeedback(appContext)
     val taskFeedback: TaskFeedback = AndroidTaskFeedback(appContext)
     val homeDayStartHour = appContext.resources.getInteger(R.integer.home_day_start_hour)
     val taskNudgeIntervalMillis = appContext.resources
         .getInteger(R.integer.run_nudge_interval_seconds)
         .toLong() * 1000L
+    val untimedReminderLimitMillis = appContext.resources
+        .getInteger(R.integer.run_untimed_reminder_limit_minutes)
+        .toLong() * 60_000L
+    val runAlerts = RunAlerts(appContext, runEngine, taskNudgeIntervalMillis, untimedReminderLimitMillis)
 
     /** Use this function before UI loads so files saved before the task/subtask rename use current keys. */
     suspend fun migrateLegacyData() = withContext(Dispatchers.IO) { migrateLegacyDataFiles(dataDirectory, json) }

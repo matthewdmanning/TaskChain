@@ -13,6 +13,9 @@ internal enum class TaskReadyPhase(val label: String) {
     ONE("1"),
 }
 
+/** Use this function to tell the numbered countdown steps (3, 2, 1), which pulse, from the Get Ready lead-in. */
+internal fun TaskReadyPhase.isCountdownNumber(): Boolean = this != TaskReadyPhase.GET_READY
+
 /** Use this function to map elapsed transition time to the label shown before a task starts.
  * Inputs: `elapsedMillis` — elapsed time since the next task became current.
  * Dependencies: `RunnerMotion.taskReadyGetReadyDurationMillis`, `RunnerMotion.taskReadyPhaseDurationMillis`, and

@@ -23,6 +23,12 @@ interface TaskFeedback {
         soundSettings: SoundSettings,
         intensity: Float = 1f,
     )
+
+    /**
+     * Use this function for one short haptic pulse on a readiness countdown number.
+     * Inputs: `vibrateEnabled` — caller haptic gate; `intensity` — user intensity normalized to 0..1, where 0 is silent.
+     */
+    fun pulse(vibrateEnabled: Boolean, intensity: Float = 1f)
 }
 
 /** Use this function to convert a user haptic intensity into an Android amplitude or suppress vibration at zero.
@@ -92,8 +98,19 @@ class AndroidTaskFeedback(
         }
     }
 
+    /** Use this function once per readiness countdown number when haptics are active. */
+    override fun pulse(vibrateEnabled: Boolean, intensity: Float) {
+        if (!vibrateEnabled) return
+        val amplitude = vibrationAmplitude(intensity) ?: return
+        runCatching {
+            vibrateWithAmplitude?.invoke(COUNTDOWN_PULSE_DURATION_MILLIS, amplitude)
+                ?: vibrate(COUNTDOWN_PULSE_DURATION_MILLIS)
+        }
+    }
+
     private companion object {
         const val NUDGE_VIBRATION_DURATION_MILLIS = 300L
+        const val COUNTDOWN_PULSE_DURATION_MILLIS = 40L
     }
 }
 

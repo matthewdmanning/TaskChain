@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="run_notification_channel_name">Run progress</string>
+    <string name="run_notification_channel_description">Shows the current step and time left while a routine runs</string>
+    <string name="run_notification_skip">Skip</string>
+    <string name="run_notification_complete">Complete</string>
+    <string name="run_notification_paused">Paused</string>
+    <string name="run_notification_paused_remaining">Paused · %1$s left</string>
+    <string name="run_notification_task_and_routine">%1$s · %2$s</string>
+    <string name="reminder_action_dismiss">Dismiss</string>
+    <string name="reminder_action_snooze">Snooze %1$d min</string>
+</resources>
