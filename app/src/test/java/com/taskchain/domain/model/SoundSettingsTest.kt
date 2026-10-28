@@ -53,4 +53,32 @@ class SoundSettingsTest {
         assertEquals("custom/paused.ogg", restored[SoundToken.TaskPaused].assetPath)
         assertFalse(restored[SoundToken.TaskCompleted].enabled)
     }
+
+    /** Use this function to verify a task sound replaces only the nudge and timer-expiry sounds. */
+    @Test
+    fun taskSoundReplacesNudgeAndTimerExpiryOnly() {
+        val settings = defaultSoundSettings().withTaskSound("content://media/internal/audio/media/7")
+
+        assertEquals("content://media/internal/audio/media/7", settings[SoundToken.TaskNudge].uri)
+        assertEquals("content://media/internal/audio/media/7", settings[SoundToken.TimerExpired].uri)
+        assertTrue(settings[SoundToken.TimerExpired].enabled)
+        assertEquals(null, settings[SoundToken.TaskCompleted].uri)
+        assertEquals(defaultSoundSettings(), defaultSoundSettings().withTaskSound(null))
+    }
+
+    /** Use this function to verify user defaults fill untouched tokens and never override a routine's own choice. */
+    @Test
+    fun userDefaultsKeepRoutineCustomization() {
+        val custom = SoundSettings(
+            defaultSoundSettings().entries + (SoundToken.TaskPaused to SoundSetting(enabled = true, assetPath = "custom/paused.ogg")),
+        )
+        val applied = custom.withUserDefaults(
+            mapOf(SoundToken.TaskNudge to "content://nudge", SoundToken.TaskPaused to "content://paused"),
+        )
+
+        assertEquals("content://nudge", applied[SoundToken.TaskNudge].uri)
+        assertEquals("sounds/task_nudge.ogg", applied[SoundToken.TaskNudge].assetPath)
+        assertEquals(null, applied[SoundToken.TaskPaused].uri)
+        assertEquals("custom/paused.ogg", applied[SoundToken.TaskPaused].assetPath)
+    }
 }

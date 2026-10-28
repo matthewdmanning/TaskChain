@@ -3,6 +3,7 @@ package com.taskchain.data
 import com.taskchain.domain.model.CompletionEvent
 import com.taskchain.domain.model.RoutineId
 import com.taskchain.domain.model.RoutineRun
+import com.taskchain.domain.model.SoundToken
 import com.taskchain.domain.model.RoutineTemplate
 import com.taskchain.domain.model.UserPreferences
 import kotlinx.coroutines.flow.Flow
@@ -65,4 +66,7 @@ interface UserPreferenceRepository {
 
     /** Use this function when Settings toggles subtask countdown visibility in the runner. */
     suspend fun setShowSubtaskTimeRemaining(enabled: Boolean)
+
+    /** Use this function when Settings picks a default device sound for a token; null restores the built-in sound. */
+    suspend fun setDefaultSoundUri(token: SoundToken, uri: String?)
 }

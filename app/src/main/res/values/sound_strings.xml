@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="sound_built_in">Built-in</string>
+    <string name="sound_reset">Reset</string>
+    <string name="settings_default_sounds">Default sounds</string>
+    <string name="sound_token_nudge">Repeating reminder</string>
+    <string name="sound_token_timer_expired">Timer ends</string>
+    <string name="sound_token_task_completed">Task completed</string>
+    <string name="sound_token_task_running">Task starts</string>
+    <string name="sound_token_task_paused">Task paused</string>
+    <string name="sound_token_subtask_advanced">Subtask advanced</string>
+    <string name="authoring_task_sound">Task sound</string>
+</resources>

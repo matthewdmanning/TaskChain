@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -30,6 +31,8 @@ import com.taskchain.ui.designsystem.LocalUiComponents
 import com.taskchain.ui.Button
 import com.taskchain.ui.LabeledSwitchRow
 import com.taskchain.ui.OutlinedButton
+import com.taskchain.ui.SoundPickerRow
+import com.taskchain.domain.model.SoundToken
 
 /** Use this function to bind persisted appearance and timer behavior to Settings UI. */
 @Composable
@@ -92,8 +95,28 @@ internal fun SettingsRoute(viewModel: SettingsViewModel, padding: PaddingValues)
                 onValueChange = viewModel::setVibrationIntensity, valueRange = 0f..1f, steps = 3)
         }
         item {
+            Text(stringResource(R.string.settings_default_sounds), style = MaterialTheme.typography.titleLarge)
+        }
+        items(SoundToken.entries) { token ->
+            SoundPickerRow(
+                label = stringResource(soundTokenLabel(token)),
+                uri = state.defaultSoundUris[token],
+                onPicked = { viewModel.setDefaultSound(token, it) },
+            )
+        }
+        item {
             LabeledSwitchRow(label = stringResource(R.string.punch_screen_transitions),
                 checked = state.screenTransitionsEnabled, onCheckedChange = viewModel::setScreenTransitionsEnabled)
         }
     }
+}
+
+/** Use this function to name a sound token in Settings. */
+private fun soundTokenLabel(token: SoundToken): Int = when (token) {
+    SoundToken.TaskNudge -> R.string.sound_token_nudge
+    SoundToken.TimerExpired -> R.string.sound_token_timer_expired
+    SoundToken.TaskCompleted -> R.string.sound_token_task_completed
+    SoundToken.TaskRunning -> R.string.sound_token_task_running
+    SoundToken.TaskPaused -> R.string.sound_token_task_paused
+    SoundToken.SubtaskAdvanced -> R.string.sound_token_subtask_advanced
 }

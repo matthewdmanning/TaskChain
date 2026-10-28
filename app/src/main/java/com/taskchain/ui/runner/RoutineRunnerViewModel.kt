@@ -8,6 +8,9 @@ import com.taskchain.domain.model.RoutineRun
 import com.taskchain.domain.model.RunStatus
 import com.taskchain.domain.model.RunTaskStatus
 import com.taskchain.domain.model.SoundToken
+import com.taskchain.domain.model.withTaskSound
+import com.taskchain.domain.model.withUserDefaults
+import com.taskchain.domain.run.RunAlertPolicy
 import com.taskchain.domain.run.RunFeedbackEvent
 import com.taskchain.domain.run.RunFeedbackPolicy
 import com.taskchain.domain.run.RunNotificationPolicy
@@ -95,6 +98,13 @@ class RoutineRunnerViewModel(
         if (foreground == active) return
         foreground = active
         foregroundSynchronized = false
+        container.runnerVisible = active
+        // Hiding the screen hands reminders and timer expiry to an alarm; showing it hands them back.
+        viewModelScope.launch {
+            runMutex.withLock {
+                container.runAlerts.sync(container.activeRun.observeActive().first(), container.now(), active)
+            }
+        }
     }
 
     /** Use this function when the route combines the user transition setting with the system animator gate. */
@@ -212,8 +222,8 @@ class RoutineRunnerViewModel(
             run,
             now,
             container.taskNudgeIntervalMillis,
-            // Reminders stop once active time reaches the sum of all task times; buckets are still acknowledged.
-            emit = !container.runEngine.isPastPlannedRunTime(run, now),
+            // Reminders stop at the run's planned time, or after the idle limit for runs without timers.
+            emit = !RunAlertPolicy.remindersExhausted(run, container.runEngine, now, container.untimedReminderLimitMillis),
         )
         if (nudge.run != run) {
             try {
@@ -240,7 +250,7 @@ class RoutineRunnerViewModel(
             container.timerFeedback.fire(
                 soundEnabled = run.routineSoundEnabled && task.soundEnabled,
                 vibrateEnabled = run.routineVibrateEnabled && task.vibrateEnabled,
-                soundSettings = run.soundSettings,
+                soundSettings = run.soundSettings.withTaskSound(task.soundUri),
                 intensity = feedbackIntensity,
             )
         }
@@ -353,7 +363,7 @@ class RoutineRunnerViewModel(
                 token = event.token,
                 soundEnabled = soundEnabled,
                 vibrateEnabled = vibrateEnabled,
-                soundSettings = run.soundSettings,
+                soundSettings = run.soundSettings.withTaskSound(task.source.soundUri),
                 intensity = feedbackIntensity,
             )
         }
@@ -375,7 +385,12 @@ class RoutineRunnerViewModel(
             ?: container.builtInLibrary.load(container.now()).first { it.id == routineId }
         // Starting the routine answers its reminder, so the delivered reminder notification leaves the shade.
         container.reminders.clearDelivered(ReminderPlanner.routineRequestCode(routineId))
-        return container.runEngine.start(routine, container.newRunId(), container.now())
+        val defaults = container.preferences.observe().first().defaultSoundUris
+        return container.runEngine.start(
+            routine.copy(soundSettings = routine.soundSettings.withUserDefaults(defaults)),
+            container.newRunId(),
+            container.now(),
+        )
     }
 
     private companion object {

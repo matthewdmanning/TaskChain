@@ -78,6 +78,8 @@ data class RoutineTask(
     val remindEveryMinutes: Int? = null,
     val soundEnabled: Boolean = true,
     val vibrateEnabled: Boolean = true,
+    /** Content URI of a device sound that replaces the routine's nudge and timer-expiry sounds for this task. */
+    val soundUri: String? = null,
 ) {
     /** Total configured duration in seconds, using subtask duration when subtasks are present. */
     val durationSeconds: Long?
@@ -151,6 +153,8 @@ data class RoutineRun(
     val routineSoundEnabled: Boolean = true,
     val soundSettings: SoundSettings = defaultSoundSettings(),
     val routineVibrateEnabled: Boolean = true,
+    /** Time of the latest navigation, pause, resume, skip or complete; null until the first one. */
+    val lastInteractionAtEpochMillis: Long? = null,
 )
 
 /** Append-only history record used to derive progress without mutable counters. */
@@ -175,6 +179,8 @@ data class UserPreferences(
     val vibrationIntensity: Float = 1f,
     val screenTransitionsEnabled: Boolean = true,
     val showSubtaskTimeRemaining: Boolean = false,
+    /** Device sound the user picked per semantic token; a missing token keeps the built-in sound. */
+    val defaultSoundUris: Map<SoundToken, String> = emptyMap(),
 ) {
     init {
         require(vibrationIntensity in 0f..1f)

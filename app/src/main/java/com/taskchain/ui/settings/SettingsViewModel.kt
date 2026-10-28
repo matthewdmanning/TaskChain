@@ -3,6 +3,7 @@ package com.taskchain.ui.settings
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.taskchain.AppContainer
+import com.taskchain.domain.model.SoundToken
 import com.taskchain.domain.model.UserPreferences
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -42,6 +43,11 @@ class SettingsViewModel(private val container: AppContainer) : ViewModel() {
     /** Use this function when subtask countdown visibility is toggled in Settings. */
     fun setShowSubtaskTimeRemaining(enabled: Boolean) {
         viewModelScope.launch { container.preferences.setShowSubtaskTimeRemaining(enabled) }
+    }
+
+    /** Use this function when Settings picks or resets the default device sound for one semantic token. */
+    fun setDefaultSound(token: SoundToken, uri: String?) {
+        viewModelScope.launch { container.preferences.setDefaultSoundUri(token, uri) }
     }
 
     private companion object {

@@ -1,9 +1,11 @@
 package com.taskchain.reminder
 
 import android.content.Context
+import android.media.AudioAttributes
 import android.media.AudioManager
 import android.media.MediaPlayer
 import android.media.ToneGenerator
+import android.net.Uri
 import android.os.Handler
 import android.os.Looper
 import com.taskchain.domain.model.SoundSetting
@@ -20,6 +22,10 @@ class AndroidAssetSoundPlayer(private val context: Context) : SoundPlayer {
     /** Use this function when a semantic sound should play without allowing asset failures to escape. */
     override fun play(token: SoundToken, settings: SoundSetting) {
         if (!settings.enabled) return
+        settings.uri?.takeIf { it.isNotBlank() }?.let {
+            playPickedSound(it)
+            return
+        }
         if (settings.assetPath == null) {
             val toneType = when (token) {
                 SoundToken.TimerExpired -> ToneGenerator.TONE_PROP_BEEP
@@ -61,7 +67,37 @@ class AndroidAssetSoundPlayer(private val context: Context) : SoundPlayer {
         }
     }
 
+    /** Use this function to play a device sound the user picked, stopping it after a short cap so ringtones stay brief. */
+    private fun playPickedSound(uri: String) {
+        var player: MediaPlayer? = null
+        try {
+            val activePlayer = MediaPlayer()
+            player = activePlayer
+            activePlayer.setAudioAttributes(
+                AudioAttributes.Builder()
+                    .setUsage(AudioAttributes.USAGE_ALARM)
+                    .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                    .build(),
+            )
+            activePlayer.setDataSource(context, Uri.parse(uri))
+            activePlayer.setOnCompletionListener { runCatching { it.release() } }
+            activePlayer.setOnErrorListener { mediaPlayer, _, _ ->
+                runCatching { mediaPlayer.release() }
+                true
+            }
+            activePlayer.prepare()
+            activePlayer.start()
+            Handler(Looper.getMainLooper()).postDelayed(
+                { runCatching { activePlayer.release() } },
+                PICKED_SOUND_MAX_MILLIS,
+            )
+        } catch (_: Exception) {
+            runCatching { player?.release() }
+        }
+    }
+
     private companion object {
         const val TIMER_TONE_DURATION_MILLIS = 300
+        const val PICKED_SOUND_MAX_MILLIS = 4_000L
     }
 }

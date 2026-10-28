@@ -114,6 +114,7 @@ import com.taskchain.ui.LabeledSwitchRow
 import com.taskchain.ui.OutlinedButton
 import com.taskchain.ui.TextButton
 import com.taskchain.ui.SECONDS_PER_MINUTE
+import com.taskchain.ui.SoundPickerRow
 import com.taskchain.ui.home.routineDurationParts
 
 @Composable
@@ -396,6 +397,11 @@ internal fun RoutineBuilderRoute(
                             Text(stringResource(R.string.authoring_duration_value, duration.first, duration.second))
                         }
                     }
+                    SoundPickerRow(
+                        label = stringResource(R.string.authoring_task_sound),
+                        uri = task.soundUri,
+                        onPicked = { viewModel.setTaskSound(task.id, it) },
+                    )
                     BuilderSubtaskEditor(
                         subtasks = task.subtasks,
                         durationText = { subtask -> state.pendingSubtaskDurations["${task.id.value}:${subtask.id.value}"]

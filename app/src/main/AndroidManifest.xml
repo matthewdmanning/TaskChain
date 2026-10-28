@@ -36,6 +36,9 @@
             android:name=".reminder.RunActionReceiver"
             android:exported="false" />
         <receiver
+            android:name=".reminder.RunAlertReceiver"
+            android:exported="false" />
+        <receiver
             android:name=".reminder.ReminderRescheduleReceiver"
             android:exported="false">
             <intent-filter>

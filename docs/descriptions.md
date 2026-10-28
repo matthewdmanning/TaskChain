@@ -2177,3 +2177,43 @@ Inputs: `run`, `nowEpochMillis`. Dependencies: task durations and per-task activ
 
 ## `plannedRunTimeCapsPeriodicReminders` — app/src/test/java/com/taskchain/domain/run/RoutineRunEngineTest.kt
 Use this function to verify reminders stop once active time reaches the sum of all task times.
+
+## `RunAlertPolicy` — app/src/main/java/com/taskchain/domain/run/RunAlertPolicy.kt
+Platform-neutral policy for run alerts while the Run screen is hidden. `DueRunAlerts(run, nudge, timerExpired)` carries the acknowledged run and what to play.
+- `remindersExhausted(run, engine, now, untimedIdleLimitMillis)`: true at the planned run total, or for a run with no timer after the idle limit since `lastInteractionAtEpochMillis` (else `startedAtEpochMillis`).
+- `nextAlertAt(run, engine, now, nudgeIntervalMillis, untimedIdleLimitMillis)`: next nudge or timer-expiry time, never before `now`; null when paused, confirming, not active, or nothing remains.
+- `takeDue(...)`: acknowledges due nudge bucket and timer expiry; reports nudge only when not exhausted.
+
+## `RoutineRunEngine.plannedRunMillis` — app/src/main/java/com/taskchain/domain/run/RoutineRunEngine.kt
+Sum of all task timers in milliseconds; zero means no timer.
+
+## `RoutineRun.lastInteractionAtEpochMillis` — app/src/main/java/com/taskchain/domain/model/Models.kt
+Time of latest navigation, pause, resume, skip, or complete. Set by engine transitions; restarts the idle reminder limit.
+
+## `RoutineTask.soundUri` — app/src/main/java/com/taskchain/domain/model/Models.kt
+Device sound for this task; replaces nudge and timer-expiry sounds.
+
+## `UserPreferences.defaultSoundUris` — app/src/main/java/com/taskchain/domain/model/Models.kt
+Device sound per `SoundToken` picked in Settings; missing token keeps the built-in sound.
+
+## `SoundSetting.uri`, `withTaskSound`, `withUserDefaults` — app/src/main/java/com/taskchain/domain/model/SoundSettings.kt
+`uri` is a picked device sound and wins over `assetPath`. `withTaskSound(soundUri)` overrides nudge and timer expiry. `withUserDefaults(defaults)` fills tokens the routine left at built-in settings.
+
+## `setDefaultSoundUri` — app/src/main/java/com/taskchain/data/Repositories.kt
+Saves or clears (null) the default device sound for one token in DataStore key `default_sound_<token>`.
+
+## `RunAlerts`, `RunAlertReceiver` — app/src/main/java/com/taskchain/reminder/RunAlerts.kt
+`RunAlerts.sync(run, now, runnerVisible)` sets one exact alarm for the next alert, or cancels it. `RunAlertReceiver` plays due alerts under `runMutex`, saves acknowledgements, re-arms, and keeps the broadcast open 3 s for audio.
+
+## `AppContainer.runnerVisible`, `runAlerts`, `untimedReminderLimitMillis` — app/src/main/java/com/taskchain/AppContainer.kt
+Run screen visibility flag; alert alarm adapter; idle limit from `run_untimed_reminder_limit_minutes`.
+
+## `SoundPickerRow` — app/src/main/java/com/taskchain/ui/SoundPickerRow.kt
+Label plus button opening the system sound picker, and Reset. Used for Settings default sounds and per-task sound.
+
+## `setTaskSound`, `setDefaultSound` — RoutineBuilderViewModel.kt, SettingsViewModel.kt
+Store a picked sound URI for a task or a token; null resets.
+
+## `RunAlertPolicyTest`, `taskSoundReplacesNudgeAndTimerExpiryOnly`, `userDefaultsKeepRoutineCustomization` — app/src/test
+Cover alert timing, idle limit restarts, once-only delivery, and sound overrides.
+

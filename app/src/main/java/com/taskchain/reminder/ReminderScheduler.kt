@@ -250,7 +250,7 @@ class ReminderActionReceiver : BroadcastReceiver() {
 }
 
 /** Use this function to set one alarm; exact when the permission allows it, because inexact alarms drift in Doze. */
-private fun setAlarm(alarmManager: AlarmManager, triggerAtEpochMillis: Long, operation: PendingIntent) {
+internal fun setAlarm(alarmManager: AlarmManager, triggerAtEpochMillis: Long, operation: PendingIntent) {
     if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S || alarmManager.canScheduleExactAlarms()) {
         alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAtEpochMillis, operation)
     } else {

@@ -31,6 +31,8 @@ Both entry points reuse the same platform-neutral recurrence and Reminder mappin
 
 The ongoing run notification follows the same split. `domain/run/RunNotificationPolicy` derives its content and applies Skip and Complete through `RoutineRunEngine`. `reminder/RunNotification` maps that content to Android, and `RunActionReceiver` applies a button press to the persisted run. The receiver and the runner ViewModel share `AppContainer.runMutex`; the receiver increments `AppContainer.runRevision` after saving, and a live ViewModel adopts the saved run before its next read. The ViewModel never infers navigation from this signal. Routine Reminder notifications carry Snooze and Dismiss through `ReminderActionReceiver`, which uses the same recurrence mapping as delivery.
 
+Run alerts follow the same split. `domain/run/RunAlertPolicy` decides when the next nudge or timer expiry is due, which alerts a firing delivers, and when nudges stop. `reminder/RunAlerts` keeps one exact alarm for that time only while the Run screen is hidden (`AppContainer.runnerVisible`), and `RunAlertReceiver` plays what is due under `AppContainer.runMutex`. The runner ViewModel owns the same alerts while the screen is visible, so each alert plays once.
+
 The initial app is Android-only, offline-only, and database-free. Repository interfaces keep the file format and Android APIs outside domain behavior without adding speculative cloud, sync, authentication, or backup implementations.
 
 ## Local data durability

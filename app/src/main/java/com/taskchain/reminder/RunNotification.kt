@@ -199,6 +199,7 @@ class RunActionReceiver : BroadcastReceiver() {
                         container.runRevision.update { it + 1 }
                     }
                     container.runNotification.sync(updated ?: run, now)
+                    container.runAlerts.sync(updated ?: run, now, container.runnerVisible)
                 }
             } catch (error: CancellationException) {
                 throw error

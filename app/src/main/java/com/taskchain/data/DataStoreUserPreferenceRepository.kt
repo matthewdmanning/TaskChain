@@ -6,6 +6,7 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import com.taskchain.domain.model.SoundToken
 import com.taskchain.domain.model.UserPreferences
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -23,6 +24,9 @@ class DataStoreUserPreferenceRepository(private val context: Context) : UserPref
             vibrationIntensity = values[VIBRATION_INTENSITY] ?: 1f,
             screenTransitionsEnabled = values[SCREEN_TRANSITIONS_ENABLED] ?: true,
             showSubtaskTimeRemaining = values[SHOW_SUBTASK_TIME_REMAINING] ?: false,
+            defaultSoundUris = SoundToken.entries.mapNotNull { token ->
+                values[defaultSoundKey(token)]?.let { token to it }
+            }.toMap(),
         )
     }
 
@@ -57,7 +61,15 @@ class DataStoreUserPreferenceRepository(private val context: Context) : UserPref
         context.userPreferencesDataStore.edit { it[SHOW_SUBTASK_TIME_REMAINING] = enabled }
     }
 
+    /** Use this function when Settings picks or clears a default device sound for one token. */
+    override suspend fun setDefaultSoundUri(token: SoundToken, uri: String?) {
+        context.userPreferencesDataStore.edit {
+            if (uri == null) it.remove(defaultSoundKey(token)) else it[defaultSoundKey(token)] = uri
+        }
+    }
+
     private companion object {
+        fun defaultSoundKey(token: SoundToken) = stringPreferencesKey("default_sound_${token.name}")
         const val DEFAULT_THEME = "system"
         const val DEFAULT_UI_PROVIDER = "cyberpunk"
         val SELECTED_UI_PROVIDER = stringPreferencesKey("selected_ui_provider")

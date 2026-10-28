@@ -1,5 +1,6 @@
 <resources>
     <integer name="run_nudge_interval_seconds">60</integer>
+    <integer name="run_untimed_reminder_limit_minutes">15</integer>
     <!-- Minutes a reminder's Snooze action waits before the reminder is delivered again. -->
     <integer name="reminder_snooze_minutes">10</integer>
     <!-- Local hour at which completed or skipped routines return to Scheduled on Home. -->

@@ -445,6 +445,13 @@ class RoutineBuilderViewModel(
         }
     }
 
+    /** Use this function when the sound picker returns a task sound; null restores the routine's sounds. */
+    fun setTaskSound(taskId: RoutineTaskId, soundUri: String?) {
+        mutateDraft { draft ->
+            draft.copy(tasks = draft.tasks.map { if (it.id == taskId) it.copy(soundUri = soundUri) else it })
+        }
+    }
+
     /** Use this function when a routine deadline is selected. */
     fun setDeadline(value: Long?) {
         mutateDraft { draft ->
