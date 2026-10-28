@@ -97,4 +97,26 @@ class TaskFeedbackTest {
         assertNull(vibrationAmplitude(0f))
         assertEquals(255, vibrationAmplitude(2f))
     }
+
+    /** Use this function to verify the countdown pulse is short and obeys the haptic gate and intensity.
+     * Inputs: none.
+     * Dependencies: `AndroidTaskFeedback` and fake haptic callbacks.
+     */
+    @Test
+    fun countdownPulseIsShortAndRespectsGatesAndIntensity() {
+        val pulses = mutableListOf<Pair<Long, Int>>()
+        val feedback: TaskFeedback = AndroidTaskFeedback(
+            soundPlayer = object : SoundPlayer {
+                override fun play(token: SoundToken, settings: SoundSetting) = Unit
+            },
+            vibrate = { error("legacy haptic callback should not be used when amplitude callback is present") },
+            vibrateWithAmplitude = { duration, amplitude -> pulses += duration to amplitude },
+        )
+
+        feedback.pulse(vibrateEnabled = false, intensity = 1f)
+        feedback.pulse(vibrateEnabled = true, intensity = 0f)
+        feedback.pulse(vibrateEnabled = true, intensity = 0.5f)
+
+        assertEquals(listOf(40L to 128), pulses)
+    }
 }

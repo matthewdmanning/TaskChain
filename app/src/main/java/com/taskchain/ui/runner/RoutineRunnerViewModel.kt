@@ -10,14 +10,17 @@ import com.taskchain.domain.model.RunTaskStatus
 import com.taskchain.domain.model.SoundToken
 import com.taskchain.domain.run.RunFeedbackEvent
 import com.taskchain.domain.run.RunFeedbackPolicy
+import com.taskchain.domain.run.RunNotificationPolicy
 import com.taskchain.domain.schedule.ReminderPlanner
 import com.taskchain.ui.designsystem.RunnerMotion
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
 /** Runner UI state with persisted run state plus current wall-clock display time. */
@@ -34,7 +37,8 @@ class RoutineRunnerViewModel(
     private val routineId: RoutineId,
 ) : ViewModel() {
     val state = MutableStateFlow(RunnerState(nowEpochMillis = container.now()))
-    private val runMutex = Mutex()
+    private val runMutex = container.runMutex
+    private var seenRunRevision = container.runRevision.value
     private var foreground = false
     private var foregroundSynchronized = false
     private var initialRunningFeedbackPending = false
@@ -59,6 +63,30 @@ class RoutineRunnerViewModel(
                 delay(TICK_MILLIS)
                 tick()
             }
+        }
+        viewModelScope.launch {
+            // Equal content means the step, its pause state, and its clock anchors are unchanged, so nothing is reposted.
+            state.filter { it.run != null }
+                .map { RunNotificationPolicy.content(it.run!!, container.runEngine, it.nowEpochMillis) }
+                .distinctUntilChanged()
+                .collect { container.runNotification.show(it) }
+        }
+    }
+
+    /**
+     * Use this function once per readiness countdown number (3, 2, 1) before a task starts.
+     * It gives one short pulse only while the screen is foreground, the routine and upcoming task allow vibration,
+     * and the user's haptic intensity is above zero.
+     */
+    fun countdownPulse() {
+        val run = state.value.run ?: return
+        val task = run.tasks.getOrNull(run.currentTaskIndex) ?: return
+        if (!foreground) return
+        runCatching {
+            container.taskFeedback.pulse(
+                vibrateEnabled = run.routineVibrateEnabled && task.source.vibrateEnabled,
+                intensity = feedbackIntensity,
+            )
         }
     }
 
@@ -150,6 +178,7 @@ class RoutineRunnerViewModel(
     /** Use this function on the runner clock cadence to update display and fire zero feedback once. */
     private suspend fun tick() = runMutex.withLock {
         val now = container.now()
+        adoptExternalRunChange()
         state.value = state.value.copy(nowEpochMillis = now)
         var run = state.value.run ?: return@withLock
         if (foreground && !foregroundSynchronized) {
@@ -216,6 +245,18 @@ class RoutineRunnerViewModel(
         }
     }
 
+    /**
+     * Use this function inside the run lock, before reading the run, to adopt a change a notification action saved.
+     * A change to a different run is ignored.
+     */
+    private suspend fun adoptExternalRunChange() {
+        val revision = container.runRevision.value
+        if (revision == seenRunRevision) return
+        seenRunRevision = revision
+        val persisted = container.activeRun.observeActive().first() ?: return
+        if (persisted.id == state.value.run?.id) state.value = state.value.copy(run = persisted)
+    }
+
     /** Use this function to persist one ordinary active-run transition. */
     private fun transition(change: (RoutineRun, Long) -> RoutineRun) = withCurrentRun { run ->
         val updated = change(run, container.now())
@@ -242,6 +283,7 @@ class RoutineRunnerViewModel(
         val expected = state.value.run ?: return
         viewModelScope.launch {
             runMutex.withLock {
+                adoptExternalRunChange()
                 val run = state.value.run ?: return@withLock
                 if (run.status != RunStatus.ACTIVE || run.currentTaskIndex != expected.currentTaskIndex ||
                     run.tasks.getOrNull(run.currentTaskIndex)?.activeSubtaskId !=
@@ -330,6 +372,8 @@ class RoutineRunnerViewModel(
     private suspend fun startRun(): RoutineRun {
         val routine = container.routines.get(routineId)
             ?: container.builtInLibrary.load(container.now()).first { it.id == routineId }
+        // Starting the routine answers its reminder, so the delivered reminder notification leaves the shade.
+        container.reminders.clearDelivered(ReminderPlanner.routineRequestCode(routineId))
         return container.runEngine.start(routine, container.newRunId(), container.now())
     }
 

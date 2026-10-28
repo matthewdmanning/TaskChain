@@ -1,5 +1,7 @@
 <resources>
     <integer name="run_nudge_interval_seconds">60</integer>
+    <!-- Minutes a reminder's Snooze action waits before the reminder is delivered again. -->
+    <integer name="reminder_snooze_minutes">10</integer>
     <!-- Local hour at which completed or skipped routines return to Scheduled on Home. -->
     <integer name="home_day_start_hour">2</integer>
     <integer name="repeated_path_parallel_count">5</integer>

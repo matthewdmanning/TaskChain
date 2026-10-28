@@ -2188,3 +2188,57 @@ Use this function to find the last local day start (configured hour) at or befor
 
 ## `returnToScheduledEpochMillis` — domain/home/TodayProjection.kt
 Use this function to find when a handled routine returns to Scheduled: the day start of the day of its next occurrence, never before the next day start.
+
+## `RunNotificationClock` — domain/run/RunNotificationPolicy.kt
+Time display for the ongoing run notification: Hidden, Paused with frozen remaining time, CountDown to an end time, or CountUp from a start time.
+
+## `RunNotificationTarget` — domain/run/RunNotificationPolicy.kt
+The run, main task index, and active subtask a notification button was built for, used to ignore a press after the step changed.
+
+## `RunNotificationContent` — domain/run/RunNotificationPolicy.kt
+Platform-neutral notification content: title (active subtask or task name), main task title when a subtask is shown, routine title, clock, and whether Skip or Complete must open the app.
+
+## `RunNotificationAction` — domain/run/RunNotificationPolicy.kt
+The two transitions the run notification applies without opening the app: SKIP and COMPLETE.
+
+## `RunNotificationPolicy.content` — domain/run/RunNotificationPolicy.kt
+Use this function to build notification content for the displayed step; inputs are the run, engine, and clock, and it returns null for a run that is not active.
+
+## `RunNotificationPolicy.applyAction` — domain/run/RunNotificationPolicy.kt
+Use this function to apply Skip or Complete from the notification; it returns the updated run, or null when the press is stale or the transition needs the app.
+
+## `RunNotification` — reminder/RunNotification.kt
+Posts the one ongoing run notification with Skip and Complete buttons and a system-ticked chronometer; `show` posts or removes it from policy content and `sync` derives that content from a run.
+
+## `RunActionReceiver` — reminder/RunNotification.kt
+Use this receiver for Skip and Complete presses on the run notification; it applies the transition under `AppContainer.runMutex`, saves it, increments `runRevision`, and refreshes the notification.
+
+## `AppContainer.runMutex` — AppContainer.kt
+Lock shared by the runner ViewModel and notification actions so neither saves a stale run over the other.
+
+## `AppContainer.runRevision` — AppContainer.kt
+Counter incremented after a run change made outside the runner ViewModel; a live ViewModel reloads the saved run when it changes.
+
+## `adoptExternalRunChange` — ui/runner/RoutineRunnerViewModel.kt
+Use this function inside the run lock to adopt a run saved by a notification action before reading state.
+
+## `countdownPulse` — ui/runner/RoutineRunnerViewModel.kt
+Use this function once per readiness countdown number to give one short pulse when foreground, routine and task vibration are on, and intensity is above zero.
+
+## `TaskFeedback.pulse` — reminder/TaskFeedback.kt
+Use this function for one 40 ms haptic pulse, gated by the caller and silenced at zero intensity.
+
+## `TaskReadyPhase.isCountdownNumber` — ui/runner/TaskReadyTransition.kt
+Use this function to tell the numbered countdown steps, which pulse, from the Get Ready lead-in.
+
+## `ReminderActionReceiver` — reminder/ReminderScheduler.kt
+Use this receiver for Snooze and Dismiss on a reminder notification; both remove it and end the cycle's pending repeat, and Snooze also sets a delivery after `reminder_snooze_minutes`.
+
+## `ReminderScheduler.clearDelivered` — reminder/ReminderScheduler.kt
+Use this function to remove a delivered reminder notification, for example when its routine starts.
+
+## `rearmReminder` — reminder/ReminderScheduler.kt
+Use this function after delivery or a dismiss to schedule the next occurrence from the delivered alarm's extras; it returns false when nothing remains to schedule.
+
+## `ReminderPlanner.routineRequestCode` — domain/schedule/ReminderPlanner.kt
+Use this function to map a routine id to its alarm and notification code.

@@ -29,6 +29,8 @@ Feature ViewModels initiate Reminder scheduling and cancellation in response to 
 
 Both entry points reuse the same platform-neutral recurrence and Reminder mapping policy. Keep recurrence calculations in `domain/schedule` and Android intent, `AlarmManager`, notification, audio, and haptic behavior in `reminder`. Do not add another interface around Reminder delivery unless behavior genuinely varies across a second adapter.
 
+The ongoing run notification follows the same split. `domain/run/RunNotificationPolicy` derives its content and applies Skip and Complete through `RoutineRunEngine`. `reminder/RunNotification` maps that content to Android, and `RunActionReceiver` applies a button press to the persisted run. The receiver and the runner ViewModel share `AppContainer.runMutex`; the receiver increments `AppContainer.runRevision` after saving, and a live ViewModel adopts the saved run before its next read. The ViewModel never infers navigation from this signal. Routine Reminder notifications carry Snooze and Dismiss through `ReminderActionReceiver`, which uses the same recurrence mapping as delivery.
+
 The initial app is Android-only, offline-only, and database-free. Repository interfaces keep the file format and Android APIs outside domain behavior without adding speculative cloud, sync, authentication, or backup implementations.
 
 ## Local data durability

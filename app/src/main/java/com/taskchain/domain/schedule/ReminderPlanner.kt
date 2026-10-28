@@ -237,7 +237,7 @@ object ReminderPlanner {
     const val REPEAT_WINDOW_MILLIS = 2 * 60 * 60 * 1000L
 
     /** Use this function to map a stable RoutineId to the alarm code used by request mapping and cancellation. */
-    private fun routineRequestCode(routineId: RoutineId): Int = routineId.value.hashCode()
+    fun routineRequestCode(routineId: RoutineId): Int = routineId.value.hashCode()
 
     /** Use this function to map a task id to the legacy alarm code used before settings moved to the routine. */
     private fun legacyTaskRequestCode(taskId: String): Int = "step:$taskId".hashCode()

@@ -19,12 +19,15 @@ import com.taskchain.domain.run.RoutineRunEngine
 import com.taskchain.reminder.AndroidReminderScheduler
 import com.taskchain.reminder.AndroidTaskFeedback
 import com.taskchain.reminder.ReminderScheduler
+import com.taskchain.reminder.RunNotification
 import com.taskchain.reminder.TaskFeedback
 import com.taskchain.reminder.TimerFeedback
 import java.io.File
 import java.util.UUID
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.serialization.json.Json
 
@@ -41,6 +44,13 @@ class AppContainer(context: Context) {
     val builtInLibrary = BuiltInRoutineLibrary(appContext, json)
     val runEngine = RoutineRunEngine()
     val reminders: ReminderScheduler = AndroidReminderScheduler(appContext)
+
+    /** Serializes every change to the active run between the runner ViewModel and notification actions. */
+    val runMutex = Mutex()
+
+    /** Counts changes made to the active run outside the runner ViewModel, so a live ViewModel reloads them. */
+    val runRevision = MutableStateFlow(0L)
+    val runNotification = RunNotification(appContext, runEngine)
     val timerFeedback = TimerFeedback(appContext)
     val taskFeedback: TaskFeedback = AndroidTaskFeedback(appContext)
     val homeDayStartHour = appContext.resources.getInteger(R.integer.home_day_start_hour)
