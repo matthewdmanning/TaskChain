@@ -136,7 +136,7 @@ class RunNotification(context: Context, private val engine: RoutineRunEngine) {
         REQUEST_OPEN,
         Intent(appContext, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
-            putExtra(RunBubble.EXTRA_OPEN_ACTIVE_RUN, true)
+            putExtra(MainActivity.EXTRA_OPEN_ACTIVE_RUN, true)
         },
         PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
     )

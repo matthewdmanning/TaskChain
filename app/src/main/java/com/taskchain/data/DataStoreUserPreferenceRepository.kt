@@ -22,7 +22,6 @@ class DataStoreUserPreferenceRepository(private val context: Context) : UserPref
             continueTimerPastZero = values[CONTINUE_PAST_ZERO] ?: true,
             vibrationIntensity = values[VIBRATION_INTENSITY] ?: 1f,
             screenTransitionsEnabled = values[SCREEN_TRANSITIONS_ENABLED] ?: true,
-            bubbleOnMinimize = values[BUBBLE_ON_MINIMIZE] ?: false,
             showSubtaskTimeRemaining = values[SHOW_SUBTASK_TIME_REMAINING] ?: false,
         )
     }
@@ -53,11 +52,6 @@ class DataStoreUserPreferenceRepository(private val context: Context) : UserPref
         context.userPreferencesDataStore.edit { it[SCREEN_TRANSITIONS_ENABLED] = enabled }
     }
 
-    /** Use this function when settings changes whether the app requests a minimize bubble. */
-    override suspend fun setBubbleOnMinimize(enabled: Boolean) {
-        context.userPreferencesDataStore.edit { it[BUBBLE_ON_MINIMIZE] = enabled }
-    }
-
     /** Use this function when Settings changes whether the active subtask shows remaining time. */
     override suspend fun setShowSubtaskTimeRemaining(enabled: Boolean) {
         context.userPreferencesDataStore.edit { it[SHOW_SUBTASK_TIME_REMAINING] = enabled }
@@ -71,7 +65,6 @@ class DataStoreUserPreferenceRepository(private val context: Context) : UserPref
         val CONTINUE_PAST_ZERO = booleanPreferencesKey("continue_timer_past_zero")
         val VIBRATION_INTENSITY = floatPreferencesKey("vibration_intensity")
         val SCREEN_TRANSITIONS_ENABLED = booleanPreferencesKey("screen_transitions_enabled")
-        val BUBBLE_ON_MINIMIZE = booleanPreferencesKey("bubble_on_minimize")
         val SHOW_SUBTASK_TIME_REMAINING = booleanPreferencesKey("show_subtask_time_remaining")
     }
 }

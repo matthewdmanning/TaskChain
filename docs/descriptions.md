@@ -1414,68 +1414,6 @@ Use this function to verify visible builder handles reorder collapsed and expand
 Inputs: None.
 Dependencies: `MainActivity`, `activityRule`, the built-in Morning reset routine.
 
-## RunBubble - app/src/main/java/com/taskchain/reminder/RunBubble.kt
-
-Posts the native Android bubble for an active run when the user and platform allow it.
-Inputs: context: Context
-Dependencies: NotificationCompat, NotificationManagerCompat, ShortcutManager, MainActivity, RoutineRun, Android notification permission and bubble settings.
-
-## isAvailable - app/src/main/java/com/taskchain/reminder/RunBubble.kt
-
-Use this function before rendering or posting the bubble to check Android version, notification permission, app notification state, global bubble state, and channel bubble state.
-Inputs: none.
-Dependencies: Context, NotificationManager, NotificationManagerCompat, Settings channel state.
-Returns: Boolean availability result.
-
-## show - app/src/main/java/com/taskchain/reminder/RunBubble.kt
-
-Use this function when the activity leaves the foreground to post one silent ongoing bubble for an active run.
-Inputs: run: RoutineRun
-Dependencies: RoutineRun.status, run tasks, NotificationCompat.MessagingStyle, conversation shortcut, MainActivity pending intent, Android notification policy.
-Returns: none; denied platform settings are handled as a no-op.
-
-## cancel - app/src/main/java/com/taskchain/reminder/RunBubble.kt
-
-Use this function when the activity returns to the foreground to remove the active-run bubble.
-Inputs: none.
-Dependencies: NotificationManagerCompat.
-Returns: none.
-
-## settingsIntent - app/src/main/java/com/taskchain/reminder/RunBubble.kt
-
-Use this function to route a settings affordance to Android app bubble controls, falling back to app notification settings when unavailable.
-Inputs: none.
-Dependencies: Settings actions, package manager, app package name.
-Returns: Intent.
-
-## channelSettingsIntent - app/src/main/java/com/taskchain/reminder/RunBubble.kt
-
-Use this function when Android reports the active-run channel has bubbles disabled.
-Inputs: none.
-Dependencies: Settings channel notification action, channel id, app package name.
-Returns: Intent.
-
-## createChannel - app/src/main/java/com/taskchain/reminder/RunBubble.kt
-
-Use this function before bubble availability checks or posting to create the user-controlled active-run notification channel.
-Inputs: none.
-Dependencies: NotificationManager, notification channel resources.
-Returns: none.
-
-## createShortcut - app/src/main/java/com/taskchain/reminder/RunBubble.kt
-
-Use this function before posting a shortcut bubble to register its long-lived conversation shortcut and person metadata.
-Inputs: routineTitle: String
-Dependencies: ShortcutManager, ShortcutInfo, MainActivity, notification icon resource.
-Returns: none; registration failures are contained.
-
-## pendingIntentMutability - app/src/main/java/com/taskchain/reminder/RunBubble.kt
-
-Use this function to select the bubble launch PendingIntent mutability required by the device API.
-Inputs: none.
-Dependencies: Build.VERSION and PendingIntent flags.
-Returns: Int flag value.
-
 ## setVibrationIntensity - app/src/main/java/com/taskchain/data/DataStoreUserPreferenceRepository.kt
 
 Use this function when settings changes haptic feedback strength.
@@ -1486,13 +1424,6 @@ Returns: none.
 ## setScreenTransitionsEnabled - app/src/main/java/com/taskchain/data/DataStoreUserPreferenceRepository.kt
 
 Use this function when settings changes completion transition presentation.
-Inputs: enabled: Boolean
-Dependencies: DataStore boolean preference.
-Returns: none.
-
-## setBubbleOnMinimize - app/src/main/java/com/taskchain/data/DataStoreUserPreferenceRepository.kt
-
-Use this function when settings changes whether the app requests a minimize bubble.
 Inputs: enabled: Boolean
 Dependencies: DataStore boolean preference.
 Returns: none.
@@ -1561,12 +1492,6 @@ Dependencies: `container.preferences`, `viewModelScope`.
 
 Use this function to persist the task-transition preference.
 Inputs: `enabled` — transition gate.
-Dependencies: `container.preferences`, `viewModelScope`.
-
-## `setBubbleOnMinimize` — app/src/main/java/com/taskchain/ui/FeatureViewModels.kt
-
-Use this function to persist the native bubble opt-in.
-Inputs: `enabled` — bubble preference.
 Dependencies: `container.preferences`, `viewModelScope`.
 
 ## `advanceToNextFinishedTask` — app/src/main/java/com/taskchain/ui/FeatureViewModels.kt
@@ -1948,15 +1873,15 @@ Use this function to preview an intercepted Back gesture from its transition sta
 Inputs: transitionState — current gesture lifecycle and event; enabled — motion/confirmation gate; receiver — screen modifier.
 Dependencies: NavigationEventTransitionState.
 
-## `BubbleNavigationTest` — app/src/androidTest/java/com/taskchain/BubbleNavigationTest.kt
-Verifies that a bubble launch request does not duplicate a restored runner entry.
+## `OpenActiveRunNavigationTest` — app/src/androidTest/java/com/taskchain/OpenActiveRunNavigationTest.kt
+Verifies that an open-active-run request does not duplicate a restored runner entry.
 Constructor inputs: none.
-Dependencies: MainActivity, RunBubble, and Compose test semantics.
+Dependencies: MainActivity and Compose test semantics.
 
-## `bubbleRequestAfterRecreation_doesNotLeaveDuplicateRunnerEntry` — app/src/androidTest/java/com/taskchain/BubbleNavigationTest.kt
-Use this function to verify recreation consumes the bubble request after restoration.
+## `openActiveRunRequestAfterRecreation_doesNotLeaveDuplicateRunnerEntry` — app/src/androidTest/java/com/taskchain/OpenActiveRunNavigationTest.kt
+Use this function to verify recreation consumes the open-active-run request after restoration.
 Inputs: none.
-Dependencies: activityRule, MainActivity, RunBubble.EXTRA_OPEN_ACTIVE_RUN, and Compose test semantics.
+Dependencies: activityRule, MainActivity, MainActivity.EXTRA_OPEN_ACTIVE_RUN, and Compose test semantics.
 
 ## `NavigationBackHandlerTest` — app/src/androidTest/java/com/taskchain/ui/NavigationBackHandlerTest.kt
 Tests predictive progress, cancellation, and completion through ComponentActivity's dispatcher.
@@ -1968,15 +1893,15 @@ Use this function to verify gesture previews reset without committing the Back a
 Inputs: none.
 Dependencies: compose dispatcher, NavigationBackHandler, navigationBackPreview.
 
-## `BubbleNavigationTest` — app/src/androidTest/java/com/taskchain/BubbleNavigationTest.kt
-Verifies that a bubble launch request does not duplicate a restored runner entry.
+## `OpenActiveRunNavigationTest` — app/src/androidTest/java/com/taskchain/OpenActiveRunNavigationTest.kt
+Verifies that an open-active-run request does not duplicate a restored runner entry.
 Constructor inputs: none.
-Dependencies: AppContainer, TaskChainApp, RunBubble, NavHostController, and StateRestorationTester.
+Dependencies: AppContainer, TaskChainApp, MainActivity, NavHostController, and StateRestorationTester.
 
-## `bubbleRequestAfterRecreation_doesNotLeaveDuplicateRunnerEntry` — app/src/androidTest/java/com/taskchain/BubbleNavigationTest.kt
-Use this function to verify recreation consumes the bubble request after restoration.
+## `openActiveRunRequestAfterRecreation_doesNotLeaveDuplicateRunnerEntry` — app/src/androidTest/java/com/taskchain/OpenActiveRunNavigationTest.kt
+Use this function to verify recreation consumes the open-active-run request after restoration.
 Inputs: none.
-Dependencies: composeRule, AppContainer, RunBubble.EXTRA_OPEN_ACTIVE_RUN, TaskChainApp, and NavHostController back-stack state.
+Dependencies: composeRule, AppContainer, MainActivity.EXTRA_OPEN_ACTIVE_RUN, TaskChainApp, and NavHostController back-stack state.
 
 ## `UnsupportedSchemaVersionException` — app/src/main/java/com/taskchain/data/StoredJson.kt
 Represents a stored file whose schema is newer than this app can safely interpret. Input: `version`; dependency: [IOException].
@@ -2098,11 +2023,11 @@ Use this function before each builder error test to remove prior isolated test r
 ## `clearIsolatedTestStateAfterTest` — app/src/androidTest/java/com/taskchain/BuilderErrorFlowTest.kt
 Use this function after each builder error test to remove only state created in the isolated test package. Inputs: none. Dependencies: instrumentation target context and resetTestAppState.
 
-## `clearIsolatedTestState` — app/src/androidTest/java/com/taskchain/BubbleNavigationTest.kt
-Use this function before the bubble test to remove prior isolated test routines and runs. Inputs: none. Dependencies: instrumentation target context and resetTestAppState.
+## `clearIsolatedTestState` — app/src/androidTest/java/com/taskchain/OpenActiveRunNavigationTest.kt
+Use this function before the open-active-run test to remove prior isolated test routines and runs. Inputs: none. Dependencies: instrumentation target context and resetTestAppState.
 
-## `clearIsolatedTestStateAfterTest` — app/src/androidTest/java/com/taskchain/BubbleNavigationTest.kt
-Use this function after the bubble test to remove only state created in the isolated test package. Inputs: none. Dependencies: instrumentation target context and resetTestAppState.
+## `clearIsolatedTestStateAfterTest` — app/src/androidTest/java/com/taskchain/OpenActiveRunNavigationTest.kt
+Use this function after the open-active-run test to remove only state created in the isolated test package. Inputs: none. Dependencies: instrumentation target context and resetTestAppState.
 
 ## `StoredJsonTest` — app/src/test/java/com/taskchain/data/StoredJsonTest.kt
 Verifies versioned envelopes, legacy payloads, and unsupported-file preservation. Constructor inputs: none; dependencies: [Json] and the storage helpers.
@@ -2242,3 +2167,6 @@ Use this function after delivery or a dismiss to schedule the next occurrence fr
 
 ## `ReminderPlanner.routineRequestCode` — domain/schedule/ReminderPlanner.kt
 Use this function to map a routine id to its alarm and notification code.
+
+## `MainActivity.EXTRA_OPEN_ACTIVE_RUN` — MainActivity.kt
+Intent extra that asks the app to open the persisted active run, for example from the run notification.

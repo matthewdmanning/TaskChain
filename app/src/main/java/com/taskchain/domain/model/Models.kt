@@ -174,7 +174,6 @@ data class UserPreferences(
     val continueTimerPastZero: Boolean = true,
     val vibrationIntensity: Float = 1f,
     val screenTransitionsEnabled: Boolean = true,
-    val bubbleOnMinimize: Boolean = false,
     val showSubtaskTimeRemaining: Boolean = false,
 ) {
     init {

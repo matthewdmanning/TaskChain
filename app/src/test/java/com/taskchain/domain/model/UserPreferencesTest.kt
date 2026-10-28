@@ -17,7 +17,6 @@ class UserPreferencesTest {
 
         assertEquals(1f, preferences.vibrationIntensity)
         assertTrue(preferences.screenTransitionsEnabled)
-        assertTrue(!preferences.bubbleOnMinimize)
     }
 
     /**

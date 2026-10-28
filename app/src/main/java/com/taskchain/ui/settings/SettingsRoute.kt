@@ -4,12 +4,6 @@
 )
 
 package com.taskchain.ui.settings
-import android.Manifest
-import android.content.pm.PackageManager
-import android.os.Build
-import android.provider.Settings
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
@@ -28,7 +22,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.core.content.ContextCompat
 import com.taskchain.R
 import com.taskchain.ui.designsystem.TaskChainDesignSystem
 import com.taskchain.ui.designsystem.ThemeCatalog
@@ -37,7 +30,6 @@ import com.taskchain.ui.designsystem.LocalUiComponents
 import com.taskchain.ui.Button
 import com.taskchain.ui.LabeledSwitchRow
 import com.taskchain.ui.OutlinedButton
-import com.taskchain.ui.TextButton
 
 /** Use this function to bind persisted appearance and timer behavior to Settings UI. */
 @Composable
@@ -46,7 +38,6 @@ internal fun SettingsRoute(viewModel: SettingsViewModel, padding: PaddingValues)
     val spacing = TaskChainDesignSystem.spacing()
     val context = LocalContext.current
     val ui = LocalUiComponents.current
-    val notificationPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { }
     LazyColumn(
         modifier = Modifier.fillMaxSize().padding(padding).consumeWindowInsets(padding),
         contentPadding = PaddingValues(spacing.medium),
@@ -103,22 +94,6 @@ internal fun SettingsRoute(viewModel: SettingsViewModel, padding: PaddingValues)
         item {
             LabeledSwitchRow(label = stringResource(R.string.punch_screen_transitions),
                 checked = state.screenTransitionsEnabled, onCheckedChange = viewModel::setScreenTransitionsEnabled)
-        }
-        item {
-            LabeledSwitchRow(label = stringResource(R.string.punch_bubble_minimize),
-                checked = state.bubbleOnMinimize, onCheckedChange = { enabled ->
-                    viewModel.setBubbleOnMinimize(enabled)
-                    if (enabled && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
-                        ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
-                        notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
-                    }
-                })
-            if (state.bubbleOnMinimize) {
-                TextButton(onClick = {
-                    context.startActivity(android.content.Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
-                        .putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName))
-                }) { Text(stringResource(R.string.punch_bubble_system_settings)) }
-            }
         }
     }
 }

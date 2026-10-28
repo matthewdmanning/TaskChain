@@ -39,11 +39,6 @@ class SettingsViewModel(private val container: AppContainer) : ViewModel() {
         viewModelScope.launch { container.preferences.setScreenTransitionsEnabled(enabled) }
     }
 
-    /** Use this function to opt into native run bubbles; input is the enabled gate, dependency is the preference repository. */
-    fun setBubbleOnMinimize(enabled: Boolean) {
-        viewModelScope.launch { container.preferences.setBubbleOnMinimize(enabled) }
-    }
-
     /** Use this function when subtask countdown visibility is toggled in Settings. */
     fun setShowSubtaskTimeRemaining(enabled: Boolean) {
         viewModelScope.launch { container.preferences.setShowSubtaskTimeRemaining(enabled) }

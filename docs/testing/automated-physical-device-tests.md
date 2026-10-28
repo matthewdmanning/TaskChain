@@ -20,7 +20,7 @@ Write one test for each event in [navigation-events-review.md](../navigation-eve
 | Runner system Back (not the visible button) | Device | `SystemBackNavigationTest` |
 | Runner predictive Back with confirmation open | Device gesture | |
 | Completion hold consumes Back | Compose | |
-| Bubble opens the active run | Device | `BubbleNavigationTest` |
+| Run notification opens the active run | Device | `OpenActiveRunNavigationTest` |
 | Back from Home leaves the app | Device | `SystemBackNavigationTest` |
 | Process death during a run restores the run | Device | |
 
@@ -31,7 +31,7 @@ Cover error and recovery routes with `BuilderErrorFlowTest` and `StartupRecovery
 - Use `ComposeTestRule` with semantic matchers.
 - Match by semantic matcher first. Use `testTag` only when a match needs more than three matchers.
 - Always verify state restoration after `recreate()`.
-- Use UI Automator for system Back, edge swipes and the bubble. Compose rules cannot reach system UI.
+- Use UI Automator for system Back, edge swipes and the notification shade. Compose rules cannot reach system UI.
 - Assert the back-stack depth after each event, not only the visible screen.
 - Use synthetic routines seeded through the test helpers. Clear state in `@Before` and `@After`, as `MainActivityTest` does.
 - Inject system Back with `Instrumentation.sendKeyDownUpSync(KEYCODE_BACK)` when a dialog is open.
@@ -81,7 +81,7 @@ If the task leaves no `.isRecordingScreenshots` marker on the device, record by 
 
 | Scope | Variants |
 | --- | --- |
-| Home | Empty, populated, bubble active |
+| Home | Empty, populated, run active |
 | Builder | Collapsed tasks, expanded task, subtasks, validation error |
 | Runner | Running, paused, overtime, subtask behind schedule, confirmation |
 | Progress | Empty, populated |
