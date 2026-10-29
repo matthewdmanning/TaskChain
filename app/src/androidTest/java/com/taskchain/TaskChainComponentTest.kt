@@ -1,4 +1,4 @@
-package com.taskchain.ui
+package com.taskchain
 
 import com.taskchain.core.ui.LabeledSwitchRow
 

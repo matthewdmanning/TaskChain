@@ -12,7 +12,7 @@ Two areas merit follow-up: custom back handlers do not expose predictive-gesture
 
 ## Action-index freshness
 
-`docs/ui/TaskChain-UI-Action-Index-refactor-feature-integration.jsonl` is stale and was not used as evidence. Its header pins the records to branch `refactor-feature-integration` and commit `9ac12352`; the current checkout is `architecture-refactor` at `918115b`. Its navigation entries point into the former monolithic `ui/TaskChainApp.kt`, while current screens and handlers are split into feature packages.
+The obsolete action-index snapshots were removed during feature-refactor cleanup; they were not used as evidence for this review. For current ownership and navigation wiring, see [architecture.md](../architecture.md) and [TaskChainApp.kt](../app/src/main/java/com/taskchain/TaskChainApp.kt).
 
 ## Event map
 

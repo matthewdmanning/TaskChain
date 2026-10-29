@@ -11,7 +11,7 @@ Status words in this folder:
 ## Principles
 
 - Test behavior that can lose user data or break a run. Skip trivial code and framework code.
-- Keep domain rules in `domain/` so JVM tests can reach them. See `architecture.md`.
+- Keep shared rules in `core/` and feature domain rules in `features/<feature>/domain/` so JVM tests can reach them. See `architecture.md`.
 - Run fast checks on every pull request. Run slow checks on demand or on `main`.
 - Never test against the regular app `com.taskchain`. It holds valued user data.
 - Use synthetic fixtures only. Instrumentation uses `com.taskchain.testapp`.

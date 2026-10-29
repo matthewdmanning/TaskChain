@@ -86,3 +86,5 @@ The baseline comparison identifies pre-existing device-test failures; it does no
 | `TaskChainComponentTest.weekdaySelector_eachDayCanBeSelected` | `Sun` is offscreen. | Review the test's scrolling/visibility handling for weekday selectors. |
 
 Local XML evidence is saved under `.scratch/feature-refactor-integrated-device-results`, `.scratch/feature-refactor-baseline-device-results` and `.scratch/feature-refactor-baseline-screenshot-result`. These are local verification artifacts, not committed fixtures. Rerun the boundary check if later source edits change ownership.
+
+Cleanup removed five obsolete feature-integration snapshots and moved the integration test from `com.taskchain.ui.TaskChainComponentTest` to `com.taskchain.TaskChainComponentTest`. Earlier reports retain the former name and the baseline-matched 15/21 result as historical evidence; test behavior and expectations are unchanged. After cleanup, `:app:compileDeviceTestAndroidTestKotlin --console=plain` passed under JDK 17.
