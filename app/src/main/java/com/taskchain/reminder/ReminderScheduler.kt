@@ -1,5 +1,9 @@
 package com.taskchain.reminder
 
+import com.taskchain.core.platform.AndroidAssetSoundPlayer
+import com.taskchain.core.platform.SoundPlayer
+import com.taskchain.core.platform.vibrationAmplitude
+
 import android.Manifest
 import android.app.AlarmManager
 import android.app.NotificationChannel
@@ -19,15 +23,15 @@ import androidx.core.content.ContextCompat
 import com.taskchain.MainActivity
 import com.taskchain.TaskChainApplication
 import com.taskchain.R
-import com.taskchain.domain.model.ScheduleFrequency
-import com.taskchain.domain.model.ScheduleRule
-import com.taskchain.domain.schedule.ReminderPlanner
-import com.taskchain.domain.schedule.ReminderRequest
-import com.taskchain.domain.schedule.completedSinceCycle
-import com.taskchain.domain.schedule.completedRoutineSinceCycle
-import com.taskchain.domain.model.SoundSettings
-import com.taskchain.domain.model.SoundToken
-import com.taskchain.domain.model.defaultSoundSettings
+import com.taskchain.core.model.ScheduleFrequency
+import com.taskchain.core.model.ScheduleRule
+import com.taskchain.core.schedule.ReminderPlanner
+import com.taskchain.core.schedule.ReminderRequest
+import com.taskchain.core.schedule.completedSinceCycle
+import com.taskchain.core.schedule.completedRoutineSinceCycle
+import com.taskchain.core.model.SoundSettings
+import com.taskchain.core.model.SoundToken
+import com.taskchain.core.model.defaultSoundSettings
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first

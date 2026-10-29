@@ -1,5 +1,7 @@
 package com.taskchain.ui
 
+import com.taskchain.core.ui.LabeledSwitchRow
+
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.runtime.getValue
@@ -16,9 +18,9 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.test.ext.junit.runners.AndroidJUnit4
-import com.taskchain.ui.designsystem.TaskChainTheme
-import com.taskchain.ui.home.RoutineList
-import com.taskchain.ui.builder.WeekdaySelector
+import com.taskchain.core.designsystem.TaskChainTheme
+import com.taskchain.core.browsing.RoutineList
+import com.taskchain.features.authoring.ui.WeekdaySelector
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith

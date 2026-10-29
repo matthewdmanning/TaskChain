@@ -8,8 +8,8 @@ import androidx.lifecycle.lifecycleScope
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import com.taskchain.ui.TaskChainApp
-import com.taskchain.ui.StartupScreen
+import com.taskchain.TaskChainApp
+import com.taskchain.core.startup.StartupScreen
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
