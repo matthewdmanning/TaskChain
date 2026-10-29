@@ -16,6 +16,7 @@ import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.isToggleable
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.taskchain.core.designsystem.TaskChainTheme
@@ -66,6 +67,7 @@ class TaskChainComponentTest {
 
         listOf("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun").forEach { day ->
             val chip = composeRule.onNodeWithText(day)
+            chip.performScrollTo()
             chip.assertIsNotSelected()
             chip.performClick()
             chip.assertIsSelected()

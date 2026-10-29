@@ -2,6 +2,9 @@ package com.taskchain
 
 import android.content.Intent
 import androidx.activity.ComponentActivity
+import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.junit4.StateRestorationTester
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.lifecycle.Lifecycle
@@ -84,6 +87,14 @@ class OpenActiveRunNavigationTest {
         check(navController?.previousBackStackEntry?.destination?.route == "home") {
             "Restoring a runner opened by the open-active-run request must keep Home as the previous destination"
         }
+        composeRule.waitUntil(10_000) {
+            composeRule.onAllNodesWithText("Pause").fetchSemanticsNodes().isNotEmpty()
+        }
+        composeRule.onNodeWithText("Pause").performClick()
+        composeRule.waitUntil(10_000) {
+            composeRule.onAllNodesWithText("Resume").fetchSemanticsNodes().isNotEmpty()
+        }
+        composeRule.waitForIdle()
         composeRule.runOnIdle { navController?.popBackStack() }
         composeRule.waitUntil(10_000) {
             navController?.currentBackStackEntry?.destination?.route == "home" &&
