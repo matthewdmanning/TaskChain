@@ -10,6 +10,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import com.taskchain.TaskChainApp
 import com.taskchain.core.startup.StartupScreen
+import com.taskchain.core.startup.initializeUserData
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
@@ -37,14 +38,20 @@ class MainActivity : ComponentActivity() {
 
     /**
      * Use this function on startup or Retry to open saved data before exposing editable screens.
-     * Inputs: none. Dependencies: AppContainer.initializeUserData, startup state, lifecycleScope.
+     * Inputs: none. Dependencies: core startup validation, injected migration/recovery, startup state, lifecycleScope.
      */
     private fun loadUserData() {
         if (startupJob?.isActive == true) return
         startupFailed = false
         startupJob = lifecycleScope.launch {
             try {
-                container.initializeUserData()
+                initializeUserData(
+                    migrate = container::migrateLegacyData,
+                    routines = container.routines,
+                    completions = container.completions,
+                    preferences = container.preferences,
+                    recover = container.execution.recoverTerminalRun,
+                )
                 startupReady = true
             } catch (error: CancellationException) {
                 throw error

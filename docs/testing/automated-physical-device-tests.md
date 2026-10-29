@@ -86,7 +86,7 @@ If the task leaves no `.isRecordingScreenshots` marker on the device, record by 
 | Runner | Running, paused, overtime, subtask behind schedule, confirmation |
 | Progress | Empty, populated |
 | Settings | Default |
-| Components | Each shared component in `ui/designsystem` |
+| Components | Each shared component in `core/designsystem` |
 
 Capture each screen with these settings:
 

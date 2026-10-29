@@ -1,6 +1,6 @@
 # TaskChain architecture
 
-TaskChain uses one Android application module with feature ownership and acyclic source dependencies. The [implementation plan](docs/feature-refactor-plan.md) maps the [supplied draft](feature-folder-draft.md) to the current checkout; the target below guides the restructure.
+TaskChain uses one Android application module with feature ownership and acyclic source dependencies. The [implementation and verification record](docs/feature-refactor-plan.md) maps the [supplied draft](feature-folder-draft.md) to the implemented ownership below.
 
 ```text
 Executable root -> features -> reusable Core
@@ -21,6 +21,8 @@ Inside a feature: Route -> ViewModel -> domain rules / Core repositories
 Collection browsing belongs to Core; occurrence projection/skip/undo belong to Scheduling. Execution owns start conflicts and all run transitions. Settings edits preferences while consumers apply them; Progress reads shared history while other features retain their writers. Features receive bounded dependencies rather than the root container.
 
 Quick return is absent from the current baseline and is not recreated. This change adds no feature switches, Gradle modules or storage migration. Root Android receiver adapters retain their historical component names for pending-intent compatibility; root supplies launch intents through Core contracts. Action strings, extras, request/channel/notification IDs remain stable.
+
+`python scripts/check-feature-boundaries.py` checks the owner-level source graph and runs in CI. It checks imports and explicit qualified references; behavioral and platform integration still require JVM/device verification.
 
 ## MVVM ownership
 
@@ -43,7 +45,7 @@ The initial app is Android-only, offline-only, and database-free. Repository int
 ## Local data durability
 
 JSON repositories use versioned records, coordinated file access and atomic replacement.
-Preferences use one process-wide DataStore delegate. Startup validates saved data before
+Preferences use one process-wide DataStore delegate. Core startup runs migration, routine/history/preference validation, then an injected Execution terminal-recovery action before
 exposing editable screens and offers Retry on failure. Instrumentation uses a separate
 `com.taskchain.testapp` sandbox. See [On-device data lifecycle](docs/on-device-data.md)
 for schema migration, update/reboot behavior, snapshots and testing commands.

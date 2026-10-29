@@ -2216,3 +2216,232 @@ True when the run is active and its clock or a confirmation dialog is live. Fals
 ## `onlyRunningOrConfirmingRunRequiresRunnerScreen` — app/src/test/java/com/taskchain/domain/run/RoutineRunEngineTest.kt
 Covers running, paused, confirming, skipped, and aborted runs.
 
+## `owner` — scripts/check-feature-boundaries.py
+Use this function to assign a TaskChain package reference to a Core area, feature or executable root before checking source boundaries.
+Inputs: `package` — dotted package or qualified project reference.
+Dependencies: None.
+
+## `forbidden` — scripts/check-feature-boundaries.py
+Use this function to reject an owner dependency that violates Core or feature isolation.
+Inputs: `source` — referencing owner; `target` — referenced owner.
+Dependencies: None.
+
+## `cycle` — scripts/check-feature-boundaries.py
+Use this function to find a directed ownership cycle before accepting a package restructure.
+Inputs: `graph` — mapping from owner names to their dependency-owner sets.
+Dependencies: Nested `visit` function.
+
+## `cycle.visit` — scripts/check-feature-boundaries.py
+Use this function to traverse one owner while retaining the active path needed to report a cycle.
+Inputs: `node` — owner to visit.
+Dependencies: `graph`, `visited`, `active`, `path`, recursive `visit`.
+
+## `check` — scripts/check-feature-boundaries.py
+Use this function to verify main Kotlin package locations, project-reference direction and owner cycles in a repository checkout.
+Inputs: `root` — repository-root `Path` containing `app/src/main/java`.
+Dependencies: `owner`, `forbidden`, `cycle`, `Path`, `re`.
+
+## `self_test` — scripts/check-feature-boundaries.py
+Use this function to check the boundary rules and comment/string exclusions before inspecting the real checkout.
+Inputs: None.
+Dependencies: `owner`, `forbidden`, `cycle`, `check`, `tempfile.TemporaryDirectory`, `Path`.
+
+## `PlatformEntryPointProvider` — app/src/main/java/com/taskchain/core/platform/PlatformContracts.kt
+Exposes root-wired suspend handlers to historical Android receiver adapters without coupling Core to feature implementations.
+Inputs: None; implementations provide `platformEntryPoints`.
+Dependencies: `PlatformEntryPoints` and Android receiver dispatch.
+
+## `PlatformEntryPoints` — app/src/main/java/com/taskchain/core/platform/PlatformContracts.kt
+Carries the five platform entry-point handlers across the Core seam.
+Inputs: `deliver`, `action`, `restore`, `runAction`, and `runAlert`, each a `suspend (Intent) -> Unit` handler.
+Dependencies: Android `Intent`; feature behavior is supplied by the executable root.
+
+## `PlatformIntents` — app/src/main/java/com/taskchain/core/platform/PlatformContracts.kt
+Carries root-owned factories for app launches and historical broadcast targets.
+Inputs: `openApp`, `openActiveRun`, `reminderDelivery`, `reminderAction`, `runAction`, and `runAlert`, each a `() -> Intent` factory.
+Dependencies: Android `Intent`; concrete activity and receiver classes are supplied by the executable root.
+
+## `ReminderScheduler` — app/src/main/java/com/taskchain/core/platform/ReminderPlatform.kt
+Defines the shared port for scheduling, cancelling, and clearing delivered routine reminders.
+Inputs: `schedule(ReminderRequest)`, `cancel(requestCode: Int)`, and `clearDelivered(requestCode: Int)`.
+Dependencies: Core `ReminderRequest`; Android scheduling is supplied by a feature adapter.
+
+## `setAlarm` — app/src/main/java/com/taskchain/core/platform/ReminderPlatform.kt
+Use this function to set one RTC wake-up alarm, using exact delivery when the platform permits it.
+Inputs: `alarmManager` — Android alarm service; `triggerAtEpochMillis` — requested delivery time; `operation` — alarm pending intent.
+Dependencies: Android exact-alarm capability and `AlarmManager` APIs.
+
+## `TimerFeedback` — app/src/main/java/com/taskchain/core/platform/ReminderPlatform.kt
+Emits one timer-expiry sound and haptic event through shared platform output.
+Inputs: Android `Context`; optional `SoundPlayer`; optional amplitude-aware vibration callback; `fire` accepts sound/vibration gates, `SoundSettings`, and intensity.
+Dependencies: `SoundPlayer`, `SoundSettings`, `SoundToken.TimerExpired`, `vibrationAmplitude`, and Android vibrator services.
+
+## `initializeUserData` — app/src/main/java/com/taskchain/core/startup/StartupInitialization.kt
+Use this function to preserve startup ordering by running migration, routine/history/preferences validation, then injected terminal recovery.
+Inputs: `migrate` — local-data migration action; `routines`, `completions`, `preferences` — shared repositories to validate; `recover` — terminal-run recovery action.
+Dependencies: Repository `Flow.first`; feature-owned recovery remains injected at the root.
+
+## `ExecutionDependencies` — app/src/main/java/com/taskchain/features/execution/ExecutionDependencies.kt
+Bounds the shared runtime used by the runner UI and execution Android adapters.
+Inputs: Routine/history/preferences repositories; built-in library; `RoutineRunEngine`; Core `ReminderScheduler`; shared `Mutex`; mutable revision flow; `runnerVisible`; timer/task feedback; run notification/alert adapters; timing limits; run-ID and clock functions; terminal-recovery action.
+Dependencies: Core data/model/platform contracts, execution domain/platform adapters, Kotlin coroutines `Mutex` and `MutableStateFlow`.
+
+## `ReminderActions` — app/src/main/java/com/taskchain/features/reminders/ReminderScheduler.kt
+Preserves the stable Snooze and Dismiss action strings used by routine reminder notifications.
+Inputs: None.
+Dependencies: Historical Android action identifiers.
+
+## `ReminderHandlers` — app/src/main/java/com/taskchain/features/reminders/ReminderScheduler.kt
+Owns routine reminder delivery, notification actions, snooze/rearm behavior, and system restore behavior.
+Inputs: Android `Context`; routine, active-run, and completion repositories; Core `ReminderScheduler`; `PlatformIntents`; `TimerFeedback`.
+Dependencies: Core reminder planning/completion projections, Android notification/alarm APIs, root-supplied intent factories, and shared timer output.
+
+## `ReminderHandlers.deliver` — app/src/main/java/com/taskchain/features/reminders/ReminderScheduler.kt
+Use this function to deliver one scheduled routine reminder, rearm recurrence, post the notification and emit reminder feedback.
+Inputs: Delivered alarm `Intent` containing the historical reminder extras.
+Dependencies: Routine completion projections, `ReminderPlanner`, `NotificationCompat`, `PlatformIntents.openApp`, reminder action factories, and `TimerFeedback`.
+
+## `ReminderHandlers.action` — app/src/main/java/com/taskchain/features/reminders/ReminderScheduler.kt
+Use this function to apply Snooze or Dismiss to a delivered reminder while retaining the next regular occurrence.
+Inputs: Reminder action `Intent` containing the historical action and request-code/extras.
+Dependencies: Core `ReminderScheduler`, recurrence planning, `PlatformIntents.reminderDelivery`, `AlarmManager`, and configured snooze duration.
+
+## `ReminderHandlers.restore` — app/src/main/java/com/taskchain/features/reminders/ReminderScheduler.kt
+Use this function to rebuild saved routine alarms after reboot or local-time changes.
+Inputs: Restore broadcast `Intent` (action validation remains in the legacy receiver).
+Dependencies: `RoutineRepository`, `ReminderPlanner.forRestore`, Core `ReminderScheduler`, and the wall clock.
+
+## `handleRunAction` — app/src/main/java/com/taskchain/features/execution/platform/RunNotification.kt
+Use this function to validate and apply one run notification Skip or Complete action under the shared execution lock.
+Inputs: Raw action `Intent`; `ExecutionDependencies` containing the run stores, engine, mutex, revision, notification, and alert adapters.
+Dependencies: `RunNotificationPolicy`, persisted active-run storage, post-save revision update, and shared platform adapters.
+
+## `handleRunAlert` — app/src/main/java/com/taskchain/features/execution/platform/RunAlerts.kt
+Use this function to acknowledge due background nudges/timer expiry, emit output once and rearm the next alert under the shared lock.
+Inputs: Raw alert `Intent`; `ExecutionDependencies` containing stores, preferences, engine, mutex, revision, visibility, timing, and outputs.
+Dependencies: `RunAlertPolicy`, Core task/timer feedback, and `RunAlerts` alarm mapping.
+
+## `platformEntryPoints` — app/src/main/java/com/taskchain/reminder/LegacyReceivers.kt
+Use this function to resolve the provider-backed handler set without importing the concrete application class into receiver adapters.
+Inputs: Android `Context`.
+Dependencies: `PlatformEntryPointProvider` implemented by the root `TaskChainApplication`.
+
+## `AppContainer.execution` — app/src/main/java/com/taskchain/AppContainer.kt
+Exposes the one root-constructed `ExecutionDependencies` instance shared by runner UI and background execution handlers.
+Inputs: Root repositories, outputs, platform factories, timing resources, clock/ID functions, and terminal recovery.
+Dependencies: `ExecutionDependencies`, feature execution platform adapters, Core platform ports, and local Android resources.
+
+## `TaskChainApplication.platformEntryPoints` — app/src/main/java/com/taskchain/TaskChainApplication.kt
+Publishes root-wired platform handlers through the Core provider contract to historical receivers.
+Inputs: None beyond the application-owned lazy `AppContainer`.
+Dependencies: `PlatformEntryPointProvider`, `PlatformEntryPoints`, and `AppContainer.platformEntryPoints`.
+
+## `StartupInitializationTest` — app/src/test/java/com/taskchain/core/startup/StartupInitializationTest.kt
+Verifies the startup seam preserves migration, repository validation, and recovery ordering.
+Inputs: None; the test records events from fake repositories and callbacks.
+Dependencies: JUnit 4, coroutines `runBlocking`, Core startup initialization, and local fake repository implementations.
+
+## `StartupInitializationTest.validatesAllSharedRepositoriesBeforeRecovery` — app/src/test/java/com/taskchain/core/startup/StartupInitializationTest.kt
+Use this function to assert the exact order `migration -> routines -> completions -> preferences -> recovery`.
+Inputs: None.
+Dependencies: `initializeUserData`, `RecordingRoutines`, `RecordingCompletions`, `RecordingPreferences`, and an event list.
+
+## `RecordingRoutines` — app/src/test/java/com/taskchain/core/startup/StartupInitializationTest.kt
+Supplies a minimal `RoutineRepository` fake and records its validation read.
+Inputs: Mutable event list.
+Dependencies: `RoutineRepository`, `RoutineTemplate`, `RoutineId`, and a cold `Flow`.
+
+## `RecordingRoutines.observeAll` — app/src/test/java/com/taskchain/core/startup/StartupInitializationTest.kt
+Use this function to record the routine validation event and emit an empty routine list.
+Inputs: None.
+Dependencies: Kotlin `Flow` builder and the fake event list.
+
+## `RecordingRoutines.get`, `save`, and `delete` — app/src/test/java/com/taskchain/core/startup/StartupInitializationTest.kt
+Use this function to satisfy the routine repository contract without adding storage behavior to the ordering test.
+Inputs: Routine identity or template as required by each repository method.
+Dependencies: `RoutineRepository`; all operations are no-ops.
+
+## `RecordingCompletions` — app/src/test/java/com/taskchain/core/startup/StartupInitializationTest.kt
+Supplies a minimal `CompletionRepository` fake and records its validation read.
+Inputs: Mutable event list.
+Dependencies: `CompletionRepository`, `CompletionEvent`, and a cold `Flow`.
+
+## `RecordingCompletions.observeAll` and `append` — app/src/test/java/com/taskchain/core/startup/StartupInitializationTest.kt
+Use this function to record completion validation and satisfy append-only history without persistence.
+Inputs: None for `observeAll`; a `CompletionEvent` for `append`.
+Dependencies: `CompletionRepository`; `observeAll` emits an empty list and `append` is a no-op.
+
+## `RecordingPreferences` — app/src/test/java/com/taskchain/core/startup/StartupInitializationTest.kt
+Supplies a minimal `UserPreferenceRepository` fake and records its validation read.
+Inputs: Mutable event list.
+Dependencies: `UserPreferenceRepository`, `UserPreferences`, `SoundToken`, and a cold `Flow`.
+
+## `RecordingPreferences.observe` — app/src/test/java/com/taskchain/core/startup/StartupInitializationTest.kt
+Use this function to record preference validation and emit default preferences.
+Inputs: None.
+Dependencies: Kotlin `Flow` builder and `UserPreferences()`.
+
+## `RecordingPreferences.setTheme`, `setUiProvider`, `setContinueTimerPastZero`, `setVibrationIntensity`, `setScreenTransitionsEnabled`, `setShowSubtaskTimeRemaining`, and `setDefaultSoundUri` — app/src/test/java/com/taskchain/core/startup/StartupInitializationTest.kt
+Use this function to satisfy the preference repository contract without introducing persistence behavior to the ordering test.
+Inputs: Preference values and, for `setDefaultSoundUri`, a `SoundToken` plus nullable URI.
+Dependencies: `UserPreferenceRepository`; all operations are no-ops.
+
+## `HomeTab` — app/src/main/java/com/taskchain/core/navigation/HomeShell.kt
+Persistent top-level destinations hosted by the application shell.
+Inputs: none.
+Dependencies: `R.string.tab_*` resources.
+
+## `HomeShell` — app/src/main/java/com/taskchain/core/navigation/HomeShell.kt
+Use this function to host shared tab chrome while root wiring supplies feature content.
+Inputs: `selectedTab` — current tab; `onSelectedTabChange` — tab selection callback; content slots — feature content receiving scaffold padding.
+Dependencies: Compose Material3 `Scaffold`, `NavigationBar`, and `HomeTab`.
+
+## `TodayViewModel` — app/src/main/java/com/taskchain/features/scheduling/ui/TodayViewModel.kt
+Coordinates Today occurrence projection, skip/undo markers, and reminder effects.
+Inputs: routine/run/completion stores, built-in library, reminder port, clock, day-start hour, and run-ID factory.
+Dependencies: `projectTodayRoutines`, `skipEvent`, `skipUndoneEvent`, `ReminderPlanner`.
+
+## `ExecutionEntryViewModel` — app/src/main/java/com/taskchain/features/execution/ui/ExecutionEntryViewModel.kt
+Coordinates active-run observation and start conflict decisions at the Execution boundary.
+Inputs: `RoutineRunRepository` — persisted active run store.
+Dependencies: `startIsBlocked`, active-run observation, Compose state flows.
+
+## `startIsBlocked` — app/src/main/java/com/taskchain/features/execution/domain/ExecutionEntryPolicy.kt
+Use this function to decide whether a different active run blocks a selected routine.
+Inputs: `activeRun` — current persisted run; `routineId` — selected routine identity.
+Dependencies: `RoutineRun.status`, `RoutineRun.routineId`.
+
+## `ExecutionEntryDialog` — app/src/main/java/com/taskchain/features/execution/ui/ExecutionEntryViewModel.kt
+Use this function to render the active-run conflict and offer resume or continued browsing.
+Inputs: `viewModel` — entry state/actions; `onResume` — root navigation callback.
+Dependencies: `ExecutionEntryViewModel`, Compose Material3 `AlertDialog`.
+
+## `TodayState` — app/src/main/java/com/taskchain/features/scheduling/ui/TodayViewModel.kt
+Represents Scheduling-owned Today projection and the currently resumable active run.
+Inputs: `projection` — occurrence categories; `activeRun` — active persisted run or null.
+Dependencies: `TodayProjection`, `RoutineRun`.
+
+## `TodayRoute` — app/src/main/java/com/taskchain/features/scheduling/ui/TodayRoute.kt
+Use this function to render Today occurrences, active-run resume, and skip/undo actions.
+Inputs: `viewModel` — Scheduling state/actions; `padding` — shell insets; `listState` — preserved Today scroll state; callbacks — root navigation actions.
+Dependencies: `TodayViewModel`, `TodayState`, Compose LazyColumn and dialog controls.
+
+## `CompactRoutineRow` — app/src/main/java/com/taskchain/features/scheduling/ui/TodayRoute.kt
+Use this function to render one Today occurrence row and its available action.
+Inputs: `routine` — displayed definition; completion/skip flags — occurrence status; action callbacks — skip, undo, and start behavior.
+Dependencies: Compose row controls, `RoutineTemplate`, Cyberpunk design tokens.
+
+## `ExecutionEntryState` — app/src/main/java/com/taskchain/features/execution/ui/ExecutionEntryViewModel.kt
+Represents active-run observation and pending or blocked routine-start requests.
+Inputs: `activeRun` — current active run; `pendingStart` — selected routine allowed to start; `blockedRoutine` — selected routine waiting on conflict resolution.
+Dependencies: `RoutineRun`, `RoutineTemplate`.
+
+## `ExecutionEntryPolicyTest` — app/src/test/java/com/taskchain/features/execution/domain/ExecutionEntryPolicyTest.kt
+Verifies that Execution entry blocks only a different active routine.
+Inputs: none.
+Dependencies: JUnit assertions, `startIsBlocked`, core run models.
+
+## `startIsBlocked_onlyDifferentActiveRoutine` — app/src/test/java/com/taskchain/features/execution/domain/ExecutionEntryPolicyTest.kt
+Use this function to guard start eligibility for absent, same and different active runs.
+Inputs: none.
+Dependencies: `startIsBlocked`, `RoutineRun`, `RunStatus`, JUnit.

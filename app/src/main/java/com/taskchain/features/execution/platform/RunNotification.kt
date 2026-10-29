@@ -1,10 +1,9 @@
-package com.taskchain.reminder
+package com.taskchain.features.execution.platform
 
 import android.Manifest
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
-import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -13,12 +12,12 @@ import android.text.format.DateUtils
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
-import com.taskchain.MainActivity
 import com.taskchain.R
-import com.taskchain.TaskChainApplication
 import com.taskchain.core.model.RoutineRun
 import com.taskchain.core.model.RoutineRunId
 import com.taskchain.core.model.RoutineSubtaskId
+import com.taskchain.core.platform.PlatformIntents
+import com.taskchain.features.execution.ExecutionDependencies
 import com.taskchain.features.execution.domain.RoutineRunEngine
 import com.taskchain.features.execution.domain.RunNotificationAction
 import com.taskchain.features.execution.domain.RunNotificationClock
@@ -26,19 +25,17 @@ import com.taskchain.features.execution.domain.RunNotificationContent
 import com.taskchain.features.execution.domain.RunNotificationPolicy
 import com.taskchain.features.execution.domain.RunNotificationTarget
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.withLock
 import kotlin.math.abs
 
-/**
- * Posts one ongoing notification for the active run: the current subtask (or task) name, its time, and Skip and
- * Complete buttons. Content comes from [RunNotificationPolicy]; this class only maps it to Android.
- */
-class RunNotification(context: Context, private val engine: RoutineRunEngine) {
+/** Posts the ongoing Android notification for the active run and its two action buttons. */
+class RunNotification(
+    context: Context,
+    private val engine: RoutineRunEngine,
+    private val intents: PlatformIntents,
+) {
     private val appContext = context.applicationContext
     private val notifications = NotificationManagerCompat.from(appContext)
 
@@ -122,7 +119,7 @@ class RunNotification(context: Context, private val engine: RoutineRunEngine) {
         PendingIntent.getBroadcast(
             appContext,
             if (action == ACTION_SKIP) REQUEST_SKIP else REQUEST_COMPLETE,
-            Intent(appContext, RunActionReceiver::class.java)
+            intents.runAction()
                 .setAction(action)
                 .putExtra(EXTRA_RUN_ID, target.runId.value)
                 .putExtra(EXTRA_TASK_INDEX, target.taskIndex)
@@ -134,10 +131,7 @@ class RunNotification(context: Context, private val engine: RoutineRunEngine) {
     private fun openActiveRun(): PendingIntent = PendingIntent.getActivity(
         appContext,
         REQUEST_OPEN,
-        Intent(appContext, MainActivity::class.java).apply {
-            flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
-            putExtra(MainActivity.EXTRA_OPEN_ACTIVE_RUN, true)
-        },
+        intents.openActiveRun(),
         PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
     )
 
@@ -169,45 +163,35 @@ class RunNotification(context: Context, private val engine: RoutineRunEngine) {
     }
 }
 
-/** Applies the run notification's Skip and Complete buttons to the persisted run without opening the app. */
-class RunActionReceiver : BroadcastReceiver() {
-    /** Use this function when the user presses Skip or Complete on the run notification. */
-    override fun onReceive(context: Context, intent: Intent) {
-        val action = when (intent.action) {
-            RunNotification.ACTION_SKIP -> RunNotificationAction.SKIP
-            RunNotification.ACTION_COMPLETE -> RunNotificationAction.COMPLETE
-            else -> return
-        }
-        val target = RunNotificationTarget(
-            runId = RoutineRunId(intent.getStringExtra(RunNotification.EXTRA_RUN_ID) ?: return),
-            taskIndex = intent.getIntExtra(RunNotification.EXTRA_TASK_INDEX, -1),
-            subtaskId = intent.getStringExtra(RunNotification.EXTRA_SUBTASK_ID)?.let(::RoutineSubtaskId),
-        )
-        val pendingResult = goAsync()
-        CoroutineScope(Dispatchers.IO).launch {
-            try {
-                val container = (context.applicationContext as TaskChainApplication).container
-                // The runner ViewModel shares this lock, so it never saves a stale run over this change.
-                container.runMutex.withLock {
-                    val run = container.activeRun.observeActive().first()
-                    val now = container.now()
-                    val updated = run?.let {
-                        RunNotificationPolicy.applyAction(it, container.runEngine, action, target, now)
-                    }
-                    if (updated != null) {
-                        container.activeRun.saveActive(updated)
-                        container.runRevision.update { it + 1 }
-                    }
-                    container.runNotification.sync(updated ?: run, now)
-                    container.runAlerts.sync(updated ?: run, now, container.runnerVisible)
-                }
-            } catch (error: CancellationException) {
-                throw error
-            } catch (_: Exception) {
-                // A damaged or concurrently replaced run file must not crash a notification action.
-            } finally {
-                pendingResult.finish()
+/** Applies a validated run notification action to the persisted run without opening the app. */
+suspend fun handleRunAction(intent: Intent, dependencies: ExecutionDependencies) {
+    val action = when (intent.action) {
+        RunNotification.ACTION_SKIP -> RunNotificationAction.SKIP
+        RunNotification.ACTION_COMPLETE -> RunNotificationAction.COMPLETE
+        else -> return
+    }
+    val target = RunNotificationTarget(
+        runId = RoutineRunId(intent.getStringExtra(RunNotification.EXTRA_RUN_ID) ?: return),
+        taskIndex = intent.getIntExtra(RunNotification.EXTRA_TASK_INDEX, -1),
+        subtaskId = intent.getStringExtra(RunNotification.EXTRA_SUBTASK_ID)?.let(::RoutineSubtaskId),
+    )
+    try {
+        dependencies.runMutex.withLock {
+            val run = dependencies.activeRun.observeActive().first()
+            val now = dependencies.now()
+            val updated = run?.let {
+                RunNotificationPolicy.applyAction(it, dependencies.runEngine, action, target, now)
             }
+            if (updated != null) {
+                dependencies.activeRun.saveActive(updated)
+                dependencies.runRevision.update { it + 1 }
+            }
+            dependencies.runNotification.sync(updated ?: run, now)
+            dependencies.runAlerts.sync(updated ?: run, now, dependencies.runnerVisible)
         }
+    } catch (error: CancellationException) {
+        throw error
+    } catch (_: Exception) {
+        // A damaged or concurrently replaced run file must not crash a notification action.
     }
 }

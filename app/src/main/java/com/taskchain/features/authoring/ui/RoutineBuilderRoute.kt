@@ -85,7 +85,6 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.core.content.ContextCompat
-import com.taskchain.AppContainer
 import com.taskchain.R
 import com.taskchain.core.model.RoutineId
 import com.taskchain.core.model.ScheduleFrequency
@@ -119,14 +118,14 @@ import com.taskchain.core.browsing.routineDurationParts
 
 @Composable
 internal fun RoutineBuilderRoute(
-    container: AppContainer,
+    createViewModel: () -> RoutineBuilderViewModel,
     routineId: RoutineId?,
     onClose: () -> Unit,
     onSaved: () -> Unit,
     animationsEnabled: Boolean,
 ) {
     val viewModel: RoutineBuilderViewModel = viewModel(key = "builder-${routineId?.value}") {
-        RoutineBuilderViewModel(container, routineId)
+        createViewModel()
     }
     val state by viewModel.state.collectAsStateWithLifecycle()
     val spacing = TaskChainDesignSystem.spacing()

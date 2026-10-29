@@ -13,8 +13,8 @@ One `:app` module contains reusable `core` packages, six current `features`, and
 | `domain/model` | `core/model` |
 | `data` except run recovery | `core/data` |
 | `domain/schedule` | `core/schedule` |
-| Shared UI controls, feedback, sound selection | `core/ui` |
-| `ui/designsystem` | `core/designsystem` |
+| Shared UI controls, sound selection, back preview | `core/ui` |
+| `ui/designsystem` and press-feedback wrappers | `core/designsystem` |
 | Collection UI and collection-only state from `ui/home` | `core/browsing` |
 | Generic tab/route hosting | `core/navigation` |
 | Startup ready/retry presentation and initialization host | `core/startup` |
@@ -57,4 +57,32 @@ Commits should be self-contained where practical. A designated subagent makes re
 
 Before source edits, JDK 17.0.12 (including `javac` and `jlink`), the pinned Gradle 9.8.0 cache and published cyberpunkAndroid `v1.0.8` were verified. Baseline `:app:testDebugUnitTest :app:lintDebug :app:assembleDebug :app:assembleDeviceTestAndroidTest` passed.
 
-Final checks: executable source-boundary/cycle check; JDK 17 JVM tests; Android lint; debug APK; disposable device-test APK and instrumentation APK compilation. Add focused checks for newly exposed entry/startup seams without changing engine or persistence behavior. Device tests, when a device is available, use only `com.taskchain.testapp`; inspect APK IDs before installation. Builds do not establish device UX or background delivery behavior.
+## Implementation and verification results
+
+The implementation retains one `:app` module with six current features: Authoring, Settings, Scheduling, Execution, Reminders and Progress. Reusable Core owns models, repositories, schedule planning, collection browsing, generic navigation, controls, design-system configuration, startup ordering and platform contracts. Executable root binds concrete routes and dependencies. Scheduling owns Today actions, Execution owns start conflicts and run coordination, and Core startup invokes injected recovery. There is no storage migration, feature-availability switch or Quick Return implementation in this change.
+
+`app/src/main/java/com/taskchain/reminder/LegacyReceivers.kt` retains the five historical Android receiver identities: `com.taskchain.reminder.ReminderReceiver`, `com.taskchain.reminder.ReminderActionReceiver`, `com.taskchain.reminder.ReminderRescheduleReceiver`, `com.taskchain.reminder.RunActionReceiver` and `com.taskchain.reminder.RunAlertReceiver`. These adapters delegate to injected entry handlers. Pending-intent action strings, extras, request codes, channels and notification IDs remain unchanged.
+
+`python scripts/check-feature-boundaries.py` runs its own assertions and checks main Kotlin package paths, project imports and explicit qualified references. It rejects Core-to-feature/root and feature-to-other-feature/root dependencies, project wildcard imports, unsupported legacy packages and cycles between owners. Generated `R` and `BuildConfig` references are shared. Owners are Core areas or whole features, so this is an owner-level source check: it does not resolve symbols or establish intra-owner layering, callback wiring, reflection or runtime behavior.
+
+| Checkpoint | Evidence |
+| --- | --- |
+| Baseline | Full JVM tests, lint, debug APK and disposable instrumentation APK build passed before source edits. |
+| Mechanical move | Commit `2e9fcf3`; 151 JVM tests and instrumentation Kotlin compilation passed. Body-equivalence checks preserved executable bodies except qualified references, plus comments and literals. |
+| Integrated source boundaries | The check passed for 67 main Kotlin files and 16 owners, with no owner cycles, after moving the pure start-policy helper into Execution domain. |
+| Preserved Android/storage inputs | Manifest, packaged assets, resources and build inputs are byte-equivalent to baseline `d28a4df`. |
+| Integrated build | After restoring the original inline permission guard, `:app:testDebugUnitTest :app:lintDebug :app:assembleDebug :app:assembleDeviceTest :app:assembleDeviceTestAndroidTest --console=plain` passed under JDK 17, including 153 JVM tests and all three APK builds. |
+| Device instrumentation | Pixel 7 / Android 17: 21 tests, 15 passed and 6 failed. An unlocked, untouched `d28a4df` baseline reproduced the same six failing tests. The final refactor rerun with fresh screenshot artifacts reproduced the same assertions and screenshot difference. |
+
+The baseline comparison identifies pre-existing device-test failures; it does not establish a fully passing device suite or end-to-end alarm delivery. Existing failing assertions, app behavior and the screenshot reference were retained. Only the disposable `com.taskchain.testapp` and `com.taskchain.testapp.test` packages were used for installation and fixture cleanup; the regular `com.taskchain` app and data were untouched. Temporary device settings were restored after each completed run.
+
+| Remaining device failure | Observed baseline-matched result | Recommended separate follow-up |
+| --- | --- | --- |
+| `MainActivityTest.builder_savesRoutineOwnedSettingsAndReturnsToRoutines` | `Scheduled` selector absent. | Review builder completion readiness and the assertion's destination selector. |
+| `MainActivityTest.builder_dragHandlesReorderCollapsedAndExpandedTasks` | `CyberAccordionChevron` selector absent. | Review current accordion semantics and the drag test's selectors/readiness. |
+| `OpenActiveRunNavigationTest.openActiveRunRequestAfterRecreation_doesNotLeaveDuplicateRunnerEntry` | Ten-second timeout while the active-run navigation lock applies. | Align navigation readiness/assertions with the persisted active-run invariant. |
+| `ScreenshotTest.routinesTab_matchesReference` | A focused baseline capture after test-artifact cleanup reproduced exactly 474,182 differing pixels (18.294058%), matching the refactor result. | Review screenshot capture configuration and reference compatibility. |
+| `SystemBackNavigationTest.homeSystemBack_leavesTheAppForeground` | Test accesses an already destroyed Activity. | Review lifecycle-safe foreground observation after system Back. |
+| `TaskChainComponentTest.weekdaySelector_eachDayCanBeSelected` | `Sun` is offscreen. | Review the test's scrolling/visibility handling for weekday selectors. |
+
+Local XML evidence is saved under `.scratch/feature-refactor-integrated-device-results`, `.scratch/feature-refactor-baseline-device-results` and `.scratch/feature-refactor-baseline-screenshot-result`. These are local verification artifacts, not committed fixtures. Rerun the boundary check if later source edits change ownership.

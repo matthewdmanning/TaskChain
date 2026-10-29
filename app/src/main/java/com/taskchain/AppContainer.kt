@@ -1,6 +1,7 @@
 package com.taskchain
 
 import android.content.Context
+import android.content.Intent
 import com.taskchain.core.data.BuiltInRoutineLibrary
 import com.taskchain.core.data.CompletionRepository
 import com.taskchain.core.data.DataStoreUserPreferenceRepository
@@ -11,26 +12,35 @@ import com.taskchain.core.data.RoutineRepository
 import com.taskchain.core.data.RoutineRunRepository
 import com.taskchain.core.data.UserPreferenceRepository
 import com.taskchain.core.data.migrateLegacyDataFiles
-import com.taskchain.features.execution.recoverTerminalSession
 import com.taskchain.core.model.RoutineId
 import com.taskchain.core.model.RoutineRunId
 import com.taskchain.core.model.RoutineTaskId
+import com.taskchain.core.platform.PlatformEntryPoints
+import com.taskchain.core.platform.PlatformIntents
+import com.taskchain.core.platform.ReminderScheduler
 import com.taskchain.features.execution.domain.RoutineRunEngine
-import com.taskchain.reminder.AndroidReminderScheduler
-import com.taskchain.core.platform.AndroidTaskFeedback
-import com.taskchain.reminder.ReminderScheduler
-import com.taskchain.reminder.RunAlerts
-import com.taskchain.reminder.RunNotification
 import com.taskchain.core.platform.TaskFeedback
-import com.taskchain.reminder.TimerFeedback
+import com.taskchain.core.platform.TimerFeedback
+import com.taskchain.features.execution.ExecutionDependencies
+import com.taskchain.features.execution.platform.RunAlerts
+import com.taskchain.features.execution.platform.RunNotification
+import com.taskchain.features.execution.platform.handleRunAction
+import com.taskchain.features.execution.platform.handleRunAlert
+import com.taskchain.features.reminders.AndroidReminderScheduler
+import com.taskchain.features.reminders.ReminderHandlers
+import com.taskchain.reminder.ReminderReceiver
+import com.taskchain.reminder.ReminderActionReceiver
+import com.taskchain.reminder.RunActionReceiver
+import com.taskchain.reminder.RunAlertReceiver
+import com.taskchain.core.platform.AndroidTaskFeedback
 import java.io.File
 import java.util.UUID
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.first
 import kotlinx.serialization.json.Json
+import com.taskchain.features.execution.recoverTerminalSession
 
 /** Small application composition root that wires domain ports to local Android adapters. */
 class AppContainer(context: Context) {
@@ -44,45 +54,84 @@ class AppContainer(context: Context) {
     val preferences: UserPreferenceRepository = DataStoreUserPreferenceRepository(appContext)
     val builtInLibrary = BuiltInRoutineLibrary(appContext, json)
     val runEngine = RoutineRunEngine()
-    val reminders: ReminderScheduler = AndroidReminderScheduler(appContext)
-
-    /** Serializes every change to the active run between the runner ViewModel and notification actions. */
-    val runMutex = Mutex()
-
-    /** Counts changes made to the active run outside the runner ViewModel, so a live ViewModel reloads them. */
-    val runRevision = MutableStateFlow(0L)
-    val runNotification = RunNotification(appContext, runEngine)
-
-    /** True while the Run screen is visible; run alerts then come from the screen, not from an alarm. */
-    @Volatile var runnerVisible = false
-    val timerFeedback = TimerFeedback(appContext)
-    val taskFeedback: TaskFeedback = AndroidTaskFeedback(appContext)
+    private val platformIntents = PlatformIntents(
+        openApp = { Intent(appContext, MainActivity::class.java) },
+        openActiveRun = {
+            Intent(appContext, MainActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
+                putExtra(MainActivity.EXTRA_OPEN_ACTIVE_RUN, true)
+            }
+        },
+        reminderDelivery = { Intent(appContext, ReminderReceiver::class.java) },
+        reminderAction = { Intent(appContext, ReminderActionReceiver::class.java) },
+        runAction = { Intent(appContext, RunActionReceiver::class.java) },
+        runAlert = { Intent(appContext, RunAlertReceiver::class.java) },
+    )
+    val reminders: ReminderScheduler = AndroidReminderScheduler(appContext, platformIntents)
+    private val runMutex = Mutex()
+    private val runRevision = MutableStateFlow(0L)
+    private val runNotification = RunNotification(appContext, runEngine, platformIntents)
+    private val timerFeedback = TimerFeedback(appContext)
+    private val taskFeedback: TaskFeedback = AndroidTaskFeedback(appContext)
     val homeDayStartHour = appContext.resources.getInteger(R.integer.home_day_start_hour)
-    val taskNudgeIntervalMillis = appContext.resources
+    private val taskNudgeIntervalMillis = appContext.resources
         .getInteger(R.integer.run_nudge_interval_seconds)
         .toLong() * 1000L
-    val untimedReminderLimitMillis = appContext.resources
+    private val untimedReminderLimitMillis = appContext.resources
         .getInteger(R.integer.run_untimed_reminder_limit_minutes)
         .toLong() * 60_000L
-    val runAlerts = RunAlerts(appContext, runEngine, taskNudgeIntervalMillis, untimedReminderLimitMillis)
+    private val runAlerts = RunAlerts(
+        appContext,
+        runEngine,
+        platformIntents,
+        taskNudgeIntervalMillis,
+        untimedReminderLimitMillis,
+    )
+
+    /** Bounded execution runtime shared by the runner UI and Android background entry points. */
+    val execution = ExecutionDependencies(
+        routines = routines,
+        activeRun = activeRun,
+        completions = completions,
+        preferences = preferences,
+        builtInLibrary = builtInLibrary,
+        runEngine = runEngine,
+        reminders = reminders,
+        runMutex = runMutex,
+        runRevision = runRevision,
+        runnerVisible = false,
+        timerFeedback = timerFeedback,
+        taskFeedback = taskFeedback,
+        runNotification = runNotification,
+        runAlerts = runAlerts,
+        taskNudgeIntervalMillis = taskNudgeIntervalMillis,
+        untimedReminderLimitMillis = untimedReminderLimitMillis,
+        newRunId = ::newRunId,
+        now = ::now,
+        recoverTerminalRun = { recoverTerminalSession(activeRun, completions, runEngine) },
+    )
+
+    private val reminderHandlers = ReminderHandlers(
+        context = appContext,
+        routines = routines,
+        activeRun = activeRun,
+        completions = completions,
+        reminders = reminders,
+        intents = platformIntents,
+        timerFeedback = timerFeedback,
+    )
+
+    /** Root-owned handlers dispatched by the historical Android receiver identities. */
+    val platformEntryPoints = PlatformEntryPoints(
+        deliver = reminderHandlers::deliver,
+        action = reminderHandlers::action,
+        restore = reminderHandlers::restore,
+        runAction = { intent -> handleRunAction(intent, execution) },
+        runAlert = { intent -> handleRunAlert(intent, execution) },
+    )
 
     /** Use this function before UI loads so files saved before the task/subtask rename use current keys. */
     suspend fun migrateLegacyData() = withContext(Dispatchers.IO) { migrateLegacyDataFiles(dataDirectory, json) }
-
-    /** Use this function before UI loads so an interrupted terminal run reaches append-only history. */
-    suspend fun recoverTerminalRun() = recoverTerminalSession(activeRun, completions, runEngine)
-
-    /**
-     * Use this function before UI editing to validate stored records and recover interrupted completion.
-     * Inputs: none. Dependencies: migration, routine/history/preference repositories, terminal recovery.
-     */
-    suspend fun initializeUserData() {
-        migrateLegacyData()
-        routines.observeAll().first()
-        completions.observeAll().first()
-        preferences.observe().first()
-        recoverTerminalRun()
-    }
 
     /** Use this function when creating a new persistent routine identity offline. */
     fun newRoutineId(): RoutineId = RoutineId(UUID.randomUUID().toString())

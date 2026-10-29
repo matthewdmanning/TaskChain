@@ -2,7 +2,7 @@ package com.taskchain.features.authoring.ui
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.taskchain.AppContainer
+import com.taskchain.core.data.RoutineRepository
 import com.taskchain.core.model.EntityMetadata
 import com.taskchain.core.model.RoutineId
 import com.taskchain.core.model.RoutineSubtaskId
@@ -14,6 +14,7 @@ import com.taskchain.core.model.ScheduleRule
 import com.taskchain.core.model.SoundSettings
 import com.taskchain.core.model.defaultSoundSettings
 import com.taskchain.core.schedule.ReminderPlanner
+import com.taskchain.core.platform.ReminderScheduler
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
 import java.util.UUID
@@ -283,16 +284,21 @@ internal fun RoutineTemplate.toBuilderState(): BuilderState {
 
 /** Coordinates a routine draft and persists only validated domain templates. */
 class RoutineBuilderViewModel(
-    private val container: AppContainer,
+    private val routines: RoutineRepository,
+    private val loadBuiltIns: suspend (Long) -> List<RoutineTemplate>,
+    private val reminders: ReminderScheduler,
+    private val now: () -> Long,
+    private val newRoutineId: () -> RoutineId,
+    private val newTaskId: () -> RoutineTaskId,
     private val routineId: RoutineId?,
 ) : ViewModel() {
     val state = MutableStateFlow(BuilderState())
-    private val stableRoutineId = routineId ?: container.newRoutineId()
+    private val stableRoutineId = routineId ?: newRoutineId()
 
     /**
      * Use this function to apply a user draft mutation while preserving only still-relevant validation errors.
      * Inputs: `transform` — the state change requested by the user.
-     * Dependencies: `BuilderState.editableContent`, `validateBuilderState`, and `container.now`.
+     * Dependencies: `BuilderState.editableContent`, `validateBuilderState`, and the injected clock.
      */
     private fun mutateDraft(transform: (BuilderState) -> BuilderState) {
         val before = state.value
@@ -300,7 +306,7 @@ class RoutineBuilderViewModel(
         if (candidate.editableContent() == before.editableContent()) return
         val errors = candidate.validationErrors
             .minus(BuilderValidationError.SAVE_FAILED)
-            .intersect(validateBuilderState(candidate, container.now()))
+            .intersect(validateBuilderState(candidate, now()))
         state.value = candidate.copy(validationErrors = errors, hasUnsavedChanges = true)
     }
 
@@ -411,8 +417,8 @@ class RoutineBuilderViewModel(
 
     init {
         if (routineId != null) viewModelScope.launch {
-            val routine = container.routines.get(routineId)
-                ?: container.builtInLibrary.load(container.now()).firstOrNull { it.id == routineId }
+            val routine = routines.get(routineId)
+                ?: loadBuiltIns(now()).firstOrNull { it.id == routineId }
             routine?.let {
                 state.value = routine.toBuilderState()
             }
@@ -509,7 +515,7 @@ class RoutineBuilderViewModel(
 
     /** Use this function when Add Task should create and expand a task without requiring a prefilled name. */
     fun addTask(defaultTitle: String) {
-        val task = RoutineTask(container.newTaskId(), defaultTitle, timerSeconds = DEFAULT_TASK_TIMER_SECONDS)
+        val task = RoutineTask(newTaskId(), defaultTitle, timerSeconds = DEFAULT_TASK_TIMER_SECONDS)
         mutateDraft { draft ->
             val tasks = draft.tasks + task
             draft.copy(
@@ -591,7 +597,7 @@ class RoutineBuilderViewModel(
     /** Use this function when Save is pressed for a valid routine draft. */
     fun save() {
         if (state.value.isSaving) return
-        val now = container.now()
+        val now = now()
         val draft = state.value
         val errors = validateBuilderState(draft, now)
         if (errors.isNotEmpty()) {
@@ -603,7 +609,7 @@ class RoutineBuilderViewModel(
         viewModelScope.launch {
             runCatching {
                 val id = stableRoutineId
-                val previous = container.routines.get(id)
+                val previous = routines.get(id)
                 val routine = RoutineTemplate(
                     id = id,
                     metadata = previous?.metadata?.copy(updatedAtEpochMillis = now, revision = previous.metadata.revision + 1)
@@ -636,9 +642,9 @@ class RoutineBuilderViewModel(
                 )
                 routine.requireRunnable()
                 val reminderPlan = ReminderPlanner.forSave(routine, previous, now)
-                container.routines.save(routine)
-                reminderPlan.cancelRequestCodes.forEach(container.reminders::cancel)
-                reminderPlan.requests.forEach(container.reminders::schedule)
+                routines.save(routine)
+                reminderPlan.cancelRequestCodes.forEach(reminders::cancel)
+                reminderPlan.requests.forEach(reminders::schedule)
             }
                 .onSuccess {
                     state.value = state.value.copy(

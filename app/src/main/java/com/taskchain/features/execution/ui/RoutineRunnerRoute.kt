@@ -74,7 +74,6 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.taskchain.AppContainer
 import com.taskchain.R
 import com.taskchain.core.model.MILLIS_PER_SECOND
 import com.taskchain.core.model.RoutineId
@@ -113,16 +112,17 @@ import com.taskchain.core.designsystem.Button
 import com.taskchain.core.designsystem.CyberButton
 import com.taskchain.core.designsystem.TextButton
 import com.taskchain.core.ui.SECONDS_PER_MINUTE
+import com.taskchain.features.execution.ExecutionDependencies
 
 @Composable
 internal fun RoutineRunnerRoute(
-    container: AppContainer,
+    dependencies: ExecutionDependencies,
     preferences: UserPreferences,
     routineId: RoutineId,
     onFinished: () -> Unit,
 ) {
     val viewModel: RoutineRunnerViewModel = viewModel(key = "runner-${routineId.value}") {
-        RoutineRunnerViewModel(container, routineId)
+        RoutineRunnerViewModel(dependencies, routineId)
     }
     val state by viewModel.state.collectAsStateWithLifecycle()
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -190,17 +190,17 @@ internal fun RoutineRunnerRoute(
         presentation = presentation,
         foreground = foreground,
         animationsEnabled = animationsEnabled,
-        remaining = presentation.run?.let { container.runEngine.remainingMillis(it, state.nowEpochMillis) },
-        subtaskRemaining = presentation.run?.let { container.runEngine.subtaskRemainingMillis(it, state.nowEpochMillis) },
+        remaining = presentation.run?.let { dependencies.runEngine.remainingMillis(it, state.nowEpochMillis) },
+        subtaskRemaining = presentation.run?.let { dependencies.runEngine.subtaskRemainingMillis(it, state.nowEpochMillis) },
         subtaskElapsed = presentation.run?.let { run ->
             run.tasks[run.currentTaskIndex].source.subtasks.map { subtask ->
-                container.runEngine.subtaskElapsedMillis(run, subtask.id, state.nowEpochMillis)
+                dependencies.runEngine.subtaskElapsedMillis(run, subtask.id, state.nowEpochMillis)
             }
         }.orEmpty(),
         behindSubtaskSchedule = presentation.run?.let {
-            container.runEngine.isBehindSubtaskSchedule(it, state.nowEpochMillis)
+            dependencies.runEngine.isBehindSubtaskSchedule(it, state.nowEpochMillis)
         } ?: false,
-        unfinishedTaskIndexes = presentation.run?.let(container.runEngine::unfinishedTaskIndexes).orEmpty(),
+        unfinishedTaskIndexes = presentation.run?.let(dependencies.runEngine::unfinishedTaskIndexes).orEmpty(),
         onComplete = { viewModel.complete() },
         onSkip = { viewModel.skip() },
         onBack = { viewModel.back() },
