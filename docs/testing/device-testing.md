@@ -15,7 +15,7 @@ Use a Pixel 7 as the reference device.
 
 - Turn on USB debugging.
 - Set animation scales to 0 for stable assertions.
-- Set a fixed locale, theme, font scale 1.0 and display size. Record them with each run.
+- Set a fixed locale, theme, font scale and display size. Use font scale 1.0 unless a reference below records a different value. Record them with each run.
 - Use the SDK `adb.exe` by absolute path. See `docs/agents/android-sdk-access.md`.
 - Run `adb devices` and note the serial before each run.
 
@@ -24,3 +24,11 @@ Use a Pixel 7 as the reference device.
 - Run navigation tests, screenshot tests and the run order from [automated-physical-device-tests.md](automated-physical-device-tests.md).
 - Run person-driven checks from [human-driven-tests.md](human-driven-tests.md).
 - Run accessibility checks from [accessibility-testing.md](accessibility-testing.md).
+
+## Accepted screenshot references
+
+| Reference | Device | Android | Size / density | Font scale | Appearance |
+| --- | --- | --- | --- | --- | --- |
+| `routines_tab.png` | Pixel 7 | 17 | 1080 × 2400 / 420 dpi | 1.15 | Cyberpunk provider, dark |
+
+The user approved the current Routines rendering on 2026-10-29. It replaces the historical reference; the previous difference is accepted as a font-scale change. Verify this reference at its recorded scale, without increasing the comparison tolerance.
