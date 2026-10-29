@@ -76,7 +76,7 @@ The implementation retains one `:app` module with six current features: Authorin
 
 The baseline comparison identifies pre-existing device-test failures; it does not establish a fully passing device suite or end-to-end alarm delivery. Existing failing assertions, app behavior and the screenshot reference were retained. Only the disposable `com.taskchain.testapp` and `com.taskchain.testapp.test` packages were used for installation and fixture cleanup; the regular `com.taskchain` app and data were untouched. Temporary device settings were restored after each completed run.
 
-| Remaining device failure | Observed baseline-matched result | Recommended separate follow-up |
+| Historical device failure | Observed baseline-matched result | Follow-up identified at that checkpoint |
 | --- | --- | --- |
 | `MainActivityTest.builder_savesRoutineOwnedSettingsAndReturnsToRoutines` | `Scheduled` selector absent. | Review builder completion readiness and the assertion's destination selector. |
 | `MainActivityTest.builder_dragHandlesReorderCollapsedAndExpandedTasks` | `CyberAccordionChevron` selector absent. | Review current accordion semantics and the drag test's selectors/readiness. |
@@ -88,3 +88,11 @@ The baseline comparison identifies pre-existing device-test failures; it does no
 Local XML evidence is saved under `.scratch/feature-refactor-integrated-device-results`, `.scratch/feature-refactor-baseline-device-results` and `.scratch/feature-refactor-baseline-screenshot-result`. These are local verification artifacts, not committed fixtures. Rerun the boundary check if later source edits change ownership.
 
 Cleanup removed five obsolete feature-integration snapshots and moved the integration test from `com.taskchain.ui.TaskChainComponentTest` to `com.taskchain.TaskChainComponentTest`. Earlier reports retain the former name and the baseline-matched 15/21 result as historical evidence; test behavior and expectations are unchanged. After cleanup, `:app:compileDeviceTestAndroidTestKotlin --console=plain` passed under JDK 17.
+
+## Completed device-test follow-up, 2026-10-29
+
+The six historical failures above are resolved. Case-insensitive headings, scrolling to weekday and drag targets, lifecycle-safe Back observation, and pausing the restored run before expecting Home correct the stale test assumptions. The builder save test now exercises the current Sound/Vibrate controls and checks persisted routine and task values. Builder headers omit the collapsed down-chevron and use a larger filled up-chevron when expanded; tests use task headers and the `Collapse task` action rather than library-internal labels.
+
+The user approved the current Routines screenshot. Its reference was refreshed at the recorded font scale of 1.15 without increasing tolerance. The historical difference is accepted as a font-scale change rather than an outstanding app defect.
+
+Final physical Pixel 7 / Android 17 verification passed all 21 device tests, plus a second clean screenshot-only run. All 153 JVM tests passed; lint completed with 0 errors, 111 warnings and 7 hints; feature boundaries and diff whitespace checks passed. This establishes the tested UI and navigation behavior, not end-to-end alarm audibility or reboot/process-death recovery. See the [committed verification record and screenshots](testing/evidence/2026-10-29/README.md).
