@@ -5,15 +5,14 @@ import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
-import androidx.compose.ui.test.hasContentDescription
-import androidx.compose.ui.test.hasParent
 import androidx.compose.ui.test.hasScrollToNodeAction
 import androidx.compose.ui.test.hasText
-import androidx.compose.ui.test.isToggleable
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onFirst
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.performTextInput
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -68,9 +67,8 @@ class BuilderErrorFlowTest {
         activityRule.onAllNodesWithText(subtaskTitleError).assertCountEquals(0)
 
         // Collapse the task, so the error is hidden before Save.
-        // cyberpunkAndroid v1.0.8 labels the chevron "CyberTextGlow", so match it as the toggle in the accordion header.
-        activityRule.onNode(isToggleable() and hasParent(hasContentDescription("CyberAccordion")), useUnmergedTree = true)
-            .performClick()
+        activityRule.onNodeWithContentDescription("Collapse task", useUnmergedTree = true).performScrollTo()
+        activityRule.onNodeWithContentDescription("Collapse task", useUnmergedTree = true).performClick()
         activityRule.waitForIdle()
         scrollBuilderToAndClick("Save")
         activityRule.waitForIdle()

@@ -43,6 +43,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -51,6 +52,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.zIndex
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
@@ -81,6 +83,7 @@ import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -98,6 +101,9 @@ import com.example.cyberpunkandroid.config.CyberPrimitives
 import com.example.cyberpunkandroid.icons.CyberIcon
 import com.example.cyberpunkandroid.icons.CyberIcons
 import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
@@ -250,9 +256,8 @@ internal fun RoutineBuilderRoute(
             val changeExpansion: (Boolean) -> Unit = { shouldExpand ->
                 if (shouldExpand) viewModel.expandTask(task.id) else viewModel.collapseTask(task.id)
             }
-            com.example.cyberpunkandroid.components.CyberAccordion(
-                title = task.title.ifBlank { stringResource(R.string.task_name) },
-                expanded = expanded,
+            val expansionState = stringResource(if (expanded) R.string.authoring_expanded else R.string.authoring_collapsed)
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
                     .animateItem(placementSpec = tween(DRAG_TRANSITION_MILLIS, easing = FastOutSlowInEasing))
@@ -268,18 +273,22 @@ internal fun RoutineBuilderRoute(
                             if (index > 0) add(CustomAccessibilityAction(moveUp) { viewModel.moveTask(task.id, -1); true })
                             if (index < state.tasks.lastIndex) add(CustomAccessibilityAction(moveDown) { viewModel.moveTask(task.id, 1); true })
                         }
-                    },
-                borderColor = when {
-                    isDragging -> CyberTheme.colors.primary
-                    taskErrors.isNotEmpty() -> CyberTheme.semantics.colors.danger
-                    else -> CyberTheme.colors.border
-                },
-                headerContent = { isExpanded ->
-                    Row(
-                        modifier = Modifier.fillMaxWidth().heightIn(min = CyberPrimitives.IconSizes.dp48)
-                            .clickable(role = Role.Button) { changeExpansion(!isExpanded) },
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
+                    }
+                    .clip(CyberTheme.shapes.cyberCutCornerShapeSmall)
+                    .background(CyberTheme.colors.surface)
+                    .border(CyberPrimitives.BorderWidths.dp1, when {
+                        isDragging -> CyberTheme.colors.primary
+                        taskErrors.isNotEmpty() -> CyberTheme.semantics.colors.danger
+                        else -> CyberTheme.colors.border
+                    }, CyberTheme.shapes.cyberCutCornerShapeSmall),
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().heightIn(min = CyberPrimitives.IconSizes.dp48)
+                        .padding(CyberPrimitives.Spacing.dp12)
+                        .semantics { stateDescription = expansionState }
+                        .toggleable(value = expanded, role = Role.Button, onValueChange = changeExpansion),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
                     CyberIcon(
                         iconRes = CyberIcons.Drag,
                         contentDescription = stringResource(R.string.authoring_drag_handle),
@@ -304,7 +313,7 @@ internal fun RoutineBuilderRoute(
                             },
                     )
                     Box(Modifier.weight(1f)) {
-                    if (isExpanded && state.editingNameTaskId == task.id) {
+                    if (expanded && state.editingNameTaskId == task.id) {
                         val nameError = stringResource(R.string.validation_task_name_required)
                             .takeIf { BuilderValidationError.TASK_NAME_REQUIRED in state.taskErrorsFor(index) }
                         com.example.cyberpunkandroid.components.CyberTextField(
@@ -319,7 +328,7 @@ internal fun RoutineBuilderRoute(
                             text = task.title.ifBlank { stringResource(R.string.task_name) },
                             style = CyberTheme.typography.body,
                             color = if (task.title.isBlank()) CyberTheme.colors.textSecondary else CyberTheme.colors.textPrimary,
-                            modifier = if (isExpanded) {
+                            modifier = if (expanded) {
                                 Modifier.wrapContentWidth().clickable { viewModel.startTaskNameEdit(task.id) }
                             } else {
                                 Modifier
@@ -327,9 +336,9 @@ internal fun RoutineBuilderRoute(
                         )
                     }
                     }
-                    if (!isExpanded && taskErrors.isNotEmpty()) {
+                    if (!expanded && taskErrors.isNotEmpty()) {
                         BuilderErrorText(stringResource(R.string.validation_task_has_errors))
-                    } else if (!isExpanded) task.durationSeconds?.let { seconds ->
+                    } else if (!expanded) task.durationSeconds?.let { seconds ->
                         val duration = routineDurationParts(seconds)
                         Text(
                             stringResource(
@@ -340,12 +349,20 @@ internal fun RoutineBuilderRoute(
                             color = CyberTheme.colors.textSecondary,
                         )
                     }
+                    if (expanded) {
+                        IconButton(onClick = { changeExpansion(false) }) {
+                            CyberIcon(
+                                iconRes = R.drawable.ic_task_collapse,
+                                contentDescription = stringResource(R.string.authoring_collapse_task),
+                                tint = CyberTheme.colors.primary,
+                                size = CyberPrimitives.IconSizes.dp48,
+                            )
+                        }
                     }
-                },
-                onExpandedChange = changeExpansion,
-            ) {
+                }
+                AnimatedVisibility(visible = expanded, enter = expandVertically(), exit = shrinkVertically()) {
                 Column(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier.fillMaxWidth().padding(CyberPrimitives.Spacing.dp12),
                     verticalArrangement = Arrangement.spacedBy(spacing.medium),
                 ) {
                     if (BuilderValidationError.TASK_NAME_REQUIRED in state.validationErrors && state.editingTaskIndex == index) {
@@ -428,6 +445,7 @@ internal fun RoutineBuilderRoute(
                     ) {
                         Text(stringResource(R.string.remove_task))
                     }
+                }
                 }
             }
         }

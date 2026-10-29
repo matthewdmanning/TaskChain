@@ -56,6 +56,7 @@ This is the source of truth for TaskChain's domain vocabulary, behavior invarian
 - Settings can show active subtask time remaining (allowance minus actual subtask time), default off. Visibility never affects timing.
 - The runner shows only the current subtask beneath the main title. Completed subtasks remain represented by durable dial rims and markers.
 - Builder drag handles sit at the far left. Collapsed task headers show only a set duration value, without a label. The UI uses controls and visual state rather than instructional prose.
+- Collapsed Builder task headers have no down-chevron; pressing the header expands the task. Expanded headers show a large filled up-chevron that collapses the task.
 - `stackingAnchorTaskId` remains independent of subtask ownership. The pending per-routine run-storage migration is outside this integration.
 
 ## Open decisions

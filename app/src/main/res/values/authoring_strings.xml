@@ -3,6 +3,9 @@
     <string name="authoring_task_duration">%1$02d:%2$02d</string>
     <string name="authoring_tasks">Tasks</string>
     <string name="authoring_drag_handle">Reorder task</string>
+    <string name="authoring_collapse_task">Collapse task</string>
+    <string name="authoring_expanded">Expanded</string>
+    <string name="authoring_collapsed">Collapsed</string>
     <string name="authoring_duration">Duration</string>
     <string name="authoring_duration_value">Duration: %1$02d:%2$02d</string>
     <string name="authoring_duration_compact">%1$02d:%2$02d</string>

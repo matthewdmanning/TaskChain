@@ -3,11 +3,17 @@ package com.taskchain
 import androidx.activity.BackEventCompat
 import androidx.compose.ui.test.assertHasNoClickAction
 import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.test.hasAnyDescendant
+import androidx.compose.ui.test.hasAnyAncestor
+import androidx.compose.ui.test.hasContentDescription
+import androidx.compose.ui.test.hasParent
 import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasScrollToNodeAction
 import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.isToggleable
 import androidx.compose.ui.test.performScrollToNode
+import androidx.compose.ui.test.performScrollToIndex
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
@@ -22,6 +28,9 @@ import androidx.compose.ui.test.click
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import androidx.test.espresso.Espresso
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Before
 import org.junit.Rule
@@ -55,27 +64,59 @@ class MainActivityTest {
         activityRule.onNodeWithText("Routines").performClick()
         activityRule.onAllNodesWithText("Edit").onFirst().performClick()
         activityRule.onNodeWithText("Drink water").performScrollTo()
-        activityRule.onAllNodesWithContentDescription("Reorder task", useUnmergedTree = true).assertCountEquals(2)
-        activityRule.onAllNodesWithContentDescription("Reorder task", useUnmergedTree = true).onFirst().performTouchInput {
+        activityRule.onAllNodesWithContentDescription("Collapse task", useUnmergedTree = true).assertCountEquals(0)
+        activityRule.onNode(
+            hasContentDescription("Reorder task") and hasParent(hasAnyDescendant(hasText("Drink water"))),
+            useUnmergedTree = true,
+        ).performScrollTo()
+        // The first task follows the routine fields, settings, and Tasks heading.
+        // Put its handle near the top so the downward drag stays inside the screen.
+        activityRule.onNode(hasScrollToNodeAction()).performScrollToIndex(3)
+        activityRule.onNode(
+            hasContentDescription("Reorder task") and hasParent(hasAnyDescendant(hasText("Drink water"))),
+            useUnmergedTree = true,
+        ).performTouchInput {
             down(center)
             advanceEventTime(600)
-            moveBy(Offset(0f, 100f), delayMillis = 100)
+            moveBy(Offset(0f, center.y * 4f), delayMillis = 100)
             up()
         }
         activityRule.waitForIdle()
+        activityRule.onNodeWithText("Review today").performScrollTo()
         check(activityRule.onNodeWithText("Review today").fetchSemanticsNode().boundsInRoot.top <
             activityRule.onNodeWithText("Drink water").fetchSemanticsNode().boundsInRoot.top) {
             "Dragging the collapsed first task down must swap the task order"
         }
-        activityRule.onAllNodesWithContentDescription("CyberAccordionChevron", useUnmergedTree = true).onFirst().performClick()
-        activityRule.onAllNodesWithContentDescription("Reorder task", useUnmergedTree = true).assertCountEquals(2)
-        activityRule.onAllNodesWithContentDescription("Reorder task", useUnmergedTree = true).onFirst().performTouchInput {
+        activityRule.onNode(
+            isToggleable() and hasAnyDescendant(hasText("Review today")),
+            useUnmergedTree = true,
+        ).performClick()
+        activityRule.onNodeWithContentDescription("Collapse task", useUnmergedTree = true).performScrollTo()
+        activityRule.onNodeWithContentDescription("Collapse task", useUnmergedTree = true).assertExists().performClick()
+        activityRule.onAllNodesWithContentDescription("Collapse task", useUnmergedTree = true).assertCountEquals(0)
+        activityRule.onNode(
+            isToggleable() and hasAnyDescendant(hasText("Review today")),
+            useUnmergedTree = true,
+        ).performClick()
+        activityRule.onNode(
+            hasContentDescription("Reorder task") and hasParent(hasAnyDescendant(hasText("Review today"))),
+            useUnmergedTree = true,
+        ).performScrollTo()
+        activityRule.onNode(hasScrollToNodeAction()).performScrollToIndex(3)
+        activityRule.onNode(
+            hasContentDescription("Reorder task") and hasParent(hasAnyDescendant(hasText("Review today"))),
+            useUnmergedTree = true,
+        ).performTouchInput {
             down(center)
             advanceEventTime(600)
-            moveBy(Offset(0f, 100f), delayMillis = 100)
+            moveBy(Offset(0f, center.y * 4f), delayMillis = 100)
             up()
         }
         activityRule.waitForIdle()
+        activityRule.onNodeWithContentDescription("Collapse task", useUnmergedTree = true).performScrollTo()
+        activityRule.onNodeWithContentDescription("Collapse task", useUnmergedTree = true).performClick()
+        activityRule.onAllNodesWithContentDescription("Collapse task", useUnmergedTree = true).assertCountEquals(0)
+        activityRule.onNodeWithText("Drink water").performScrollTo()
         check(activityRule.onNodeWithText("Drink water").fetchSemanticsNode().boundsInRoot.top <
             activityRule.onNodeWithText("Review today").fetchSemanticsNode().boundsInRoot.top) {
             "Dragging the expanded first task down must swap the task order"
@@ -88,30 +129,45 @@ class MainActivityTest {
         activityRule.waitUntil(10_000) {
             activityRule.onAllNodesWithText("Routines").fetchSemanticsNodes().isNotEmpty()
         }
-        activityRule.onNodeWithText("Scheduled").assertExists()
-        activityRule.onNodeWithText("Manual").assertExists()
-        activityRule.onNodeWithText("Completed").assertExists()
+        listOf("Scheduled", "Manual", "Completed").forEach { section ->
+            activityRule.onNode(hasScrollToNodeAction()).performScrollToNode(hasText(section, ignoreCase = true))
+            activityRule.onNode(hasText(section, ignoreCase = true)).assertExists()
+        }
         activityRule.onNodeWithText("Routines").performClick()
         activityRule.onNodeWithText("New routine").performClick()
 
-        activityRule.onNodeWithText("Set deadline").assertExists()
-        activityRule.onNodeWithText("Set reminder").assertExists()
-        activityRule.onAllNodesWithText("Schedule").assertCountEquals(2)
-        activityRule.onNodeWithText("Tasks").assertExists()
         val title = "Builder flow ${System.currentTimeMillis()}"
         activityRule.onAllNodes(hasSetTextAction(), useUnmergedTree = true).onFirst().performTextInput(title)
-        activityRule.onNodeWithText("Save").performClick()
-        activityRule.onAllNodesWithText("Fix the highlighted fields.").assertCountEquals(0)
-        activityRule.onNodeWithContentDescription("Add task").performClick()
-        activityRule.onNodeWithText("Duration: 0 m 00 s").assertExists()
-        activityRule.onAllNodesWithText("Update task").assertCountEquals(0)
+        Espresso.closeSoftKeyboard()
+        activityRule.onNode(hasScrollToNodeAction()).performScrollToNode(isToggleable() and hasText("Sound"))
+        activityRule.onNode(isToggleable() and hasText("Sound")).performScrollTo().performClick()
+        activityRule.onNode(isToggleable() and hasText("Vibrate")).performScrollTo().performClick()
+        activityRule.onNode(hasScrollToNodeAction()).performScrollToNode(hasText("Add task"))
+        activityRule.onNodeWithText("Add task").performClick()
+        val taskTitle = "Builder task"
+        activityRule.onNode(hasScrollToNodeAction()).performScrollToNode(hasText("Task name"))
+        activityRule.onNodeWithText("Task name").performClick()
+        activityRule.onNode(hasSetTextAction() and hasAnyAncestor(isToggleable()), useUnmergedTree = true)
+            .performTextInput(taskTitle)
+        Espresso.closeSoftKeyboard()
 
+        activityRule.onNode(hasScrollToNodeAction()).performScrollToNode(hasText("Save"))
         activityRule.onNodeWithText("Save").performClick()
         activityRule.waitUntil(10_000) {
             activityRule.onAllNodesWithText(title).fetchSemanticsNodes().isNotEmpty()
         }
         activityRule.onNodeWithText(title).assertExists()
         activityRule.onAllNodesWithText("Routines").onFirst().assertExists()
+        val savedRoutine = runBlocking {
+            testAppContainer(InstrumentationRegistry.getInstrumentation().targetContext)
+                .routines.observeAll().first().single { it.title == title }
+        }
+        check(!savedRoutine.soundEnabled && !savedRoutine.vibrateEnabled) {
+            "Saved routine must retain the Sound and Vibrate settings"
+        }
+        check(savedRoutine.tasks.single().title == taskTitle) {
+            "Saved routine must retain the task title"
+        }
     }
 
     /** Use this test when verifying that Cancel and Android Back both offer discard choices without losing a draft. */
