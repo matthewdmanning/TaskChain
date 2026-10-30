@@ -1,4 +1,4 @@
-package com.taskchain.core.browsing
+package com.taskchain.features.authoring.ui
 
 import org.junit.Assert.assertEquals
 import org.junit.Test
