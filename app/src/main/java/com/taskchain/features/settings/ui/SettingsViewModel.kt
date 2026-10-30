@@ -52,7 +52,7 @@ class SettingsViewModel(private val preferences: UserPreferenceRepository) : Vie
 
     /** Use this function when Settings toggles whether the Run screen keeps the display awake. */
     fun setKeepScreenOnDuringRun(enabled: Boolean) {
-        viewModelScope.launch { container.preferences.setKeepScreenOnDuringRun(enabled) }
+        viewModelScope.launch { preferences.setKeepScreenOnDuringRun(enabled) }
     }
 
     private companion object {
