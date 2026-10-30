@@ -1,12 +1,7 @@
 package com.taskchain.core.schedule
 
-import com.taskchain.core.model.CompletionEvent
 import com.taskchain.core.model.RoutineId
-import com.taskchain.core.model.RoutineRun
 import com.taskchain.core.model.RoutineTemplate
-import com.taskchain.core.model.RunStatus
-import com.taskchain.core.model.RunTaskStatus
-import com.taskchain.core.model.ScheduleFrequency
 import com.taskchain.core.model.ScheduleRule
 
 /**
@@ -30,7 +25,7 @@ data class ReminderRequest(
 
 /**
  * Describes reminder cancellations and schedules produced by one domain planning operation.
- * Use it when a caller is saving, restoring, completing, or delivering a reminder; inputs are
+ * Use it when a caller is saving, restoring, or completing a routine; inputs are
  * the relevant routine/request and clock value, and the Android adapter applies the returned
  * codes and requests without adding scheduling policy.
  */
@@ -57,55 +52,10 @@ internal fun RoutineTemplate.toReminderRequest(triggerAtEpochMillis: Long): Remi
 )
 
 /**
- * Checks whether a task completed during the current reminder cycle.
- * Use this function before rearming repeated task prompts; inputs are routine/task ids, cycle start, active
- * run, and completion history, and it depends only on persisted run timestamps and statuses.
- */
-internal fun completedSinceCycle(
-    routineId: String,
-    taskId: String,
-    cycleStartEpochMillis: Long,
-    activeRun: RoutineRun?,
-    history: List<CompletionEvent>,
-): Boolean {
-    if (cycleStartEpochMillis <= 0) return false
-    val activeCompleted = activeRun?.takeIf { it.routineId.value == routineId }?.tasks?.any { task ->
-        task.source.id.value == taskId && task.status == RunTaskStatus.COMPLETED &&
-            (task.completedAtEpochMillis ?: task.finishedAtEpochMillis ?: Long.MIN_VALUE) >= cycleStartEpochMillis
-    } == true
-    return activeCompleted || history.any { event ->
-        event.routineId.value == routineId && event.tasks.any { task ->
-            task.source.id.value == taskId && task.status == RunTaskStatus.COMPLETED &&
-                (task.completedAtEpochMillis ?: task.finishedAtEpochMillis ?: Long.MIN_VALUE) >= cycleStartEpochMillis
-        }
-    }
-}
-
-/**
- * Checks whether a routine completed during the current reminder cycle.
- * Use this function before rearming repeated routine prompts; inputs are the routine id, cycle start, active
- * run, and completion history, and it depends on completed status plus the persisted end time.
- */
-internal fun completedRoutineSinceCycle(
-    routineId: String,
-    cycleStartEpochMillis: Long,
-    activeRun: RoutineRun?,
-    history: List<CompletionEvent>,
-): Boolean {
-    if (cycleStartEpochMillis <= 0) return false
-    val activeCompleted = activeRun?.takeIf {
-        it.routineId.value == routineId && it.status == RunStatus.COMPLETED
-    }?.endedAtEpochMillis?.let { it >= cycleStartEpochMillis } == true
-    return activeCompleted || history.any { event ->
-        event.routineId.value == routineId && event.status == RunStatus.COMPLETED &&
-            event.endedAtEpochMillis >= cycleStartEpochMillis
-    }
-}
-
-/**
  * Produces platform-neutral reminder changes for routine lifecycle events.
- * Use these functions from ViewModels and broadcast receivers; inputs are domain snapshots and
- * epoch times, and the only dependency is [NextTriggerCalculator], with no Android state.
+ * Use these functions from ViewModels and broadcast receivers for save, restore and completion; inputs are
+ * domain snapshots and epoch times, and the only dependency is [NextTriggerCalculator], with no Android state.
+ * Delivery rearming and the repeat window belong to the Reminders feature.
  */
 object ReminderPlanner {
     /**
@@ -199,42 +149,6 @@ object ReminderPlanner {
             ReminderPlan(cancelRequestCodes = listOf(routineRequestCode(routineId)))
         }
     }
-
-    /**
-     * Computes a delivery rearm request from a delivered request.
-     * Use this function in the receiver with the request, current epoch, and whether an immediate repeat is
-     * wanted; it depends on [NextTriggerCalculator] and returns null for missing/expired policy.
-     */
-    fun afterDelivery(
-        request: ReminderRequest,
-        nowEpochMillis: Long,
-        repeatNow: Boolean = true,
-    ): ReminderRequest? {
-        val rule = request.schedule ?: return null
-        val minutes = request.remindEveryMinutes?.takeIf { it > 0 }
-        if (rule.frequency == ScheduleFrequency.ONCE && minutes == null) return null
-        val regular = NextTriggerCalculator.nextTriggerEpochMillis(rule, nowEpochMillis)
-        val windowEnd = request.cycleStartEpochMillis?.takeIf { it > 0 }?.plus(REPEAT_WINDOW_MILLIS)
-        val repeated = NextTriggerCalculator.nextRepeatedTriggerEpochMillis(rule, nowEpochMillis, minutes ?: 0)
-        val next = if (repeatNow && (windowEnd == null || repeated.let { it != null && it <= windowEnd })) {
-            repeated
-        } else {
-            regular
-        } ?: return null
-        val cycleStart = if (!repeatNow || next == regular) {
-            next
-        } else {
-            request.cycleStartEpochMillis?.takeIf { it > 0 } ?: nowEpochMillis
-        }
-        return request.copy(
-            triggerAtEpochMillis = next,
-            remindEveryMinutes = minutes,
-            cycleStartEpochMillis = cycleStart,
-        )
-    }
-
-    /** Repeats stop this long after the scheduled time; the next regular occurrence resumes after that. */
-    const val REPEAT_WINDOW_MILLIS = 2 * 60 * 60 * 1000L
 
     /** Use this function to map a stable RoutineId to the alarm code used by request mapping and cancellation. */
     fun routineRequestCode(routineId: RoutineId): Int = routineId.value.hashCode()

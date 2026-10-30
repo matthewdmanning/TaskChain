@@ -10,11 +10,16 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 
-/** Projects local completion events into the small progress summary. */
 private val EMPTY_PROGRESS = ProgressSummary(0, 0, 0, 0, 0, emptyList())
-class ProgressViewModel(completions: CompletionRepository, private val now: () -> Long) : ViewModel() {
+
+/** Projects local completion events into the small progress summary; trend days begin at [dayStartHour]. */
+class ProgressViewModel(
+    completions: CompletionRepository,
+    private val now: () -> Long,
+    private val dayStartHour: Int,
+) : ViewModel() {
     val state: StateFlow<ProgressSummary> = completions.observeAll()
-        .map { events -> projectProgress(events, now()) }
+        .map { events -> projectProgress(events, now(), dayStartHour) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_TIMEOUT_MILLIS), EMPTY_PROGRESS)
 
     private companion object {

@@ -29,7 +29,7 @@ This is the source of truth for TaskChain's domain vocabulary, behavior invarian
 - A routine's schedule cannot coexist with its deadline or one-time reminder.
 - Sound and Vibrate are independently configurable for task-timer and routine-reminder feedback.
 - Skipping a scheduled routine moves its Home card to Completed with a Skipped flag and its reminder to the next recurrence; it adds no progress counts. Pressing the flag offers to undo the skip.
-- Completed or skipped cards return to Scheduled at the day start (`home_day_start_hour` in `integers.xml`, default 2 AM local) of the day of their next occurrence.
+- A day begins at the day start (`home_day_start_hour` in `integers.xml`, default 2 AM local), so earlier activity belongs to the previous day. Completed or skipped cards return to Scheduled at the day start of the day of their next occurrence, and Progress groups its daily trend by the same day start.
 - Repeated reminders stop two hours after the scheduled time.
 - A delivered routine reminder stays in the notification shade, with the launcher dot, until the user dismisses it, snoozes it, or starts the routine. Dismiss ends that cycle's repeats and keeps the next regular occurrence. Snooze removes the notification and delivers the same reminder again after `reminder_snooze_minutes` (`integers.xml`, default 10); delivery after a snooze resumes repeats inside the two-hour window.
 - While a run is active, one ongoing notification shows the active subtask's name and time left, or the main task's when no subtask is active. An untimed task counts up and a paused task shows its frozen time. Subtask time shows there regardless of the Settings subtask-time switch.

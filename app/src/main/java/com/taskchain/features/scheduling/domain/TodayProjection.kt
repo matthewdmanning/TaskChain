@@ -6,9 +6,10 @@ import com.taskchain.core.model.RoutineId
 import com.taskchain.core.model.RoutineRunId
 import com.taskchain.core.model.RoutineTemplate
 import com.taskchain.core.model.RunStatus
-import com.taskchain.core.model.RunTaskStatus
 import com.taskchain.core.model.ScheduleRule
+import com.taskchain.core.model.completedAtOrNull
 import com.taskchain.core.schedule.NextTriggerCalculator
+import com.taskchain.core.schedule.dayStartAtOrBeforeEpochMillis
 import java.util.Calendar
 import java.util.TimeZone
 
@@ -39,17 +40,6 @@ private fun markerEvent(routine: RoutineTemplate, runId: RoutineRunId, nowEpochM
         status = status,
         tasks = emptyList(),
     )
-
-/** Use this function to find the last local day start at or before [epochMillis]; a day starts at [dayStartHour]. */
-fun dayStartAtOrBeforeEpochMillis(epochMillis: Long, dayStartHour: Int, timeZone: TimeZone = TimeZone.getDefault()): Long =
-    Calendar.getInstance(timeZone).apply {
-        timeInMillis = epochMillis
-        add(Calendar.HOUR_OF_DAY, -dayStartHour)
-        set(Calendar.HOUR_OF_DAY, dayStartHour)
-        set(Calendar.MINUTE, 0)
-        set(Calendar.SECOND, 0)
-        set(Calendar.MILLISECOND, 0)
-    }.timeInMillis
 
 /**
  * Use this function to find when a routine handled at [handledAtEpochMillis] returns to Scheduled.
@@ -95,14 +85,7 @@ fun projectTodayRoutines(
             return@forEach
         }
 
-        val activeCompletedAt = activeRun?.takeIf {
-            it.routineId == routine.id && it.status == RunStatus.COMPLETED
-        }?.let { run ->
-            run.endedAtEpochMillis ?: run.tasks.asSequence()
-                .filter { it.status == RunTaskStatus.COMPLETED }
-                .mapNotNull { it.completedAtEpochMillis ?: it.finishedAtEpochMillis }
-                .maxOrNull()
-        }
+        val activeCompletedAt = activeRun?.takeIf { it.routineId == routine.id }?.completedAtOrNull()
         val events = history.filter { it.routineId == routine.id }
         fun latest(status: RunStatus) = events.filter { it.status == status }.maxOfOrNull { it.endedAtEpochMillis }
         val completedAt = listOfNotNull(activeCompletedAt, latest(RunStatus.COMPLETED)).maxOrNull()

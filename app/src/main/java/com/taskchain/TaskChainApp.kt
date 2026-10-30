@@ -90,7 +90,7 @@ fun TaskChainApp(
                                 )
                             }
                             val progressViewModel: ProgressViewModel = viewModel(key = "progress") {
-                                ProgressViewModel(container.completions, container::now)
+                                ProgressViewModel(container.completions, container::now, container.homeDayStartHour)
                             }
                             val settingsViewModel: SettingsViewModel = viewModel(key = "settings") {
                                 SettingsViewModel(container.preferences)

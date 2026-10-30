@@ -1,26 +1,51 @@
 package com.taskchain.core.schedule
 
-import com.taskchain.core.model.CompletionEvent
 import com.taskchain.core.model.EntityMetadata
 import com.taskchain.core.model.RoutineId
-import com.taskchain.core.model.RoutineRun
-import com.taskchain.core.model.RoutineRunId
 import com.taskchain.core.model.RoutineTask
 import com.taskchain.core.model.RoutineTaskId
 import com.taskchain.core.model.RoutineTemplate
-import com.taskchain.core.model.RunStatus
 import com.taskchain.core.model.ScheduleFrequency
 import com.taskchain.core.model.ScheduleRule
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
-import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.util.Calendar
 
-/** Verifies reminder planning at save, restore, completion, and delivery boundaries. */
+/** Verifies reminder planning at save, restore, and completion boundaries. */
 class ReminderPlannerTest {
+    /** Verifies callers cannot omit routine-owned reminder settings while constructing an adapter request. */
+    @Test
+    fun routineOwnsCompleteReminderRequestMapping() {
+        val schedule = ScheduleRule(ScheduleFrequency.DAILY, 9, 0)
+        val routine = RoutineTemplate(
+            id = RoutineId("routine"),
+            metadata = EntityMetadata(0, 0),
+            title = "Morning",
+            tasks = listOf(RoutineTask(RoutineTaskId("task"), "Work")),
+            schedule = schedule,
+            remindEveryMinutes = 15,
+            soundEnabled = false,
+            vibrateEnabled = true,
+        )
+
+        assertEquals(
+            ReminderRequest(
+                requestCode = "routine".hashCode(),
+                routineId = "routine",
+                title = "Morning",
+                triggerAtEpochMillis = 1_000,
+                schedule = schedule,
+                remindEveryMinutes = 15,
+                cycleStartEpochMillis = 1_000,
+                soundEnabled = false,
+                vibrateEnabled = true,
+            ),
+            routine.toReminderRequest(1_000),
+        )
+    }
+
     /** Use this function to verify save and restore map the same future routine reminder and feedback gates. */
     @Test
     fun saveAndRestoreShareRoutineMapping() {
@@ -133,92 +158,6 @@ class ReminderPlannerTest {
         assertEquals(Calendar.FEBRUARY, trigger.get(Calendar.MONTH))
         assertEquals(1, trigger.get(Calendar.DAY_OF_MONTH))
         assertEquals(9, trigger.get(Calendar.HOUR_OF_DAY))
-    }
-
-    /** Use this function to verify repeated delivery retains a valid cycle start and resets on regular recurrence. */
-    @Test
-    fun deliveryRetainsRepeatedCycleAndResetsAtRegularTrigger() {
-        val deliveredAt = Calendar.getInstance().apply {
-            set(2026, Calendar.JANUARY, 1, 9, 0, 0)
-            set(Calendar.MILLISECOND, 0)
-        }.timeInMillis
-        val request = ReminderRequest(
-            requestCode = 7,
-            routineId = "routine",
-            title = "Morning",
-            triggerAtEpochMillis = deliveredAt,
-            schedule = ScheduleRule(ScheduleFrequency.DAILY, 9, 0),
-            remindEveryMinutes = 15,
-            cycleStartEpochMillis = deliveredAt - 60_000L,
-            soundEnabled = false,
-            vibrateEnabled = true,
-        )
-
-        val repeated = ReminderPlanner.afterDelivery(request, deliveredAt)
-        val regular = ReminderPlanner.afterDelivery(request, deliveredAt, repeatNow = false)
-
-        assertNotNull(repeated)
-        assertEquals(deliveredAt + 15 * 60_000L, repeated!!.triggerAtEpochMillis)
-        assertEquals(deliveredAt - 60_000L, repeated.cycleStartEpochMillis)
-        assertEquals(false, repeated.soundEnabled)
-        assertEquals(regular!!.triggerAtEpochMillis, regular.cycleStartEpochMillis)
-        assertTrue(regular.triggerAtEpochMillis > repeated.triggerAtEpochMillis)
-        val nearNextOccurrence = regular.triggerAtEpochMillis - 5 * 60_000L
-        val capped = ReminderPlanner.afterDelivery(request, nearNextOccurrence)!!
-        assertEquals(regular.triggerAtEpochMillis, capped.triggerAtEpochMillis)
-        assertEquals(capped.triggerAtEpochMillis, capped.cycleStartEpochMillis)
-    }
-
-    /** Use this function to verify one-time reminders repeat only when explicitly configured. */
-    @Test
-    fun deliveryOnceRepeatsOnlyWithPositiveInterval() {
-        val deliveredAt = 1_000L
-        val once = ScheduleRule(ScheduleFrequency.ONCE, 9, 0, oneTimeEpochMillis = deliveredAt)
-        val request = ReminderRequest(
-            requestCode = 7,
-            routineId = "routine",
-            title = "Once",
-            triggerAtEpochMillis = deliveredAt,
-            schedule = once,
-            cycleStartEpochMillis = 0,
-        )
-
-        assertNull(ReminderPlanner.afterDelivery(request, deliveredAt))
-        val repeated = ReminderPlanner.afterDelivery(request.copy(remindEveryMinutes = 15), deliveredAt)
-        assertNotNull(repeated)
-        assertEquals(deliveredAt + 15 * 60_000L, repeated!!.triggerAtEpochMillis)
-        assertEquals(deliveredAt, repeated.cycleStartEpochMillis)
-    }
-
-    /** Use this function to verify completed routine cycles ignore stale, unrelated, and aborted runs. */
-    @Test
-    fun completedRoutineSinceCycleMatchesOnlyCurrentCompletedRoutine() {
-        val completed = RoutineRun(
-            id = RoutineRunId("run"),
-            routineId = RoutineId("routine"),
-            routineTitle = "Morning",
-            tasks = emptyList(),
-            currentTaskIndex = 0,
-            startedAtEpochMillis = 10,
-            endedAtEpochMillis = 30,
-            status = RunStatus.COMPLETED,
-        )
-        val history = CompletionEvent(
-            runId = completed.id,
-            routineId = completed.routineId,
-            routineTitle = completed.routineTitle,
-            startedAtEpochMillis = 10,
-            endedAtEpochMillis = 30,
-            status = RunStatus.COMPLETED,
-            tasks = emptyList(),
-        )
-        val aborted = history.copy(status = RunStatus.ABORTED, endedAtEpochMillis = 100)
-
-        assertTrue(completedRoutineSinceCycle("routine", 20, completed, emptyList()))
-        assertTrue(completedRoutineSinceCycle("routine", 20, null, listOf(history)))
-        assertFalse(completedRoutineSinceCycle("routine", 35, completed, listOf(history)))
-        assertFalse(completedRoutineSinceCycle("other", 20, completed, listOf(history)))
-        assertFalse(completedRoutineSinceCycle("routine", 20, null, listOf(aborted)))
     }
 
     /** Use this function to build a routine snapshot from task, schedule, and direct-reminder inputs for planner tests. */
