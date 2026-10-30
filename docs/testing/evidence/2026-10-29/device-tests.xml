@@ -1,0 +1,69 @@
+<?xml version='1.0' encoding='UTF-8' ?>
+<testsuites tests="21" failures="0" errors="0" skipped="0" time="0.000" timestamp="2026-10-29T22:22:43" hostname="localhost">
+  <testsuite name="com.taskchain.BuilderErrorFlowTest" tests="1" failures="0" errors="0" skipped="0" time="5.114" timestamp="2026-10-29T22:22:43" hostname="localhost">
+    <properties>
+      <property name="device" value="2A151FDH200HY4" />
+    </properties>
+    <testcase name="saveErrorsOpenTheTaskAreAnnouncedAndClearWhenTheUserTypes" classname="com.taskchain.BuilderErrorFlowTest" time="5.114" />
+  </testsuite>
+  <testsuite name="com.taskchain.MainActivityTest" tests="4" failures="0" errors="0" skipped="0" time="12.675" timestamp="2026-10-29T22:22:43" hostname="localhost">
+    <properties>
+      <property name="device" value="2A151FDH200HY4" />
+    </properties>
+    <testcase name="builder_savesRoutineOwnedSettingsAndReturnsToRoutines" classname="com.taskchain.MainActivityTest" time="4.229" />
+    <testcase name="routines_keepCardTextInertAndExposeSeparateEditAndStartActions" classname="com.taskchain.MainActivityTest" time="2.675" />
+    <testcase name="builderCancelAndBack_offerDiscardChoicesAndKeepDraftInput" classname="com.taskchain.MainActivityTest" time="3.320" />
+    <testcase name="builder_dragHandlesReorderCollapsedAndExpandedTasks" classname="com.taskchain.MainActivityTest" time="2.451" />
+  </testsuite>
+  <testsuite name="com.taskchain.OpenActiveRunNavigationTest" tests="1" failures="0" errors="0" skipped="0" time="1.360" timestamp="2026-10-29T22:22:43" hostname="localhost">
+    <properties>
+      <property name="device" value="2A151FDH200HY4" />
+    </properties>
+    <testcase name="openActiveRunRequestAfterRecreation_doesNotLeaveDuplicateRunnerEntry" classname="com.taskchain.OpenActiveRunNavigationTest" time="1.360" />
+  </testsuite>
+  <testsuite name="com.taskchain.ScreenshotTest" tests="1" failures="0" errors="0" skipped="0" time="3.837" timestamp="2026-10-29T22:22:43" hostname="localhost">
+    <properties>
+      <property name="device" value="2A151FDH200HY4" />
+    </properties>
+    <testcase name="routinesTab_matchesReference" classname="com.taskchain.ScreenshotTest" time="3.837" />
+  </testsuite>
+  <testsuite name="com.taskchain.StartupRecoveryTest" tests="1" failures="0" errors="0" skipped="0" time="0.951" timestamp="2026-10-29T22:22:43" hostname="localhost">
+    <properties>
+      <property name="device" value="2A151FDH200HY4" />
+    </properties>
+    <testcase name="futureSchemaIsPreservedAndRetryOpensRepairedStorage" classname="com.taskchain.StartupRecoveryTest" time="0.951" />
+  </testsuite>
+  <testsuite name="com.taskchain.SystemBackNavigationTest" tests="2" failures="0" errors="0" skipped="0" time="3.341" timestamp="2026-10-29T22:22:43" hostname="localhost">
+    <properties>
+      <property name="device" value="2A151FDH200HY4" />
+    </properties>
+    <testcase name="homeSystemBack_leavesTheAppForeground" classname="com.taskchain.SystemBackNavigationTest" time="1.478" />
+    <testcase name="runnerSystemBack_asksToAbortThenDismissesAndKeepsRun" classname="com.taskchain.SystemBackNavigationTest" time="1.863" />
+  </testsuite>
+  <testsuite name="com.taskchain.TaskChainComponentTest" tests="3" failures="0" errors="0" skipped="0" time="3.516" timestamp="2026-10-29T22:22:43" hostname="localhost">
+    <properties>
+      <property name="device" value="2A151FDH200HY4" />
+    </properties>
+    <testcase name="labeledSwitchRow_mergesLabelAndTogglesExactlyOncePerClick" classname="com.taskchain.TaskChainComponentTest" time="0.963" />
+    <testcase name="weekdaySelector_eachDayCanBeSelected" classname="com.taskchain.TaskChainComponentTest" time="1.754" />
+    <testcase name="routineList_emptyStateShowsCreateAction" classname="com.taskchain.TaskChainComponentTest" time="0.799" />
+  </testsuite>
+  <testsuite name="com.taskchain.core.data.LegacyDataMigrationTest" tests="7" failures="0" errors="0" skipped="0" time="0.338" timestamp="2026-10-29T22:22:43" hostname="localhost">
+    <properties>
+      <property name="device" value="2A151FDH200HY4" />
+    </properties>
+    <testcase name="failedQuarantineReportsRecoveryError" classname="com.taskchain.core.data.LegacyDataMigrationTest" time="0.003" />
+    <testcase name="startupMigrationRewritesLegacyFilesAndQuarantinesMalformedOnes" classname="com.taskchain.core.data.LegacyDataMigrationTest" time="0.039" />
+    <testcase name="readIoFailureIsNotQuarantined" classname="com.taskchain.core.data.LegacyDataMigrationTest" time="0.006" />
+    <testcase name="activeRunReadsRecoverableBackup" classname="com.taskchain.core.data.LegacyDataMigrationTest" time="0.012" />
+    <testcase name="malformedActiveRunIsQuarantinedWithOriginalBytes" classname="com.taskchain.core.data.LegacyDataMigrationTest" time="0.006" />
+    <testcase name="concurrentActiveWritesRemainDecodable" classname="com.taskchain.core.data.LegacyDataMigrationTest" time="0.262" />
+    <testcase name="newerSchemaBlocksActiveRunMutationAndPreservesBytes" classname="com.taskchain.core.data.LegacyDataMigrationTest" time="0.010" />
+  </testsuite>
+  <testsuite name="com.taskchain.core.ui.NavigationBackHandlerTest" tests="1" failures="0" errors="0" skipped="0" time="0.898" timestamp="2026-10-29T22:22:43" hostname="localhost">
+    <properties>
+      <property name="device" value="2A151FDH200HY4" />
+    </properties>
+    <testcase name="cancelledGestureResetsPreviewAndCompletedBackCommitsOnce" classname="com.taskchain.core.ui.NavigationBackHandlerTest" time="0.898" />
+  </testsuite>
+</testsuites>

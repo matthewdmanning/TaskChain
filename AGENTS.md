@@ -34,11 +34,18 @@ The machine-local SDK input is `sdk.dir=C\:\\Users\\<you>\\AppData\\Local\\Andro
 
 ## Coding Style & Naming
 
-Use four-space indentation in Kotlin and Gradle Kotlin scripts. Follow existing `UpperCamelCase` type names, `lowerCamelCase` functions and properties, and package names under `com.taskchain`. Keep UI screens state-driven, put run rules in `domain/run` rather than ViewModels, and isolate Android/file APIs behind the existing boundaries. No formatter or Kotlin-specific lint tool is configured; match nearby code and run Android lint.
+Use four-space indentation in Kotlin and Gradle Kotlin scripts. Follow existing `UpperCamelCase` type names, `lowerCamelCase` functions and properties, and package names under `com.taskchain`. Keep UI screens state-driven, put run rules in `features/running/domain` rather than ViewModels, and isolate Android/file APIs behind the existing boundaries. Core imports no feature or executable root, and features receive bounded dependencies rather than `AppContainer`. Run `python scripts/check-feature-boundaries.py` to verify ownership imports and cycles. No formatter or Kotlin-specific lint tool is configured; match nearby code and run Android lint.
 
 ## Testing Guidelines
 
-Tests use JUnit 4 and are named `*Test.kt`, mirroring production packages (for example, `domain/run/RoutineRunEngineTest.kt`). Add a focused regression test when changing run transitions, persisted timestamps, or confirmation rules. No coverage threshold is configured; run the JVM tests before opening a PR and verify UI or reminder changes on a device when applicable.
+Tests use JUnit 4 and are named `*Test.kt`, mirroring production packages (for example, `features/running/domain/RoutineRunEngineTest.kt`).
+
+| Test type | Location | Cross-feature imports | Practice |
+|---|---|---|---|
+| Unit / integration | Owner package (`core/<area>`, `features/<feature>`) | No; same rules as main sources | Fake the neighboring feature's injected contract, or share fixtures through Core test code |
+| E2E / system | Root package `com.taskchain` | Yes | Drive the user journey through public routes, dependencies and root bindings |
+
+`scripts/check-feature-boundaries.py` enforces this for `main`, `test` and `androidTest`. Add a focused regression test when changing run transitions, persisted timestamps, or confirmation rules. No coverage threshold is configured; run the JVM tests before opening a PR and verify UI or reminder changes on a device when applicable.
 
 ## Commits & Pull Requests
 
@@ -55,7 +62,7 @@ Delegate to the read-only `codebase_scanner` agent with `fork_turns = "none"` wh
 ### Subagent command preflight
 
 - On Windows, set `exec_command` to `shell: "cmd.exe"` and `login: false`, then pass a native command directly. Do not nest `cmd.exe /c`, use PowerShell quoting, or invoke Unix text tools through cmd. Use `type AGENTS.md` for a simple read; avoid multi-pattern `findstr /c:` quoting through a shell wrapper.
-- Verify the actual path with `rg.exe --files` before a scoped search. Tested commands from the repository root: `rg.exe --files app\src\main\java\com\taskchain\ui` and `rg.exe -n TaskChainApp app\src\main\java\com\taskchain\ui\TaskChainApp.kt` both exit 0. The UI is organized under `ui/home`, `ui/builder`, `ui/runner`, `ui/progress`, and `ui/settings`; `TaskChainApp.kt` owns application navigation. `rg` exit 1 with no diagnostic means no matches, so adjust the query or scope instead of retrying the same command.
+- Verify actual paths with `rg.exe --files app\src\main\java\com\taskchain` before a scoped search. Reusable code lives under `core`, workflow code under `features/<feature>`, and `TaskChainApp.kt` at the root binds concrete navigation. Feature destination directories may not exist until created; do not probe proposed paths as existing inputs. `rg` exit 1 with no diagnostic means no matches, so adjust the query or scope instead of retrying the same command.
 - On a genuine tool failure, follow the raw recovery and tool-failure recording instructions from the global PostToolUse hook. A completed test run with failing assertions or test cases is diagnostic output, not a tool failure; fix the tests without logging or counting it toward the consecutive-failure stop rule. Record the attempted command, exit code, and error excerpt for actual tool failures. Read-only subagents must send those details to the parent for logging without attempting to write outside their sandbox. Track consecutive failures separately for each agent. Stop the affected agent's task after consecutive tool failures; the orchestrator continues independent work and assigns that subagent the next task not blocked by the failed task.
 - Before abandoning a stuck subagent, the parent should inspect its exact command, shell, working directory, and scope, then provide one corrected approach with verified paths. Do not repeat the failed command unchanged.
 

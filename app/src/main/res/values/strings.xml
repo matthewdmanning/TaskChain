@@ -89,4 +89,6 @@
     <string name="opening_saved_data">Opening saved data…</string>
     <string name="saved_data_unavailable">Couldn’t open saved data</string>
     <string name="saved_data_retry_message">Your saved files have not been reset. Check available storage or restore a compatible backup, then retry.</string>
+    <string name="active_run_label">In progress</string>
+    <string name="resume_routine">Resume %1$s</string>
 </resources>

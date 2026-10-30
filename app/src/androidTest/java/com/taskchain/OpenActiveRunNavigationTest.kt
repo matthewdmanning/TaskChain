@@ -2,6 +2,9 @@ package com.taskchain
 
 import android.content.Intent
 import androidx.activity.ComponentActivity
+import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.junit4.StateRestorationTester
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.lifecycle.Lifecycle
@@ -9,7 +12,7 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.rememberNavController
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.ext.junit.runners.AndroidJUnit4
-import com.taskchain.ui.TaskChainApp
+import com.taskchain.TaskChainApp
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.flow.first
 import org.junit.After
@@ -54,8 +57,9 @@ class OpenActiveRunNavigationTest {
             .getBooleanExtra(MainActivity.EXTRA_OPEN_ACTIVE_RUN, false)
         runBlocking {
             val routine = container.builtInLibrary.load(System.currentTimeMillis()).first()
-            val activeRun = container.runEngine.start(routine, container.newRunId(), System.currentTimeMillis())
-            container.activeRun.saveActive(activeRun)
+            val running = container.running
+            val activeRun = running.runEngine.start(routine, running.newRunId(), System.currentTimeMillis())
+            running.activeRun.saveActive(activeRun)
         }
         var navController: NavHostController? = null
         val restorationTester = StateRestorationTester(composeRule)
@@ -84,6 +88,14 @@ class OpenActiveRunNavigationTest {
         check(navController?.previousBackStackEntry?.destination?.route == "home") {
             "Restoring a runner opened by the open-active-run request must keep Home as the previous destination"
         }
+        composeRule.waitUntil(10_000) {
+            composeRule.onAllNodesWithText("Pause").fetchSemanticsNodes().isNotEmpty()
+        }
+        composeRule.onNodeWithText("Pause").performClick()
+        composeRule.waitUntil(10_000) {
+            composeRule.onAllNodesWithText("Resume").fetchSemanticsNodes().isNotEmpty()
+        }
+        composeRule.waitForIdle()
         composeRule.runOnIdle { navController?.popBackStack() }
         composeRule.waitUntil(10_000) {
             navController?.currentBackStackEntry?.destination?.route == "home" &&

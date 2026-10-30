@@ -14,7 +14,7 @@ Rank is by risk to user data and to the run flow.
 | 5 | One screenshot test with a verified reference. Other screens and the record task are not covered | UI provider swap in #26 can change appearance unseen | #26 |
 | 6 | Device suite has no run record or trigger | Slow checks run by memory only | CI split in README |
 | 7 | `CONTEXT.md` invariants have no mapping to tests | Gaps stay hidden | README coverage targets |
-| 8 | Untested UI packages: settings, progress, home presentation | No regression guard | test file list |
+| 8 | Untested presentation: Settings, Progress, Core browsing/navigation and Scheduling | No regression guard | test file list |
 
 ## Decisions to make
 

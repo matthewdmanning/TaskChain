@@ -36,6 +36,10 @@ Cover error and recovery routes with `BuilderErrorFlowTest` and `StartupRecovery
 - Use synthetic routines seeded through the test helpers. Clear state in `@Before` and `@After`, as `MainActivityTest` does.
 - Inject system Back with `Instrumentation.sendKeyDownUpSync(KEYCODE_BACK)` when a dialog is open.
 - Do not use `Espresso.pressBack()` with an open dialog. The dialog window holds focus, and the call fails.
+- After Back leaves Home, inspect `ActivityScenario.state`; the Compose rule's Activity accessor cannot retrieve a destroyed Activity.
+- Before asserting that Back leaves a restored runner, pause its run. An active, unpaused run deliberately reopens Runner; keep the restored previous-destination assertion to detect duplicate entries.
+- Match Home section headings without case sensitivity and scroll lazy-list sections into view. Scroll horizontally clipped weekday chips into view before clicking them.
+- Match Builder expansion through its task header and the `Collapse task` action, rather than library-internal icon labels. Collapsed headers have no chevron; expanded headers have a filled up-chevron in a 48 dp control.
 
 ## Screenshot tests
 
@@ -86,7 +90,7 @@ If the task leaves no `.isRecordingScreenshots` marker on the device, record by 
 | Runner | Running, paused, overtime, subtask behind schedule, confirmation |
 | Progress | Empty, populated |
 | Settings | Default |
-| Components | Each shared component in `ui/designsystem` |
+| Components | Each shared component in `core/designsystem` |
 
 Capture each screen with these settings:
 
@@ -104,6 +108,13 @@ Do not build a window-size matrix. A phone is the only target form factor.
 - Review each changed reference image in the pull request. Attach it to the PR text.
 - Re-record references only for an intended visual change. Say why in the commit message.
 - Store references in the repo at `app/src/androidTest/screenshots`.
+
+### Success criteria
+
+- Review reference, current rendering, and differences. Text must be readable, actions visible, and content free of unintended clipping or overlap.
+- Record and verify with the same seeded data, device configuration, theme/provider, font scale, and animation settings. An approved appearance alone does not make the automated comparison pass.
+- Accept reference changes only for approved visual differences. Keep the configured comparison tolerance and require two clean verification passes against the accepted reference.
+- For Builder headers, confirm the collapsed state has no down-chevron, the expanded state has a large filled up-chevron, and expansion, collapse, title editing, and dragging still work.
 
 ## Run order
 

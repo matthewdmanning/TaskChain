@@ -71,7 +71,7 @@ class SystemBackNavigationTest {
         Espresso.pressBackUnconditionally()
 
         activityRule.waitUntil(10_000) {
-            !activityRule.activity.lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)
+            !activityRule.activityRule.scenario.state.isAtLeast(Lifecycle.State.RESUMED)
         }
     }
 

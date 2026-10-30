@@ -1,0 +1,9 @@
+<?xml version='1.0' encoding='UTF-8' ?>
+<testsuites tests="1" failures="0" errors="0" skipped="0" time="0.000" timestamp="2026-10-29T22:23:10" hostname="localhost">
+  <testsuite name="com.taskchain.ScreenshotTest" tests="1" failures="0" errors="0" skipped="0" time="4.497" timestamp="2026-10-29T22:23:10" hostname="localhost">
+    <properties>
+      <property name="device" value="2A151FDH200HY4" />
+    </properties>
+    <testcase name="routinesTab_matchesReference" classname="com.taskchain.ScreenshotTest" time="4.497" />
+  </testsuite>
+</testsuites>
