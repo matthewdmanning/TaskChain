@@ -38,7 +38,14 @@ Use four-space indentation in Kotlin and Gradle Kotlin scripts. Follow existing 
 
 ## Testing Guidelines
 
-Tests use JUnit 4 and are named `*Test.kt`, mirroring production packages (for example, `features/running/domain/RoutineRunEngineTest.kt`). Add a focused regression test when changing run transitions, persisted timestamps, or confirmation rules. No coverage threshold is configured; run the JVM tests before opening a PR and verify UI or reminder changes on a device when applicable.
+Tests use JUnit 4 and are named `*Test.kt`, mirroring production packages (for example, `features/running/domain/RoutineRunEngineTest.kt`).
+
+| Test type | Location | Cross-feature imports | Practice |
+|---|---|---|---|
+| Unit / integration | Owner package (`core/<area>`, `features/<feature>`) | No; same rules as main sources | Fake the neighboring feature's injected contract, or share fixtures through Core test code |
+| E2E / system | Root package `com.taskchain` | Yes | Drive the user journey through public routes, dependencies and root bindings |
+
+`scripts/check-feature-boundaries.py` enforces this for `main`, `test` and `androidTest`. Add a focused regression test when changing run transitions, persisted timestamps, or confirmation rules. No coverage threshold is configured; run the JVM tests before opening a PR and verify UI or reminder changes on a device when applicable.
 
 ## Commits & Pull Requests
 

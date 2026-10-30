@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="punch_vibration_intensity">Vibration intensity</string>
+    <string name="punch_screen_transitions">Task transitions</string>
+    <string name="show_subtask_time_remaining">Show subtask time remaining</string>
+    <string name="settings_default_sounds">Default sounds</string>
+</resources>

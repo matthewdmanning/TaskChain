@@ -52,4 +52,5 @@
     <string name="authoring_day_sunday">Sun</string>
     <string name="authoring_repeating">Repeating</string>
     <string name="authoring_frequency_custom">Custom</string>
+    <string name="authoring_task_sound">Task sound</string>
 </resources>
