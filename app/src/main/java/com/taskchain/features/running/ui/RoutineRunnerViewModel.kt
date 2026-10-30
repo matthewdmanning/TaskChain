@@ -50,6 +50,7 @@ class RoutineRunnerViewModel(
         activeRun = dependencies.activeRun,
         completions = dependencies.completions,
         engine = dependencies.runEngine,
+        dayStartHour = dependencies.dayStartHour,
         reminders = dependencies.reminders,
         findRoutine = { id ->
             dependencies.routines.get(id)

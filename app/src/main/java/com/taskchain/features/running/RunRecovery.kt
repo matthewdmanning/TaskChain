@@ -10,5 +10,6 @@ suspend fun recoverTerminalSession(
     completions: CompletionRepository,
     engine: RoutineRunEngine,
 ) {
-    TerminalRunWriter(activeRun, completions, engine).recoverPersisted()
+    // Recovery only records history and never plans a reminder, so no day start applies.
+    TerminalRunWriter(activeRun, completions, engine, dayStartHour = 0).recoverPersisted()
 }

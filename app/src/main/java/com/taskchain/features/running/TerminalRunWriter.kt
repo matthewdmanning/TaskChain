@@ -17,6 +17,7 @@ import kotlinx.coroutines.flow.first
  * and resumes a completed routine's next reminder. An Aborted run is only saved; it never enters history.
  * Storage failures propagate so the caller can offer a retry; a failed reminder reschedule never fails the write.
  * Constructor inputs: `activeRun`, `completions` — Core storage; `engine` — history event mapping;
+ * `dayStartHour` — the day start (`home_day_start_hour`) that decides which day a completion belongs to;
  * `reminders` — reminder port, or null when only history recovery runs; `findRoutine` — the routine definition used
  * for the next reminder; `now` — wall-clock epoch milliseconds.
  */
@@ -24,6 +25,7 @@ class TerminalRunWriter(
     private val activeRun: RoutineRunRepository,
     private val completions: CompletionRepository,
     private val engine: RoutineRunEngine,
+    private val dayStartHour: Int,
     private val reminders: ReminderScheduler? = null,
     private val findRoutine: suspend (RoutineId) -> RoutineTemplate? = { null },
     private val now: () -> Long = System::currentTimeMillis,
@@ -60,7 +62,12 @@ class TerminalRunWriter(
         val scheduler = reminders ?: return
         try {
             val routine = findRoutine(terminal.routineId)
-            val plan = ReminderPlanner.afterCompletion(routine, terminal.routineId, terminal.endedAtEpochMillis ?: now())
+            val plan = ReminderPlanner.afterCompletion(
+                routine,
+                terminal.routineId,
+                terminal.endedAtEpochMillis ?: now(),
+                dayStartHour,
+            )
             plan.cancelRequestCodes.forEach(scheduler::cancel)
             plan.requests.forEach(scheduler::schedule)
         } catch (error: CancellationException) {

@@ -132,16 +132,18 @@ object ReminderPlanner {
 
     /**
      * Plans the next alarm after a routine completion.
-     * Use this function with the completed routine when available, its stable id, and completion epoch; a
-     * next recurring trigger schedules the routine and every other case cancels its routine alarm.
+     * Use this function with the completed routine when available, its stable id, completion epoch and the day
+     * start hour (`home_day_start_hour`); a next recurring trigger on a later TaskChain day schedules the routine
+     * and every other case cancels its routine alarm.
      */
     fun afterCompletion(
         routine: RoutineTemplate?,
         routineId: RoutineId,
         completedAtEpochMillis: Long,
+        dayStartHour: Int,
     ): ReminderPlan {
         val next = routine?.schedule?.let {
-            NextTriggerCalculator.nextTriggerAfterCompletionEpochMillis(it, completedAtEpochMillis)
+            NextTriggerCalculator.nextTriggerAfterCompletionEpochMillis(it, completedAtEpochMillis, dayStartHour)
         }
         return if (routine != null && next != null) {
             ReminderPlan(requests = listOf(routine.toReminderRequest(next)))

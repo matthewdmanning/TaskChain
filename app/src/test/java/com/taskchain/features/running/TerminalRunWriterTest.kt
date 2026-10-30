@@ -25,6 +25,7 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
 import org.junit.Test
+import java.util.Calendar
 
 /** Guards terminal-run persistence shared by the runner, its retry, and startup recovery. */
 class TerminalRunWriterTest {
@@ -51,7 +52,7 @@ class TerminalRunWriterTest {
         history: FakeCompletionRepository,
         reminders: FakeReminderScheduler = FakeReminderScheduler(),
         definition: RoutineTemplate? = routine(),
-    ) = TerminalRunWriter(active, history, engine, reminders, findRoutine = { definition }, now = { 9_000L })
+    ) = TerminalRunWriter(active, history, engine, DAY_START_HOUR, reminders, findRoutine = { definition }, now = { 9_000L })
 
     /** Use this function to verify a completed run is saved, appended once, cleared, and its reminder rearmed. */
     @Test
@@ -81,6 +82,26 @@ class TerminalRunWriterTest {
 
         assertEquals(1, reminders.scheduled.size)
         assertTrue(reminders.cancelled.isEmpty())
+    }
+
+    /** Use this function to verify the next reminder uses the injected day start: a 1 AM completion belongs to the previous day. */
+    @Test
+    fun completionBeforeDayStartSchedulesThatNightsOccurrence() = runBlocking {
+        val completedAt = Calendar.getInstance().apply {
+            set(2026, Calendar.JANUARY, 31, 1, 0, 0)
+            set(Calendar.MILLISECOND, 0)
+        }.timeInMillis
+        val nightly = routine().copy(schedule = ScheduleRule(ScheduleFrequency.DAILY, localHour = 23, localMinute = 0))
+        val run = engine.completeCurrent(engine.start(nightly, RoutineRunId("run"), completedAt - 60_000L), completedAt)
+        val active = FakeActiveRunRepository(null)
+        val reminders = FakeReminderScheduler()
+
+        writer(active, FakeCompletionRepository(active), reminders, definition = nightly).write(run)
+
+        val trigger = Calendar.getInstance().apply { timeInMillis = reminders.scheduled.single().triggerAtEpochMillis }
+        assertEquals(Calendar.JANUARY, trigger.get(Calendar.MONTH))
+        assertEquals(31, trigger.get(Calendar.DAY_OF_MONTH))
+        assertEquals(23, trigger.get(Calendar.HOUR_OF_DAY))
     }
 
     /** Use this function to verify an Aborted run is kept on disk and never enters history or touches reminders. */
@@ -208,5 +229,10 @@ class TerminalRunWriterTest {
         }
 
         override fun clearDelivered(requestCode: Int) = Unit
+    }
+
+    private companion object {
+        /** The default `home_day_start_hour`. */
+        const val DAY_START_HOUR = 2
     }
 }

@@ -135,15 +135,15 @@ class ReminderPlannerTest {
         val completedAt = 1_000L
         val routine = routine(schedule = ScheduleRule(ScheduleFrequency.ONCE, 9, 0, oneTimeEpochMillis = 2_000))
 
-        val plan = ReminderPlanner.afterCompletion(routine, RoutineId("routine"), completedAt)
+        val plan = ReminderPlanner.afterCompletion(routine, RoutineId("routine"), completedAt, DAY_START_HOUR)
 
         assertEquals(listOf("routine".hashCode()), plan.cancelRequestCodes)
         assertTrue(plan.requests.isEmpty())
-        assertEquals(plan, ReminderPlanner.afterCompletion(null, RoutineId("routine"), completedAt))
-        assertEquals(plan, ReminderPlanner.afterCompletion(routine.copy(schedule = null), RoutineId("routine"), completedAt))
+        assertEquals(plan, ReminderPlanner.afterCompletion(null, RoutineId("routine"), completedAt, DAY_START_HOUR))
+        assertEquals(plan, ReminderPlanner.afterCompletion(routine.copy(schedule = null), RoutineId("routine"), completedAt, DAY_START_HOUR))
     }
 
-    /** Use this function to verify recurring completion schedules the next local calendar day. */
+    /** Use this function to verify recurring completion after the day start schedules the next day. */
     @Test
     fun completionOfDailyRoutineSchedulesNextDay() {
         val completedAt = Calendar.getInstance().apply {
@@ -152,12 +152,29 @@ class ReminderPlannerTest {
         }.timeInMillis
         val routine = routine(schedule = ScheduleRule(ScheduleFrequency.DAILY, 9, 0))
 
-        val request = ReminderPlanner.afterCompletion(routine, RoutineId("routine"), completedAt).requests.single()
+        val request = ReminderPlanner.afterCompletion(routine, RoutineId("routine"), completedAt, DAY_START_HOUR).requests.single()
         val trigger = Calendar.getInstance().apply { timeInMillis = request.triggerAtEpochMillis }
 
         assertEquals(Calendar.FEBRUARY, trigger.get(Calendar.MONTH))
         assertEquals(1, trigger.get(Calendar.DAY_OF_MONTH))
         assertEquals(9, trigger.get(Calendar.HOUR_OF_DAY))
+    }
+
+    /** Use this function to verify a completion before the 2 AM day start keeps that same night's occurrence. */
+    @Test
+    fun completionBeforeDayStartSchedulesSameNight() {
+        val completedAt = Calendar.getInstance().apply {
+            set(2026, Calendar.JANUARY, 31, 1, 0, 0)
+            set(Calendar.MILLISECOND, 0)
+        }.timeInMillis
+        val routine = routine(schedule = ScheduleRule(ScheduleFrequency.DAILY, 23, 0))
+
+        val request = ReminderPlanner.afterCompletion(routine, RoutineId("routine"), completedAt, DAY_START_HOUR).requests.single()
+        val trigger = Calendar.getInstance().apply { timeInMillis = request.triggerAtEpochMillis }
+
+        assertEquals(Calendar.JANUARY, trigger.get(Calendar.MONTH))
+        assertEquals(31, trigger.get(Calendar.DAY_OF_MONTH))
+        assertEquals(23, trigger.get(Calendar.HOUR_OF_DAY))
     }
 
     /** Use this function to build a routine snapshot from task, schedule, and direct-reminder inputs for planner tests. */
@@ -197,5 +214,10 @@ class ReminderPlannerTest {
             thrown = true
         }
         assertTrue(thrown)
+    }
+
+    private companion object {
+        /** The default `home_day_start_hour`. */
+        const val DAY_START_HOUR = 2
     }
 }

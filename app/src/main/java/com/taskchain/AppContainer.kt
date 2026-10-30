@@ -112,6 +112,7 @@ class AppContainer(context: Context) {
         remindersExhausted = { run, now ->
             RunAlertPolicy.remindersExhausted(run, notificationRules, now, untimedReminderLimitMillis)
         },
+        dayStartHour = homeDayStartHour,
         taskNudgeIntervalMillis = taskNudgeIntervalMillis,
         newRunId = ::newRunId,
         now = ::now,

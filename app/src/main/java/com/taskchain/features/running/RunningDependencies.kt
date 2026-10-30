@@ -46,6 +46,8 @@ class RunningDependencies(
     val syncRunAlerts: (RoutineRun?, Long, Boolean) -> Unit,
     /** Whether the run has exhausted its notification reminder window. */
     val remindersExhausted: (RoutineRun, Long) -> Boolean,
+    /** Local hour at which a TaskChain day begins (`home_day_start_hour`); decides a completion's day. */
+    val dayStartHour: Int,
     /** Runner nudge interval in milliseconds. */
     val taskNudgeIntervalMillis: Long,
     /** Creates a fresh persisted run identity. */
