@@ -21,11 +21,14 @@ import com.taskchain.core.platform.ReminderScheduler
 import com.taskchain.features.execution.domain.RoutineRunEngine
 import com.taskchain.core.platform.TaskFeedback
 import com.taskchain.core.platform.TimerFeedback
+import com.taskchain.features.notifications.platform.ReminderNotification
+import com.taskchain.features.notifications.NotificationDependencies
+import com.taskchain.features.notifications.domain.RunAlertPolicy
 import com.taskchain.features.execution.ExecutionDependencies
-import com.taskchain.features.execution.platform.RunAlerts
-import com.taskchain.features.execution.platform.RunNotification
-import com.taskchain.features.execution.platform.handleRunAction
-import com.taskchain.features.execution.platform.handleRunAlert
+import com.taskchain.features.notifications.platform.RunAlerts
+import com.taskchain.features.notifications.platform.RunNotification
+import com.taskchain.features.notifications.platform.handleRunAction
+import com.taskchain.features.notifications.platform.handleRunAlert
 import com.taskchain.features.reminders.AndroidReminderScheduler
 import com.taskchain.features.reminders.ReminderHandlers
 import com.taskchain.reminder.ReminderReceiver
@@ -67,10 +70,12 @@ class AppContainer(context: Context) {
         runAction = { Intent(appContext, RunActionReceiver::class.java) },
         runAlert = { Intent(appContext, RunAlertReceiver::class.java) },
     )
-    val reminders: ReminderScheduler = AndroidReminderScheduler(appContext, platformIntents)
+    private val reminderNotification = ReminderNotification(appContext)
+    val reminders: ReminderScheduler = AndroidReminderScheduler(appContext, platformIntents, reminderNotification::cancel)
     private val runMutex = Mutex()
     private val runRevision = MutableStateFlow(0L)
-    private val runNotification = RunNotification(appContext, runEngine, platformIntents)
+    private val notificationRules = notificationRunRules(runEngine)
+    private val runNotification = RunNotification(appContext, notificationRules, platformIntents)
     private val timerFeedback = TimerFeedback(appContext)
     private val taskFeedback: TaskFeedback = AndroidTaskFeedback(appContext)
     val homeDayStartHour = appContext.resources.getInteger(R.integer.home_day_start_hour)
@@ -82,7 +87,7 @@ class AppContainer(context: Context) {
         .toLong() * 60_000L
     private val runAlerts = RunAlerts(
         appContext,
-        runEngine,
+        notificationRules,
         platformIntents,
         taskNudgeIntervalMillis,
         untimedReminderLimitMillis,
@@ -102,13 +107,31 @@ class AppContainer(context: Context) {
         runnerVisible = false,
         timerFeedback = timerFeedback,
         taskFeedback = taskFeedback,
+        syncRunNotification = runNotification::sync,
+        syncRunAlerts = runAlerts::sync,
+        remindersExhausted = { run, now ->
+            RunAlertPolicy.remindersExhausted(run, notificationRules, now, untimedReminderLimitMillis)
+        },
+        taskNudgeIntervalMillis = taskNudgeIntervalMillis,
+        newRunId = ::newRunId,
+        now = ::now,
+        recoverTerminalRun = { recoverTerminalSession(activeRun, completions, runEngine) },
+    )
+
+    private val notifications = NotificationDependencies(
+        activeRun = activeRun,
+        preferences = preferences,
+        runRules = notificationRules,
+        runMutex = runMutex,
+        runRevision = runRevision,
+        isRunnerVisible = { execution.runnerVisible },
+        timerFeedback = timerFeedback,
+        taskFeedback = taskFeedback,
         runNotification = runNotification,
         runAlerts = runAlerts,
         taskNudgeIntervalMillis = taskNudgeIntervalMillis,
         untimedReminderLimitMillis = untimedReminderLimitMillis,
-        newRunId = ::newRunId,
         now = ::now,
-        recoverTerminalRun = { recoverTerminalSession(activeRun, completions, runEngine) },
     )
 
     private val reminderHandlers = ReminderHandlers(
@@ -119,6 +142,7 @@ class AppContainer(context: Context) {
         reminders = reminders,
         intents = platformIntents,
         timerFeedback = timerFeedback,
+        showDelivered = { showReminderNotification(appContext, platformIntents, reminderNotification, it) },
     )
 
     /** Root-owned handlers dispatched by the historical Android receiver identities. */
@@ -126,8 +150,8 @@ class AppContainer(context: Context) {
         deliver = reminderHandlers::deliver,
         action = reminderHandlers::action,
         restore = reminderHandlers::restore,
-        runAction = { intent -> handleRunAction(intent, execution) },
-        runAlert = { intent -> handleRunAlert(intent, execution) },
+        runAction = { intent -> handleRunAction(intent, notifications) },
+        runAlert = { intent -> handleRunAlert(intent, notifications) },
     )
 
     /** Use this function before UI loads so files saved before the task/subtask rename use current keys. */

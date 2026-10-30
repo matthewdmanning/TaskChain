@@ -1,4 +1,4 @@
-package com.taskchain.features.execution.platform
+package com.taskchain.features.notifications.platform
 
 import android.app.AlarmManager
 import android.app.PendingIntent
@@ -9,9 +9,9 @@ import com.taskchain.core.model.SoundToken
 import com.taskchain.core.model.withTaskSound
 import com.taskchain.core.platform.PlatformIntents
 import com.taskchain.core.platform.setAlarm
-import com.taskchain.features.execution.ExecutionDependencies
-import com.taskchain.features.execution.domain.RoutineRunEngine
-import com.taskchain.features.execution.domain.RunAlertPolicy
+import com.taskchain.features.notifications.NotificationDependencies
+import com.taskchain.features.notifications.domain.NotificationRunRules
+import com.taskchain.features.notifications.domain.RunAlertPolicy
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
@@ -21,7 +21,7 @@ import kotlinx.coroutines.sync.withLock
 /** Keeps one background alarm for the next run nudge or timer expiry. */
 class RunAlerts(
     context: Context,
-    private val engine: RoutineRunEngine,
+    private val engine: NotificationRunRules,
     private val intents: PlatformIntents,
     private val nudgeIntervalMillis: Long,
     private val untimedIdleLimitMillis: Long,
@@ -62,7 +62,7 @@ class RunAlerts(
 }
 
 /** Handles a background run alert and re-arms the next one under the shared run lock. */
-suspend fun handleRunAlert(intent: Intent, dependencies: ExecutionDependencies) {
+suspend fun handleRunAlert(intent: Intent, dependencies: NotificationDependencies) {
     if (intent.action != RunAlerts.ACTION_ALERT) return
     var played = false
     try {
@@ -77,7 +77,7 @@ suspend fun handleRunAlert(intent: Intent, dependencies: ExecutionDependencies) 
             }
             val due = RunAlertPolicy.takeDue(
                 run,
-                dependencies.runEngine,
+                dependencies.runRules,
                 now,
                 dependencies.taskNudgeIntervalMillis,
                 dependencies.untimedReminderLimitMillis,

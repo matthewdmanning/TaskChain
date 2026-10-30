@@ -1,4 +1,4 @@
-package com.taskchain.features.execution.domain
+package com.taskchain.features.notifications.domain
 
 import com.taskchain.core.model.RoutineRun
 import com.taskchain.core.model.RunStatus
@@ -14,7 +14,7 @@ data class DueRunAlerts(
 /**
  * Decides when the run needs its next audio and haptic alert while the Run screen is not visible,
  * and which alerts are due. Platform-neutral: the Android alarm adapter only maps these times to alarms.
- * Dependencies: [RoutineRunEngine], [RunFeedbackPolicy].
+ * Dependencies: [NotificationRunRules], injected nudge rules.
  */
 object RunAlertPolicy {
     /**
@@ -25,7 +25,7 @@ object RunAlertPolicy {
      */
     fun remindersExhausted(
         run: RoutineRun,
-        engine: RoutineRunEngine,
+        engine: NotificationRunRules,
         nowEpochMillis: Long,
         untimedIdleLimitMillis: Long,
     ): Boolean {
@@ -41,7 +41,7 @@ object RunAlertPolicy {
      */
     fun nextAlertAt(
         run: RoutineRun,
-        engine: RoutineRunEngine,
+        engine: NotificationRunRules,
         nowEpochMillis: Long,
         nudgeIntervalMillis: Long,
         untimedIdleLimitMillis: Long,
@@ -67,7 +67,7 @@ object RunAlertPolicy {
      */
     fun takeDue(
         run: RoutineRun,
-        engine: RoutineRunEngine,
+        engine: NotificationRunRules,
         nowEpochMillis: Long,
         nudgeIntervalMillis: Long,
         untimedIdleLimitMillis: Long,
@@ -80,7 +80,7 @@ object RunAlertPolicy {
             return DueRunAlerts(run, nudge = false, timerExpired = false)
         }
         val exhausted = remindersExhausted(run, engine, nowEpochMillis, untimedIdleLimitMillis)
-        val nudge = RunFeedbackPolicy.evaluateNudge(run, nowEpochMillis, nudgeIntervalMillis, emit = !exhausted)
+        val nudge = engine.evaluateNudge(run, nowEpochMillis, nudgeIntervalMillis, !exhausted)
         var updated = nudge.run
         val timerExpired = engine.needsTimerFeedback(updated, nowEpochMillis)
         if (timerExpired) updated = engine.acknowledgeTimerFeedback(updated, nowEpochMillis)

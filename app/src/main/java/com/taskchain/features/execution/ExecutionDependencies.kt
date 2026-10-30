@@ -5,13 +5,12 @@ import com.taskchain.core.data.CompletionRepository
 import com.taskchain.core.data.RoutineRepository
 import com.taskchain.core.data.RoutineRunRepository
 import com.taskchain.core.data.UserPreferenceRepository
+import com.taskchain.core.model.RoutineRun
 import com.taskchain.core.model.RoutineRunId
 import com.taskchain.core.platform.ReminderScheduler
 import com.taskchain.core.platform.TaskFeedback
 import com.taskchain.core.platform.TimerFeedback
 import com.taskchain.features.execution.domain.RoutineRunEngine
-import com.taskchain.features.execution.platform.RunAlerts
-import com.taskchain.features.execution.platform.RunNotification
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.sync.Mutex
 
@@ -41,14 +40,14 @@ class ExecutionDependencies(
     val timerFeedback: TimerFeedback,
     /** Shared semantic task feedback output. */
     val taskFeedback: TaskFeedback,
-    /** Ongoing run notification adapter. */
-    val runNotification: RunNotification,
-    /** Background run alert adapter. */
-    val runAlerts: RunAlerts,
+    /** Publishes the presented run through root-injected notification integration. */
+    val syncRunNotification: (RoutineRun, Long) -> Unit,
+    /** Hands the persisted run and visibility to root-injected background alerts. */
+    val syncRunAlerts: (RoutineRun?, Long, Boolean) -> Unit,
+    /** Whether the run has exhausted its notification reminder window. */
+    val remindersExhausted: (RoutineRun, Long) -> Boolean,
     /** Runner nudge interval in milliseconds. */
     val taskNudgeIntervalMillis: Long,
-    /** Untimed-run reminder limit in milliseconds. */
-    val untimedReminderLimitMillis: Long,
     /** Creates a fresh persisted run identity. */
     val newRunId: () -> RoutineRunId,
     /** Supplies the current wall-clock epoch milliseconds. */

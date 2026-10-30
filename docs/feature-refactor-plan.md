@@ -24,7 +24,7 @@ One `:app` module contains reusable `core` packages, six current `features`, and
 | `domain/home`, Today UI/state/actions | `features/scheduling/domain`, `features/scheduling/ui` |
 | `domain/run`, run recovery | `features/execution/domain`, `features/execution` |
 | `ui/runner` | `features/execution/ui` |
-| Run notification/alert adapters and their behavior | `features/execution/platform` |
+| Run notification/alert adapters and their behavior | `features/notifications` (subsequent extraction; see `notifications-feature-integration.md`) |
 | Routine alarm/delivery/rearm/restore behavior | `features/reminders` |
 | `domain/progress`, `ui/progress` | `features/progress/domain`, `features/progress/ui` |
 | App/Application/Activity construction and concrete route binding | Executable root |
