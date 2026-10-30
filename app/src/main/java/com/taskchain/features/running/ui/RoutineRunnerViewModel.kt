@@ -2,6 +2,7 @@ package com.taskchain.features.running.ui
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.taskchain.core.model.FeedbackGates
 import com.taskchain.core.model.RoutineId
 import com.taskchain.core.model.RoutineRun
 import com.taskchain.core.model.RunStatus
@@ -11,9 +12,11 @@ import com.taskchain.core.model.withTaskSound
 import com.taskchain.core.model.withUserDefaults
 import com.taskchain.features.running.domain.RunFeedbackEvent
 import com.taskchain.features.running.domain.RunFeedbackPolicy
+import com.taskchain.features.running.domain.RunReadiness
+import com.taskchain.features.running.domain.RunTiming
 import com.taskchain.features.running.RunningDependencies
+import com.taskchain.features.running.TerminalRunWriter
 import com.taskchain.core.schedule.ReminderPlanner
-import com.taskchain.core.designsystem.RunnerMotion
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -43,6 +46,17 @@ class RoutineRunnerViewModel(
     private var initialRunningFeedbackPending = false
     private var transitionsEnabled = true
     private var feedbackIntensity = 1f
+    private val terminalWriter = TerminalRunWriter(
+        activeRun = dependencies.activeRun,
+        completions = dependencies.completions,
+        engine = dependencies.runEngine,
+        reminders = dependencies.reminders,
+        findRoutine = { id ->
+            dependencies.routines.get(id)
+                ?: dependencies.builtInLibrary.load(dependencies.now()).firstOrNull { it.id == id }
+        },
+        now = dependencies.now,
+    )
 
     init {
         viewModelScope.launch {
@@ -81,7 +95,7 @@ class RoutineRunnerViewModel(
         if (!foreground) return
         runCatching {
             dependencies.taskFeedback.pulse(
-                vibrateEnabled = run.routineVibrateEnabled && task.source.vibrateEnabled,
+                vibrateEnabled = FeedbackGates.vibrateEnabled(run, task.source),
                 intensity = feedbackIntensity,
             )
         }
@@ -106,20 +120,20 @@ class RoutineRunnerViewModel(
         transitionsEnabled = enabled
     }
 
+    /**
+     * Use this function to read the timer values for the run the route presents, which can be a held completion
+     * snapshot rather than [RunnerState.run]. Inputs: `run` — the presented run; `nowEpochMillis` — the sampled time.
+     */
+    fun timingFor(run: RoutineRun?, nowEpochMillis: Long): RunTiming =
+        run?.let { dependencies.runEngine.timing(it, nowEpochMillis) } ?: RunTiming.None
+
     /** Use this function when Complete is pressed for the displayed task. */
     fun complete() = transition { run, now ->
-        val completed = dependencies.runEngine.completeCurrent(run, now)
-        val completedMain = completed.tasks.getOrNull(run.currentTaskIndex)?.status == RunTaskStatus.COMPLETED &&
-            run.tasks.getOrNull(run.currentTaskIndex)?.status != RunTaskStatus.COMPLETED
-        if (transitionsEnabled && foreground && completedMain && completed.currentTaskIndex != run.currentTaskIndex) {
-            dependencies.runEngine.prepareNextTask(
-                completed,
-                now,
-                RunnerMotion.completionDurationMillis.toLong() + RunnerMotion.taskReadyTransitionDurationMillis,
-            )
-        } else {
-            completed
-        }
+        dependencies.runEngine.completeCurrentWithReadiness(
+            run,
+            now,
+            RunReadiness.startDelayMillis(presented = transitionsEnabled && foreground),
+        )
     }
 
     /** Use this function when Skip is pressed for the displayed task. */
@@ -127,6 +141,9 @@ class RoutineRunnerViewModel(
 
     /** Use this function when Back is pressed inside the runner. */
     fun back() = transition { run, now -> dependencies.runEngine.back(run, now) }
+
+    /** Use this function for system Back: it closes an open confirmation, otherwise it applies [back]. */
+    fun systemBack() = transition { run, now -> dependencies.runEngine.systemBack(run, now) }
 
     /** Use this function for a right swipe to return to the previous task; no-op on the first task. */
     fun goToPreviousTask() = transition { run, now -> dependencies.runEngine.previousTask(run, now) }
@@ -155,26 +172,7 @@ class RoutineRunnerViewModel(
             runMutex.withLock {
                 val terminal = state.value.run ?: return@withLock
                 if (terminal.status == RunStatus.ACTIVE) return@withLock
-                try {
-                    dependencies.activeRun.saveActive(terminal)
-                    dependencies.recoverTerminalRun()
-                    if (terminal.status == RunStatus.COMPLETED) {
-                        try {
-                            rescheduleRoutineReminderAfterCompletion(
-                                terminal.routineId,
-                                terminal.endedAtEpochMillis ?: dependencies.now(),
-                            )
-                        } catch (error: CancellationException) {
-                            throw error
-                        } catch (_: Exception) {
-                        }
-                    }
-                    state.value = RunnerState(nowEpochMillis = dependencies.now(), run = terminal, finished = true)
-                } catch (error: CancellationException) {
-                    throw error
-                } catch (_: Exception) {
-                    state.value = state.value.copy(historySaveFailed = true)
-                }
+                persistTerminalRun(terminal)
             }
         }
     }
@@ -242,8 +240,8 @@ class RoutineRunnerViewModel(
             state.value = state.value.copy(run = acknowledged)
             if (!foreground) return@withLock
             dependencies.timerFeedback.fire(
-                soundEnabled = run.routineSoundEnabled && task.soundEnabled,
-                vibrateEnabled = run.routineVibrateEnabled && task.vibrateEnabled,
+                soundEnabled = FeedbackGates.soundEnabled(run, task, SoundToken.TimerExpired),
+                vibrateEnabled = FeedbackGates.vibrateEnabled(run, task),
                 soundSettings = run.soundSettings.withTaskSound(task.soundUri),
                 intensity = feedbackIntensity,
             )
@@ -301,40 +299,18 @@ class RoutineRunnerViewModel(
         }
     }
 
-    /** Use this function to persist a terminal run once before history clear and completion navigation. */
+    /**
+     * Use this function to persist a terminal run, then show completion; on a storage failure the terminal run stays
+     * presented with a retry. Also used by [retryHistorySave].
+     */
     private suspend fun persistTerminalRun(terminal: RoutineRun): Boolean {
         try {
-            dependencies.activeRun.saveActive(terminal)
+            terminalWriter.write(terminal)
         } catch (error: CancellationException) {
             throw error
         } catch (_: Exception) {
             state.value = state.value.copy(run = terminal, historySaveFailed = true)
             return false
-        }
-        state.value = state.value.copy(run = terminal, historySaveFailed = false)
-        if (terminal.status == RunStatus.ABORTED) {
-            state.value = RunnerState(nowEpochMillis = dependencies.now(), run = terminal, finished = true)
-            return true
-        }
-        try {
-            dependencies.completions.append(dependencies.runEngine.toCompletionEvent(terminal))
-            dependencies.activeRun.clearActive()
-        } catch (error: CancellationException) {
-            throw error
-        } catch (_: Exception) {
-            state.value = state.value.copy(historySaveFailed = true)
-            return false
-        }
-        if (terminal.status == RunStatus.COMPLETED) {
-            try {
-                rescheduleRoutineReminderAfterCompletion(
-                    terminal.routineId,
-                    terminal.endedAtEpochMillis ?: dependencies.now(),
-                )
-            } catch (error: CancellationException) {
-                throw error
-            } catch (_: Exception) {
-            }
         }
         state.value = RunnerState(nowEpochMillis = dependencies.now(), run = terminal, finished = true)
         return true
@@ -349,9 +325,8 @@ class RoutineRunnerViewModel(
     private fun fireFeedback(run: RoutineRun, event: RunFeedbackEvent) {
         if (!foreground) return
         val task = run.tasks.getOrNull(event.taskIndex) ?: return
-        val soundEnabled = run.routineSoundEnabled && task.source.soundEnabled && run.soundSettings[event.token].enabled
-        val vibrateEnabled = event.token == SoundToken.TaskNudge &&
-            run.routineVibrateEnabled && task.source.vibrateEnabled
+        val soundEnabled = FeedbackGates.soundEnabled(run, task.source, event.token)
+        val vibrateEnabled = event.token == SoundToken.TaskNudge && FeedbackGates.vibrateEnabled(run, task.source)
         runCatching {
             dependencies.taskFeedback.fire(
                 token = event.token,
@@ -361,15 +336,6 @@ class RoutineRunnerViewModel(
                 intensity = feedbackIntensity,
             )
         }
-    }
-
-    /** Use this function after a completed run to resume only the routine's next recurrence. */
-    private suspend fun rescheduleRoutineReminderAfterCompletion(routineId: RoutineId, completedAtEpochMillis: Long) {
-        val routine = dependencies.routines.get(routineId)
-            ?: dependencies.builtInLibrary.load(dependencies.now()).firstOrNull { it.id == routineId }
-        val reminderPlan = ReminderPlanner.afterCompletion(routine, routineId, completedAtEpochMillis)
-        reminderPlan.cancelRequestCodes.forEach(dependencies.reminders::cancel)
-        reminderPlan.requests.forEach(dependencies.reminders::schedule)
     }
 
     /** Use this function when no compatible active run exists for the requested routine. */

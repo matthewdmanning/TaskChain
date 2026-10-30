@@ -26,6 +26,7 @@ internal fun notificationRunRules(engine: RoutineRunEngine) = NotificationRunRul
         val decision = RunFeedbackPolicy.evaluateNudge(run, now, interval, emit)
         NotificationNudge(decision.run, decision.shouldFire)
     },
+    nextNudgeAt = { run, interval -> RunFeedbackPolicy.nextNudgeAt(run, interval) },
 )
 
 /** Maps Reminder delivery protocol to Notifications presentation while preserving pending-intent identities. */

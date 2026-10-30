@@ -129,8 +129,6 @@ class AppContainer(context: Context) {
         taskFeedback = taskFeedback,
         runNotification = runNotification,
         runAlerts = runAlerts,
-        taskNudgeIntervalMillis = taskNudgeIntervalMillis,
-        untimedReminderLimitMillis = untimedReminderLimitMillis,
         now = ::now,
     )
 

@@ -105,6 +105,23 @@ object RunFeedbackPolicy {
     }
 
     /**
+     * Use this function to predict when [evaluateNudge] next reports a due bucket for a running task, for example to
+     * arm a background alarm. It is the wall-clock time at which active time reaches the bucket after the persisted
+     * nudge count; it does not apply the reminder limit.
+     * Inputs: `run` — persisted run snapshot; `intervalMillis` — nudge cadence.
+     * Returns null when no bucket can come due: the run is not active, a confirmation is open, or the current task is
+     * not pending, is paused, or has not started. Dependencies: current-task start time and persisted nudge count.
+     */
+    fun nextNudgeAt(run: RoutineRun, intervalMillis: Long): Long? {
+        require(intervalMillis > 0)
+        if (run.status != RunStatus.ACTIVE || run.finishConfirmationRequested || run.abortConfirmationRequested) return null
+        val task = run.tasks.getOrNull(run.currentTaskIndex) ?: return null
+        if (task.status != RunTaskStatus.PENDING || task.pausedAtEpochMillis != null) return null
+        val startedAt = task.startedAtEpochMillis ?: return null
+        return startedAt + (task.taskNudgeCount + 1) * intervalMillis
+    }
+
+    /**
      * Use this function when entering the foreground to discard missed background buckets without catch-up sound.
      * Inputs: `run` — persisted run snapshot; `nowEpochMillis` — wall-clock time; `intervalMillis` — nudge cadence.
      * Dependencies: `evaluateNudge` and persisted task timestamps.

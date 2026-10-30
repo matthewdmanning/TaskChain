@@ -13,6 +13,8 @@ class NotificationRunRules(
     val needsTimerFeedback: (RoutineRun, Long) -> Boolean,
     val acknowledgeTimerFeedback: (RoutineRun, Long) -> RoutineRun,
     val evaluateNudge: (RoutineRun, Long, Long, Boolean) -> NotificationNudge,
+    /** Running's prediction of when [evaluateNudge] next reports a due bucket, from run and nudge interval; null when none. */
+    val nextNudgeAt: (RoutineRun, Long) -> Long?,
 )
 
 /** Persisted nudge acknowledgement plus whether this delivery should emit feedback. */

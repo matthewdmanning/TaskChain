@@ -1,9 +1,7 @@
 package com.taskchain.features.running.ui
 
 import com.taskchain.core.model.RoutineRun
-import com.taskchain.core.model.RunStatus
-import com.taskchain.core.model.RunTaskStatus
-import com.taskchain.core.designsystem.RunnerMotion
+import com.taskchain.features.running.domain.RunReadiness
 
 /** Represents the visible label during the five-second transition into the next routine task. */
 internal enum class TaskReadyPhase(val label: String) {
@@ -18,24 +16,21 @@ internal fun TaskReadyPhase.isCountdownNumber(): Boolean = this != TaskReadyPhas
 
 /** Use this function to map elapsed transition time to the label shown before a task starts.
  * Inputs: `elapsedMillis` — elapsed time since the next task became current.
- * Dependencies: `RunnerMotion.taskReadyGetReadyDurationMillis`, `RunnerMotion.taskReadyPhaseDurationMillis`, and
- * `RunnerMotion.taskReadyTransitionDurationMillis`.
+ * Dependencies: `RunReadiness.taskReadyGetReadyDurationMillis`, `RunReadiness.taskReadyPhaseDurationMillis`, and
+ * `RunReadiness.taskReadyTransitionDurationMillis`.
  */
 internal fun taskReadyPhase(elapsedMillis: Long): TaskReadyPhase? = when {
     elapsedMillis < 0L -> TaskReadyPhase.GET_READY
-    elapsedMillis < RunnerMotion.taskReadyGetReadyDurationMillis -> TaskReadyPhase.GET_READY
-    elapsedMillis < RunnerMotion.taskReadyGetReadyDurationMillis + RunnerMotion.taskReadyPhaseDurationMillis -> TaskReadyPhase.THREE
-    elapsedMillis < RunnerMotion.taskReadyGetReadyDurationMillis + RunnerMotion.taskReadyPhaseDurationMillis * 2 -> TaskReadyPhase.TWO
-    elapsedMillis < RunnerMotion.taskReadyTransitionDurationMillis -> TaskReadyPhase.ONE
+    elapsedMillis < RunReadiness.taskReadyGetReadyDurationMillis -> TaskReadyPhase.GET_READY
+    elapsedMillis < RunReadiness.taskReadyGetReadyDurationMillis + RunReadiness.taskReadyPhaseDurationMillis -> TaskReadyPhase.THREE
+    elapsedMillis < RunReadiness.taskReadyGetReadyDurationMillis + RunReadiness.taskReadyPhaseDurationMillis * 2 -> TaskReadyPhase.TWO
+    elapsedMillis < RunReadiness.taskReadyTransitionDurationMillis -> TaskReadyPhase.ONE
     else -> null
 }
 
 /** Use this function to identify a completed-task transition that has a pending next task to prepare.
  * Inputs: `previous` — the displayed run before completion; `next` — the persisted run after completion.
- * Dependencies: `shouldHoldCompletedPresentation`, `RunStatus`, and `RunTaskStatus`.
+ * Dependencies: `RunReadiness.startsTaskReadyTransition`, the same rule that delays the persisted start.
  */
-internal fun shouldHoldTaskReadyTransition(previous: RoutineRun?, next: RoutineRun?): Boolean {
-    if (!shouldHoldCompletedPresentation(previous, next)) return false
-    if (next!!.status != RunStatus.ACTIVE || next.currentTaskIndex <= previous!!.currentTaskIndex) return false
-    return next.tasks.getOrNull(next.currentTaskIndex)?.status == RunTaskStatus.PENDING
-}
+internal fun shouldHoldTaskReadyTransition(previous: RoutineRun?, next: RoutineRun?): Boolean =
+    previous != null && next != null && RunReadiness.startsTaskReadyTransition(previous, next)

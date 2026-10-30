@@ -11,6 +11,25 @@ import com.taskchain.core.model.RoutineTemplate
 import com.taskchain.core.model.RunStatus
 import com.taskchain.core.model.RunTaskStatus
 
+/** Timer values the Run screen derives from one run snapshot and wall-clock sample. */
+data class RunTiming(
+    /** Current main task countdown or overtime; null for an untimed task. */
+    val remainingMillis: Long?,
+    /** Active subtask allowance minus its actual time; null without an active subtask. */
+    val subtaskRemainingMillis: Long?,
+    /** Actual active time of each subtask of the current main task, in definition order. */
+    val subtaskElapsedMillis: List<Long>,
+    /** Whether main active time exceeds the active subtask's cumulative planned end. */
+    val behindSubtaskSchedule: Boolean,
+    /** Main task indexes the finish confirmation lists. */
+    val unfinishedTaskIndexes: List<Int>,
+) {
+    companion object {
+        /** Timing shown before a run is loaded. */
+        val None = RunTiming(null, null, emptyList(), behindSubtaskSchedule = false, unfinishedTaskIndexes = emptyList())
+    }
+}
+
 /** Owns all deterministic routine-run transitions so UI and persistence remain policy-free. */
 class RoutineRunEngine {
     /** Use this function when starting a fresh run from a validated routine snapshot. */
@@ -39,6 +58,21 @@ class RoutineRunEngine {
     /** Use this function when Complete is pressed for the currently displayed run task. */
     fun completeCurrent(run: RoutineRun, nowEpochMillis: Long): RoutineRun =
         finishCurrent(run, nowEpochMillis, RunTaskStatus.COMPLETED).touched(nowEpochMillis)
+
+    /**
+     * Use this function when Complete is pressed on the Run screen. When the completion advances to a later pending
+     * task, that task's persisted start moves `readinessDelayMillis` later so its timer begins after the completion
+     * effect and readiness countdown, and a recreated screen keeps that delay.
+     * Inputs: `run` — the active run; `nowEpochMillis` — completion time; `readinessDelayMillis` — from
+     * `RunReadiness.startDelayMillis`, zero when no transition is presented.
+     * Dependencies: `completeCurrent`, `RunReadiness.startsTaskReadyTransition`, and `prepareNextTask`.
+     */
+    fun completeCurrentWithReadiness(run: RoutineRun, nowEpochMillis: Long, readinessDelayMillis: Long): RoutineRun {
+        require(readinessDelayMillis >= 0L)
+        val completed = completeCurrent(run, nowEpochMillis)
+        if (readinessDelayMillis == 0L || !RunReadiness.startsTaskReadyTransition(run, completed)) return completed
+        return prepareNextTask(completed, nowEpochMillis, readinessDelayMillis)
+    }
 
     /** Use this function when Skip is pressed for the currently displayed run task. */
     fun skipCurrent(run: RoutineRun, nowEpochMillis: Long): RoutineRun =
@@ -195,6 +229,18 @@ class RoutineRunEngine {
         }
     }
 
+    /**
+     * Use this function for system Back on the Run screen: an open finish or abort confirmation closes and the run
+     * continues; otherwise [back] applies, which on the first task requests abort confirmation.
+     * Inputs: `run` — the active run; `nowEpochMillis` — the Back timestamp.
+     */
+    fun systemBack(run: RoutineRun, nowEpochMillis: Long): RoutineRun =
+        if (run.finishConfirmationRequested || run.abortConfirmationRequested) {
+            continueRun(run, nowEpochMillis)
+        } else {
+            back(run, nowEpochMillis)
+        }
+
     /** Use this function when a user cancels either run-ending confirmation dialog. */
     fun continueRun(run: RoutineRun, nowEpochMillis: Long): RoutineRun = continueRunUntouched(run, nowEpochMillis).touched(nowEpochMillis)
 
@@ -254,6 +300,22 @@ class RoutineRunEngine {
     fun unfinishedTaskIndexes(run: RoutineRun): List<Int> = run.tasks.mapIndexedNotNull { index, task ->
         index.takeIf { task.status != RunTaskStatus.COMPLETED }
     }
+
+    /**
+     * Use this function to derive every Run screen timer value from one snapshot and wall-clock sample.
+     * Inputs: `run` — the presented run; `nowEpochMillis` — the wall-clock sample.
+     * Dependencies: `remainingMillis`, `subtaskRemainingMillis`, `subtaskElapsedMillis`, `isBehindSubtaskSchedule`,
+     * and `unfinishedTaskIndexes`.
+     */
+    fun timing(run: RoutineRun, nowEpochMillis: Long): RunTiming = RunTiming(
+        remainingMillis = remainingMillis(run, nowEpochMillis),
+        subtaskRemainingMillis = subtaskRemainingMillis(run, nowEpochMillis),
+        subtaskElapsedMillis = run.tasks[run.currentTaskIndex].source.subtasks.map { subtask ->
+            subtaskElapsedMillis(run, subtask.id, nowEpochMillis)
+        },
+        behindSubtaskSchedule = isBehindSubtaskSchedule(run, nowEpochMillis),
+        unfinishedTaskIndexes = unfinishedTaskIndexes(run),
+    )
 
     /** Use this function to derive countdown or overtime from persisted timestamps. */
     fun remainingMillis(run: RoutineRun, nowEpochMillis: Long): Long? {

@@ -9,8 +9,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import com.taskchain.core.model.RoutineRun
-import com.taskchain.core.model.RunTaskStatus
-import com.taskchain.core.designsystem.RunnerMotion
+import com.taskchain.features.running.domain.RunReadiness
 import kotlinx.coroutines.delay
 
 /** Represents the run snapshot and completion gate currently shown by the runner route. */
@@ -55,15 +54,15 @@ internal fun rememberRunnerPresentation(
             holdingCompletion = true
             readySnapshot = null
             transitionElapsedMillis = 0L
-            delay(RunnerMotion.completionDurationMillis.toLong())
+            delay(RunReadiness.completionDurationMillis)
             val nextRun = latestRun
             if (shouldHoldTaskReadyTransition(presentedRun, nextRun)) {
                 readySnapshot = nextRun
-                while (transitionElapsedMillis < RunnerMotion.taskReadyTransitionDurationMillis) {
+                while (transitionElapsedMillis < RunReadiness.taskReadyTransitionDurationMillis) {
                     delay(TASK_READY_TICK_MILLIS)
                     transitionElapsedMillis =
                         (transitionElapsedMillis + TASK_READY_TICK_MILLIS)
-                            .coerceAtMost(RunnerMotion.taskReadyTransitionDurationMillis)
+                            .coerceAtMost(RunReadiness.taskReadyTransitionDurationMillis)
                 }
             }
             presentedRun = latestRun
@@ -95,14 +94,10 @@ internal fun rememberRunnerPresentation(
  *
  * @param previous Snapshot currently shown by the route.
  * @param next Latest snapshot after the domain transition.
- * @return True only when the same run completed the previous current task.
+ * @return True only when the same run completed the previous current task (`RunReadiness.completedCurrentTask`).
  */
-internal fun shouldHoldCompletedPresentation(previous: RoutineRun?, next: RoutineRun?): Boolean {
-    if (previous == null || next == null || previous.id != next.id || previous.routineId != next.routineId) return false
-    val previousTask = previous.tasks.getOrNull(previous.currentTaskIndex) ?: return false
-    val nextTask = next.tasks.getOrNull(previous.currentTaskIndex) ?: return false
-    return previousTask.status != RunTaskStatus.COMPLETED && nextTask.status == RunTaskStatus.COMPLETED
-}
+internal fun shouldHoldCompletedPresentation(previous: RoutineRun?, next: RoutineRun?): Boolean =
+    previous != null && next != null && RunReadiness.completedCurrentTask(previous, next)
 
 /** Use this function to derive the completed-task identity that owns one visual hold from two run snapshots. */
 private fun completionPresentationKey(previous: RoutineRun?, next: RoutineRun?): String? {

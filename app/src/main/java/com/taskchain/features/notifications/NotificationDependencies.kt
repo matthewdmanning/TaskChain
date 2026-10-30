@@ -10,7 +10,10 @@ import com.taskchain.features.notifications.platform.RunNotification
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.sync.Mutex
 
-/** Bounded background notification runtime; lock and revision are shared with the runner by root wiring. */
+/**
+ * Bounded background notification runtime; lock and revision are shared with the runner by root wiring.
+ * Background alert cadence and reminder limit belong to [runAlerts].
+ */
 class NotificationDependencies(
     val activeRun: RoutineRunRepository,
     val preferences: UserPreferenceRepository,
@@ -22,8 +25,6 @@ class NotificationDependencies(
     val taskFeedback: TaskFeedback,
     val runNotification: RunNotification,
     val runAlerts: RunAlerts,
-    val taskNudgeIntervalMillis: Long,
-    val untimedReminderLimitMillis: Long,
     val now: () -> Long,
 ) {
     val runnerVisible: Boolean get() = isRunnerVisible()

@@ -14,7 +14,7 @@ data class DueRunAlerts(
 /**
  * Decides when the run needs its next audio and haptic alert while the Run screen is not visible,
  * and which alerts are due. Platform-neutral: the Android alarm adapter only maps these times to alarms.
- * Dependencies: [NotificationRunRules], injected nudge rules.
+ * Dependencies: [NotificationRunRules], injected nudge timing and acknowledgement rules.
  */
 object RunAlertPolicy {
     /**
@@ -50,10 +50,11 @@ object RunAlertPolicy {
         if (run.status != RunStatus.ACTIVE || run.finishConfirmationRequested || run.abortConfirmationRequested) return null
         val task = run.tasks.getOrNull(run.currentTaskIndex) ?: return null
         if (task.status != RunTaskStatus.PENDING || task.pausedAtEpochMillis != null) return null
-        val startedAt = task.startedAtEpochMillis ?: return null
+        if (task.startedAtEpochMillis == null) return null
         val candidates = mutableListOf<Long>()
         if (!remindersExhausted(run, engine, nowEpochMillis, untimedIdleLimitMillis)) {
-            candidates += startedAt + (task.taskNudgeCount + 1) * nudgeIntervalMillis
+            // Running owns the nudge bucket rule, so the alarm fires exactly when the bucket comes due.
+            engine.nextNudgeAt(run, nudgeIntervalMillis)?.let { candidates += it }
         }
         if (task.timerFeedbackAtEpochMillis == null) {
             engine.remainingMillis(run, nowEpochMillis)?.let { candidates += nowEpochMillis + it }
