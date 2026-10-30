@@ -1,4 +1,4 @@
-package com.taskchain.features.execution.ui
+package com.taskchain.features.keepscreenon.domain
 
 import com.taskchain.core.model.RoutineId
 import com.taskchain.core.model.RoutineRun
@@ -7,8 +7,6 @@ import com.taskchain.core.model.RoutineRunTask
 import com.taskchain.core.model.RoutineTask
 import com.taskchain.core.model.RoutineTaskId
 import com.taskchain.core.model.RunStatus
-import com.taskchain.core.model.UserPreferences
-import kotlinx.serialization.json.Json
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -21,6 +19,16 @@ class RunnerKeepScreenOnTest {
     @Test
     fun activeRunKeepsScreenOnWhenSettingIsOn() {
         assertTrue(runKeepsScreenOn(run(RunStatus.ACTIVE), preferenceEnabled = true))
+    }
+
+    /** Verifies pause and confirmation do not release the display during an active run. */
+    @Test
+    fun pausedAndConfirmingRunsKeepScreenOn() {
+        val active = run(RunStatus.ACTIVE)
+        val paused = active.copy(tasks = active.tasks.map { it.copy(pausedAtEpochMillis = 2_000) })
+        assertTrue(runKeepsScreenOn(paused, preferenceEnabled = true))
+        assertTrue(runKeepsScreenOn(active.copy(finishConfirmationRequested = true), preferenceEnabled = true))
+        assertTrue(runKeepsScreenOn(active.copy(abortConfirmationRequested = true), preferenceEnabled = true))
     }
 
     /** Use this function to verify the setting turns the behavior off for an active run.
@@ -39,16 +47,6 @@ class RunnerKeepScreenOnTest {
         assertFalse(runKeepsScreenOn(null, preferenceEnabled = true))
         assertFalse(runKeepsScreenOn(run(RunStatus.COMPLETED), preferenceEnabled = true))
         assertFalse(runKeepsScreenOn(run(RunStatus.ABORTED), preferenceEnabled = true))
-    }
-
-    /** Use this function to verify the setting defaults to on, including for saved preferences without it.
-     * Inputs: none. Dependencies: `UserPreferences` and kotlinx serialization.
-     */
-    @Test
-    fun settingDefaultsToOn() {
-        assertTrue(UserPreferences().keepScreenOnDuringRun)
-        val legacy = Json { ignoreUnknownKeys = true }.decodeFromString<UserPreferences>("""{"selectedTheme":"system"}""")
-        assertTrue(legacy.keepScreenOnDuringRun)
     }
 
     /** Use this function to create the smallest run snapshot needed by the assertions. */

@@ -36,7 +36,11 @@ import com.taskchain.core.model.SoundToken
 
 /** Use this function to bind persisted appearance and timer behavior to Settings UI. */
 @Composable
-internal fun SettingsRoute(viewModel: SettingsViewModel, padding: PaddingValues) {
+internal fun SettingsRoute(
+    viewModel: SettingsViewModel,
+    padding: PaddingValues,
+    additionalSettings: @Composable () -> Unit = {},
+) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val spacing = TaskChainDesignSystem.spacing()
     val context = LocalContext.current
@@ -94,15 +98,9 @@ internal fun SettingsRoute(viewModel: SettingsViewModel, padding: PaddingValues)
             androidx.compose.material3.Slider(value = state.vibrationIntensity,
                 onValueChange = viewModel::setVibrationIntensity, valueRange = 0f..1f, steps = 3)
         }
+        item { additionalSettings() }
         item {
             Text(stringResource(R.string.settings_default_sounds), style = MaterialTheme.typography.titleLarge)
-        }
-        item {
-            LabeledSwitchRow(
-                label = stringResource(R.string.keep_screen_on_during_run),
-                checked = state.keepScreenOnDuringRun,
-                onCheckedChange = viewModel::setKeepScreenOnDuringRun,
-            )
         }
         items(SoundToken.entries) { token ->
             SoundPickerRow(

@@ -1,5 +1,6 @@
 package com.taskchain.core.model
 
+import kotlinx.serialization.json.Json
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -17,6 +18,16 @@ class UserPreferencesTest {
 
         assertEquals(1f, preferences.vibrationIntensity)
         assertTrue(preferences.screenTransitionsEnabled)
+    }
+
+    /** Use this function to verify the setting defaults to on, including for saved preferences without it.
+     * Inputs: none. Dependencies: `UserPreferences` and kotlinx serialization.
+     */
+    @Test
+    fun settingDefaultsToOn() {
+        assertTrue(UserPreferences().keepScreenOnDuringRun)
+        val legacy = Json { ignoreUnknownKeys = true }.decodeFromString<UserPreferences>("""{"selectedTheme":"system"}""")
+        assertTrue(legacy.keepScreenOnDuringRun)
     }
 
     /**

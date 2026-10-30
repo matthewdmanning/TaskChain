@@ -15,7 +15,7 @@ Inside a feature: Route -> ViewModel -> domain rules / Core repositories
 - `core/schedule` owns recurrence and shared reminder planning.
 - `core/browsing`, `core/navigation`, `core/ui` and `core/designsystem` own collection display, injected-content hosting, shared controls and provider/theme configuration. Core constructs no feature routes or ViewModels.
 - `core/platform` owns reminder/output ports, shared audio/haptic output and platform contracts. `core/startup` validates data and invokes injected recovery.
-- `features/authoring`, `features/settings`, `features/scheduling`, `features/execution`, `features/reminders` and `features/progress` own current user workflows. Feature internals retain UI, pure domain and Android adapter separation.
+- `features/authoring`, `features/settings`, `features/scheduling`, `features/execution`, `features/reminders`, `features/progress` and `features/keepscreenon` own current user workflows. Feature internals retain UI, pure domain and Android adapter separation.
 - Executable root wiring constructs both features and Core. Neither features nor reusable Core imports `AppContainer`, `MainActivity`, `TaskChainApplication` or concrete root route binding.
 
 Collection browsing belongs to Core; occurrence projection/skip/undo belong to Scheduling. Execution owns start conflicts and all run transitions. Settings edits preferences while consumers apply them; Progress reads shared history while other features retain their writers. Features receive bounded dependencies rather than the root container.
@@ -61,3 +61,17 @@ The Run route owns ViewModel creation, lifecycle-aware observation, navigation, 
 `RoutineRunEngine` owns subtask advancement, frozen elapsed time, and behind-schedule policy. Subtask definitions live inside `RoutineTask`; persisted active identity and advancement markers live inside `RoutineRunTask`. All run sequence indexes and completion/progress summaries refer to main tasks. The existing ViewModel persists transitions before semantic feedback dispatch, including `subtaskAdvanced`.
 
 The Screen displays only the current subtask. Subtask rims, next-up main tasks, segmented main progress and transient feedback use that same run snapshot and sampled time. Gesture detection and drag feedback stay in Compose (`features/execution/ui/RunnerGestures.kt` for detection and state, `features/execution/ui/RunnerGestureCues.kt` for visuals); they emit existing ViewModel intents and preserve accessibility actions. Gesture distances and glow radii are screen-relative semantic tokens in `core/designsystem/RunnerGestureTokens.kt`, not borrowed library sizes. Font-sensitive action rows wrap, and shared typography is configured at the theme boundary.
+
+## Keep screen on
+
+`features/keepscreenon` owns the active-run display policy and its Settings row/ViewModel.
+The root injects the Settings row into `SettingsRoute` and a run effect into
+`RoutineRunnerRoute`; neither host imports the feature. Execution supplies the
+presented run snapshot, so loading, completion and navigation use the same state as
+the Run screen. The rule keeps active runs awake even while paused or confirming,
+unless the preference is off.
+
+Core retains the shared `UserPreferences` model, repository and DataStore key
+`keep_screen_on_during_run` (default true), plus the generic `KeepScreenOnEffect`
+that restores the previous host-view flag on disposal. The feature owns its string
+resource in `keep_screen_on_strings.xml`; no storage migration or permission is required.

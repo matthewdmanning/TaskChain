@@ -3,5 +3,4 @@
     <string name="punch_get_ready">Get Ready</string>
     <string name="punch_vibration_intensity">Vibration intensity</string>
     <string name="punch_screen_transitions">Task transitions</string>
-    <string name="keep_screen_on_during_run">Keep screen on during a run</string>
 </resources>

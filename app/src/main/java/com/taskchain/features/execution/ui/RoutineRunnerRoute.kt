@@ -76,6 +76,7 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.taskchain.R
 import com.taskchain.core.model.MILLIS_PER_SECOND
+import com.taskchain.core.model.RoutineRun
 import com.taskchain.core.model.RoutineId
 import com.taskchain.core.model.RunStatus
 import com.taskchain.core.model.RunTaskStatus
@@ -120,6 +121,7 @@ internal fun RoutineRunnerRoute(
     preferences: UserPreferences,
     routineId: RoutineId,
     onFinished: () -> Unit,
+    runEffects: @Composable (RoutineRun?) -> Unit = {},
 ) {
     val viewModel: RoutineRunnerViewModel = viewModel(key = "runner-${routineId.value}") {
         RoutineRunnerViewModel(dependencies, routineId)
@@ -166,7 +168,7 @@ internal fun RoutineRunnerRoute(
     LaunchedEffect(animationsEnabled) { viewModel.setTransitionsEnabled(animationsEnabled) }
     val backState = rememberNavigationEventState(currentInfo = NavigationEventInfo.None)
     val run = presentation.run
-    KeepScreenOnEffect(enabled = runKeepsScreenOn(run, preferences.keepScreenOnDuringRun))
+    runEffects(run)
     NavigationBackHandler(
         state = backState,
         isBackEnabled = run?.status == RunStatus.ACTIVE || presentation.holdingCompletion,

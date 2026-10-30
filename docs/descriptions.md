@@ -2446,23 +2446,35 @@ Use this function to guard start eligibility for absent, same and different acti
 Inputs: none.
 Dependencies: `startIsBlocked`, `RoutineRun`, `RunStatus`, JUnit.
 
-## `runKeepsScreenOn` — app/src/main/java/com/taskchain/ui/runner/RunnerKeepScreenOn.kt
+## `runKeepsScreenOn` — app/src/main/java/com/taskchain/features/keepscreenon/domain/RunKeepScreenOnPolicy.kt
 Use this function to decide whether the Run screen must keep the display awake; inputs are the shown run snapshot or null and the user's setting, and it returns true only for an active run with the setting on.
 
-## `KeepScreenOnEffect` — app/src/main/java/com/taskchain/ui/runner/RunnerKeepScreenOn.kt
+## `KeepScreenOnEffect` — app/src/main/java/com/taskchain/core/ui/KeepScreenOnEffect.kt
 Use this composable to keep the display awake while the Run screen is in composition; input enabled gates the effect, dependency is `LocalView`, and it restores the previous `View.keepScreenOn` value on exit.
 
-## `RunnerKeepScreenOnTest` — app/src/test/java/com/taskchain/ui/runner/RunnerKeepScreenOnTest.kt
-Verifies that only an active run with the setting on keeps the display awake, and that the setting defaults to on; dependencies are `runKeepsScreenOn` and `UserPreferences`.
+## `RunnerKeepScreenOnTest` — app/src/test/java/com/taskchain/features/keepscreenon/domain/RunnerKeepScreenOnTest.kt
+Verifies that only an active run with the setting on keeps the display awake, including while paused or confirming; dependency is `runKeepsScreenOn`. Core `UserPreferencesTest.settingDefaultsToOn` verifies default and legacy preference decoding.
 
-## `UserPreferences.keepScreenOnDuringRun` — app/src/main/java/com/taskchain/domain/model/Models.kt
+## `UserPreferences.keepScreenOnDuringRun` — app/src/main/java/com/taskchain/core/model/Models.kt
 Use this preference to decide whether the Run screen keeps the display awake during an active run; it defaults to true.
 
-## `setKeepScreenOnDuringRun` — app/src/main/java/com/taskchain/data/Repositories.kt
+## `setKeepScreenOnDuringRun` — app/src/main/java/com/taskchain/core/data/Repositories.kt
 Use this function when Settings toggles whether the Run screen keeps the display awake; input enabled is the new value.
 
-## `setKeepScreenOnDuringRun` — app/src/main/java/com/taskchain/data/DataStoreUserPreferenceRepository.kt
+## `setKeepScreenOnDuringRun` — app/src/main/java/com/taskchain/core/data/DataStoreUserPreferenceRepository.kt
 Use this function to persist the keep-screen-on setting under `keep_screen_on_during_run`; input enabled is the new value, dependency is the preferences DataStore.
 
-## `setKeepScreenOnDuringRun` — app/src/main/java/com/taskchain/ui/settings/SettingsViewModel.kt
+## `setKeepScreenOnDuringRun` — app/src/main/java/com/taskchain/features/keepscreenon/ui/KeepScreenOnViewModel.kt
 Use this function when Settings toggles whether the Run screen keeps the display awake; input enabled is the new value, dependency is the preference repository.
+
+## `RunKeepScreenOnEffect` — app/src/main/java/com/taskchain/features/keepscreenon/ui/RunKeepScreenOnEffect.kt
+Applies the feature policy to the run supplied by the root's Execution slot; inputs are the presented run and persisted preference, dependencies are `runKeepsScreenOn` and Core `KeepScreenOnEffect`.
+
+## `KeepScreenOnSettings` — app/src/main/java/com/taskchain/features/keepscreenon/ui/KeepScreenOnSettings.kt
+Observes the feature ViewModel and presents the persisted switch using the shared labeled row; input is `KeepScreenOnViewModel`.
+
+## `KeepScreenOnViewModel` — app/src/main/java/com/taskchain/features/keepscreenon/ui/KeepScreenOnViewModel.kt
+Owns lifecycle-aware preference observation and edits for the keep-screen-on feature; dependency is the Core `UserPreferenceRepository`.
+
+## `RoutineRunnerRoute.runEffects` and `SettingsRoute.additionalSettings`
+Root-injected composable slots connect independent features without cross-feature imports. The run slot receives the currently presented nullable `RoutineRun`; the Settings slot renders the feature's own preference row and observation.

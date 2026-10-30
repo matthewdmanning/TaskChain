@@ -75,7 +75,6 @@ class DataStoreUserPreferenceRepository(private val context: Context) : UserPref
     }
 
     private companion object {
-        val KEEP_SCREEN_ON_DURING_RUN = booleanPreferencesKey("keep_screen_on_during_run")
         fun defaultSoundKey(token: SoundToken) = stringPreferencesKey("default_sound_${token.name}")
         const val DEFAULT_THEME = "system"
         const val DEFAULT_UI_PROVIDER = "cyberpunk"
@@ -85,5 +84,6 @@ class DataStoreUserPreferenceRepository(private val context: Context) : UserPref
         val VIBRATION_INTENSITY = floatPreferencesKey("vibration_intensity")
         val SCREEN_TRANSITIONS_ENABLED = booleanPreferencesKey("screen_transitions_enabled")
         val SHOW_SUBTASK_TIME_REMAINING = booleanPreferencesKey("show_subtask_time_remaining")
+        val KEEP_SCREEN_ON_DURING_RUN = booleanPreferencesKey("keep_screen_on_during_run")
     }
 }

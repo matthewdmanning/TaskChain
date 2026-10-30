@@ -42,6 +42,9 @@ import com.taskchain.features.authoring.ui.RoutineBuilderViewModel
 import com.taskchain.features.execution.ui.ExecutionEntryDialog
 import com.taskchain.features.execution.ui.ExecutionEntryViewModel
 import com.taskchain.features.execution.ui.RoutineRunnerRoute
+import com.taskchain.features.keepscreenon.ui.KeepScreenOnSettings
+import com.taskchain.features.keepscreenon.ui.KeepScreenOnViewModel
+import com.taskchain.features.keepscreenon.ui.RunKeepScreenOnEffect
 import com.taskchain.features.progress.ui.ProgressRoute
 import com.taskchain.features.progress.ui.ProgressViewModel
 import com.taskchain.features.scheduling.ui.TodayRoute
@@ -92,6 +95,9 @@ fun TaskChainApp(
                             val settingsViewModel: SettingsViewModel = viewModel(key = "settings") {
                                 SettingsViewModel(container.preferences)
                             }
+                            val keepScreenOnViewModel: KeepScreenOnViewModel = viewModel(key = "keep-screen-on") {
+                                KeepScreenOnViewModel(container.preferences)
+                            }
                             val entryViewModel: ExecutionEntryViewModel = viewModel(key = "execution-entry") {
                                 ExecutionEntryViewModel(container.activeRun)
                             }
@@ -109,7 +115,11 @@ fun TaskChainApp(
                                     RoutinesRoute(routinesViewModel, padding, routinesListState, { navController.navigate(builderRoute(null)) }, { navController.navigate(builderRoute(it.id)) }, entryViewModel::requestStart)
                                 },
                                 progressContent = { padding -> ProgressRoute(progressViewModel, padding) },
-                                settingsContent = { padding -> SettingsRoute(settingsViewModel, padding) },
+                                settingsContent = { padding ->
+                                    SettingsRoute(settingsViewModel, padding) {
+                                        KeepScreenOnSettings(keepScreenOnViewModel)
+                                    }
+                                },
                             )
                             val entryState by entryViewModel.state.collectAsStateWithLifecycle()
                             val pendingStart = entryState.pendingStart
@@ -160,6 +170,9 @@ fun TaskChainApp(
                                 preferences = preferences,
                                 routineId = RoutineId(requireNotNull(entry.arguments?.getString(ROUTINE_ID_ARGUMENT))),
                                 onFinished = navController::popBackStack,
+                                runEffects = { run ->
+                                    RunKeepScreenOnEffect(run, preferences.keepScreenOnDuringRun)
+                                },
                             )
                         }
                     }
