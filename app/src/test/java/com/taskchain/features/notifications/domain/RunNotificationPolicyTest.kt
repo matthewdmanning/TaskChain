@@ -1,194 +1,185 @@
 package com.taskchain.features.notifications.domain
 
-import com.taskchain.notificationRunRules
-import com.taskchain.features.execution.domain.RoutineRunEngine
-import com.taskchain.core.model.EntityMetadata
-import com.taskchain.core.model.RoutineId
 import com.taskchain.core.model.RoutineRun
 import com.taskchain.core.model.RoutineRunId
+import com.taskchain.core.model.RoutineRunTask
 import com.taskchain.core.model.RoutineSubtask
 import com.taskchain.core.model.RoutineSubtaskId
 import com.taskchain.core.model.RoutineTask
 import com.taskchain.core.model.RoutineTaskId
-import com.taskchain.core.model.RoutineTemplate
 import com.taskchain.core.model.RunStatus
 import com.taskchain.core.model.RunTaskStatus
+import com.taskchain.features.notifications.NotificationRunRules
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
-import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** Guards the content and actions of the ongoing run notification, independent of Android. */
+/**
+ * Guards the content and actions of the ongoing run notification against a fake Running contract.
+ * The same scenarios against the real engine binding live in the root `NotificationIntegrationTest`.
+ */
 class RunNotificationPolicyTest {
-    private val engine = RoutineRunEngine()
-    private val rules = notificationRunRules(engine)
-
-    /** Use this function to build a routine with a subtask task, a timed task, and a final untimed task. */
-    private fun routine(): RoutineTemplate = RoutineTemplate(
-        id = RoutineId("routine"),
-        metadata = EntityMetadata(0, 0),
-        title = "Morning",
-        tasks = listOf(
-            RoutineTask(
-                id = RoutineTaskId("main"),
-                title = "Main",
-                subtasks = listOf(
-                    RoutineSubtask(RoutineSubtaskId("s1"), "First", 180),
-                    RoutineSubtask(RoutineSubtaskId("s2"), "Second", 420),
-                ),
-            ),
-            RoutineTask(RoutineTaskId("middle"), "Middle", timerSeconds = 300),
-            RoutineTask(RoutineTaskId("last"), "Last"),
+    private val main = RoutineTask(
+        id = RoutineTaskId("main"),
+        title = "Main",
+        subtasks = listOf(
+            RoutineSubtask(RoutineSubtaskId("s1"), "First", 180),
+            RoutineSubtask(RoutineSubtaskId("s2"), "Second", 420),
         ),
     )
+    private val middle = RoutineTask(RoutineTaskId("middle"), "Middle", timerSeconds = 300)
+    private val last = RoutineTask(RoutineTaskId("last"), "Last")
 
-    /** Use this function to start the routine at time zero. */
-    private fun started() = engine.start(routine(), RoutineRunId("run"), 0)
+    /** Fake timing: 60 s elapsed, 120 s left in the subtask and 500 s left in the main task. */
+    private val rules = fakeRunRules(
+        remainingMillis = { _, _ -> 500_000L },
+        subtaskRemainingMillis = { _, _ -> 120_000L },
+        elapsedMillis = { _, _ -> 60_000L },
+    )
+
+    /** Use this function to hand-build the routine's run on [index], with the first subtask active on the main task. */
+    private fun runAt(index: Int, activeSubtask: String? = "s1", startedAt: Long? = 100_000L): RoutineRun = fakeRun(
+        tasks = listOf(
+            RoutineRunTask(source = main, startedAtEpochMillis = 0, activeSubtaskId = activeSubtask?.let(::RoutineSubtaskId)),
+            RoutineRunTask(source = middle, startedAtEpochMillis = startedAt.takeIf { index == 1 }),
+            RoutineRunTask(source = last, startedAtEpochMillis = startedAt.takeIf { index == 2 }),
+        ),
+        currentTaskIndex = index,
+    )
+
+    /** Use this function to replace the current task of [run]. */
+    private fun RoutineRun.withCurrent(transform: (RoutineRunTask) -> RoutineRunTask): RoutineRun =
+        copy(tasks = tasks.mapIndexed { index, task -> if (index == currentTaskIndex) transform(task) else task })
 
     /** Use this function to read content that the tests expect to exist. */
-    private fun content(run: RoutineRun, now: Long): RunNotificationContent =
-        requireNotNull(RunNotificationPolicy.content(run, rules, now))
+    private fun content(run: RoutineRun, rules: NotificationRunRules = this.rules) =
+        requireNotNull(RunNotificationPolicy.content(run, rules, 60_000L))
 
-    /** Use this function to verify the active subtask name and its remaining time replace the main task's. */
+    /** Use this function to verify the active subtask name and the subtask allowance replace the main task's. */
     @Test
     fun subtaskNameAndTimeReplaceTaskNameAndTime() {
-        val content = content(started(), 60_000L)
+        val content = content(runAt(0))
 
         assertEquals("First", content.title)
         assertEquals("Main", content.taskTitle)
         assertEquals("Morning", content.routineTitle)
+        assertEquals(RunNotificationTarget(RoutineRunId("run"), 0, RoutineSubtaskId("s1")), content.target)
+        // Start 0 + elapsed 60 s + subtask remaining 120 s.
         assertEquals(RunNotificationClock.CountDown(180_000L), content.clock)
     }
 
-    /** Use this function to verify advancing a subtask moves the countdown to the next subtask's allowance. */
+    /** Use this function to verify a task without an active subtask shows its own name and remaining time. */
     @Test
-    fun advancedSubtaskCountsDownFromItsOwnAllowance() {
-        val advanced = engine.completeCurrent(started(), 120_000L)
-
-        assertEquals(RunNotificationClock.CountDown(540_000L), content(advanced, 120_000L).clock)
-        assertEquals("Second", content(advanced, 200_000L).title)
-        // The anchor stays equal while the step runs, so the adapter does not repost every tick.
-        assertEquals(content(advanced, 120_000L), content(advanced, 200_000L))
-    }
-
-    /** Use this function to verify a task without subtasks shows its own name and timer. */
-    @Test
-    fun timedTaskWithoutSubtasksUsesTaskNameAndTimer() {
-        val atMiddle = engine.completeCurrent(engine.completeCurrent(started(), 60_000L), 120_000L)
-        val content = content(atMiddle, 150_000L)
+    fun taskWithoutSubtasksUsesTaskNameAndTimer() {
+        val content = content(runAt(1))
 
         assertEquals("Middle", content.title)
         assertNull(content.taskTitle)
-        assertEquals(RunNotificationClock.CountDown(420_000L), content.clock)
+        assertEquals(RunNotificationTarget(RoutineRunId("run"), 1, null), content.target)
+        assertEquals(RunNotificationClock.CountDown(100_000L + 60_000L + 500_000L), content.clock)
     }
 
     /** Use this function to verify an untimed task counts up from its start. */
     @Test
     fun untimedTaskCountsUp() {
-        val atLast = engine.skipCurrent(engine.skipCurrent(started(), 60_000L), 90_000L)
-        val content = content(atLast, 100_000L)
+        val untimed = fakeRunRules()
 
-        assertEquals("Last", content.title)
-        assertEquals(RunNotificationClock.CountUp(90_000L), content.clock)
+        assertEquals(RunNotificationClock.CountUp(100_000L), content(runAt(2), untimed).clock)
     }
 
-    /** Use this function to verify a paused task freezes its remaining time. */
+    /** Use this function to verify a paused task shows the frozen remaining time. */
     @Test
     fun pausedTaskShowsFrozenRemainingTime() {
-        val paused = engine.pauseCurrent(started(), 60_000L)
+        val paused = runAt(1).withCurrent { it.copy(pausedAtEpochMillis = 70_000L) }
 
-        assertEquals(RunNotificationClock.Paused(120_000L), content(paused, 500_000L).clock)
+        assertEquals(RunNotificationClock.Paused(500_000L), content(paused).clock)
     }
 
-    /** Use this function to verify a task whose start is delayed keeps one stable end time during the delay. */
+    /** Use this function to verify no clock shows in confirmation, on a finished task, or before the task starts. */
     @Test
-    fun delayedStartKeepsStableEndTime() {
-        val atMiddle = engine.completeCurrent(engine.completeCurrent(started(), 60_000L), 120_000L)
-        val prepared = engine.prepareNextTask(atMiddle, 120_000L, delayMillis = 5_000L)
-
-        assertEquals(RunNotificationClock.CountDown(425_000L), content(prepared, 121_000L).clock)
-        assertEquals(content(prepared, 121_000L).clock, content(prepared, 124_000L).clock)
+    fun hiddenClockCases() {
+        assertEquals(RunNotificationClock.Hidden, content(runAt(1).copy(abortConfirmationRequested = true)).clock)
+        assertEquals(RunNotificationClock.Hidden, content(runAt(1).withCurrent { it.copy(status = RunTaskStatus.COMPLETED) }).clock)
+        assertEquals(RunNotificationClock.Hidden, content(runAt(1, startedAt = null)).clock)
     }
 
     /** Use this function to verify a finished run has no notification. */
     @Test
     fun nonActiveRunHasNoContent() {
-        assertNull(RunNotificationPolicy.content(started().copy(status = RunStatus.ABORTED), rules, 0L))
+        assertNull(RunNotificationPolicy.content(runAt(0).copy(status = RunStatus.ABORTED), rules, 0L))
+        assertNull(RunNotificationPolicy.content(runAt(0).copy(status = RunStatus.COMPLETED), rules, 0L))
     }
 
-    /** Use this function to verify Complete advances a subtask without opening the app. */
+    /** Use this function to verify non-final tasks keep both buttons in the notification. */
     @Test
-    fun completeAdvancesSubtaskWithoutApp() {
-        val run = started()
-        val target = content(run, 60_000L).target
-        val updated = RunNotificationPolicy.applyAction(run, rules, RunNotificationAction.COMPLETE, target, 60_000L)
-
-        assertNotNull(updated)
-        assertEquals(RoutineSubtaskId("s2"), updated!!.tasks.first().activeSubtaskId)
-        assertEquals(0, updated.currentTaskIndex)
+    fun nonFinalTaskActionsStayInNotification() {
+        listOf(runAt(0), runAt(1)).forEach { run ->
+            assertFalse(content(run).skipNeedsApp)
+            assertFalse(content(run).completeNeedsApp)
+        }
     }
 
-    /** Use this function to verify Skip moves to the next main task and keeps the run active. */
-    @Test
-    fun skipMovesToNextTask() {
-        val run = started()
-        val target = content(run, 60_000L).target
-        val updated = RunNotificationPolicy.applyAction(run, rules, RunNotificationAction.SKIP, target, 60_000L)
-
-        assertEquals(1, updated!!.currentTaskIndex)
-        assertEquals(RunTaskStatus.SKIPPED, updated.tasks.first().status)
-    }
-
-    /** Use this function to verify an action built for an earlier step is ignored. */
-    @Test
-    fun staleActionIsIgnored() {
-        val run = started()
-        val staleTarget = content(run, 0L).target
-        val advanced = engine.completeCurrent(run, 60_000L)
-
-        assertNull(RunNotificationPolicy.applyAction(advanced, rules, RunNotificationAction.COMPLETE, staleTarget, 61_000L))
-        assertNull(
-            RunNotificationPolicy.applyAction(
-                advanced,
-                rules,
-                RunNotificationAction.SKIP,
-                staleTarget.copy(runId = RoutineRunId("other")),
-                61_000L,
-            ),
-        )
-    }
-
-    /** Use this function to verify the last task's buttons open the app because ending it needs the finish dialog. */
+    /** Use this function to verify the last task opens the app, except Complete on a subtask that is not the last one. */
     @Test
     fun lastTaskActionsNeedTheApp() {
-        val atLast = engine.skipCurrent(engine.skipCurrent(started(), 60_000L), 90_000L)
-        val content = content(atLast, 100_000L)
-
+        val content = content(runAt(2))
         assertTrue(content.skipNeedsApp)
         assertTrue(content.completeNeedsApp)
-        assertNull(RunNotificationPolicy.applyAction(atLast, rules, RunNotificationAction.COMPLETE, content.target, 100_000L))
-        assertNull(RunNotificationPolicy.applyAction(atLast, rules, RunNotificationAction.SKIP, content.target, 100_000L))
+
+        val lastWithSubtasks = runAt(2).withCurrent { it.copy(source = main, activeSubtaskId = RoutineSubtaskId("s1")) }
+        assertTrue(content(lastWithSubtasks).skipNeedsApp)
+        assertFalse(content(lastWithSubtasks).completeNeedsApp)
+        val finalSubtask = lastWithSubtasks.withCurrent { it.copy(activeSubtaskId = RoutineSubtaskId("s2")) }
+        assertTrue(content(finalSubtask).completeNeedsApp)
     }
 
     /** Use this function to verify an open confirmation dialog sends both buttons to the app. */
     @Test
     fun confirmationNeedsTheApp() {
-        val confirming = started().copy(finishConfirmationRequested = true, confirmationStartedAtEpochMillis = 10_000L)
-        val content = content(confirming, 20_000L)
+        val content = content(runAt(0).copy(finishConfirmationRequested = true))
 
         assertEquals(RunNotificationClock.Hidden, content.clock)
         assertTrue(content.skipNeedsApp)
         assertTrue(content.completeNeedsApp)
     }
 
-    /** Use this function to verify a non-final task does not send its buttons to the app. */
+    /** Use this function to verify Skip and Complete delegate to the injected transitions and return their result. */
     @Test
-    fun firstTaskActionsStayInNotification() {
-        val content = content(started(), 0L)
+    fun actionsApplyInjectedTransitions() {
+        val skipped = runAt(1)
+        val completed = runAt(2)
+        val rules = fakeRunRules(skipCurrent = { _, _ -> skipped }, completeCurrent = { _, _ -> completed })
+        val run = runAt(0)
+        val target = content(run, rules).target
 
-        assertFalse(content.skipNeedsApp)
-        assertFalse(content.completeNeedsApp)
+        assertSame(skipped, RunNotificationPolicy.applyAction(run, rules, RunNotificationAction.SKIP, target, 60_000L))
+        assertSame(completed, RunNotificationPolicy.applyAction(run, rules, RunNotificationAction.COMPLETE, target, 60_000L))
+    }
+
+    /** Use this function to verify a stale target, or an action that needs the app, applies no transition. */
+    @Test
+    fun staleOrAppOnlyActionIsIgnored() {
+        val rules = fakeRunRules(
+            skipCurrent = { _, _ -> error("Skip must not apply") },
+            completeCurrent = { _, _ -> error("Complete must not apply") },
+        )
+        val run = runAt(0)
+        val target = content(run, rules).target
+
+        listOf(
+            target.copy(runId = RoutineRunId("other")),
+            target.copy(taskIndex = 1),
+            target.copy(subtaskId = RoutineSubtaskId("s2")),
+        ).forEach { stale ->
+            assertNull(RunNotificationPolicy.applyAction(run, rules, RunNotificationAction.COMPLETE, stale, 60_000L))
+            assertNull(RunNotificationPolicy.applyAction(run, rules, RunNotificationAction.SKIP, stale, 60_000L))
+        }
+        val atLast = runAt(2)
+        val lastTarget = content(atLast, rules).target
+        assertNull(RunNotificationPolicy.applyAction(atLast, rules, RunNotificationAction.COMPLETE, lastTarget, 60_000L))
+        assertNull(RunNotificationPolicy.applyAction(atLast, rules, RunNotificationAction.SKIP, lastTarget, 60_000L))
     }
 }

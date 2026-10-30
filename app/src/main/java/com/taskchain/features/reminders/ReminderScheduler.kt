@@ -14,8 +14,6 @@ import com.taskchain.core.platform.TimerFeedback
 import com.taskchain.core.platform.setAlarm
 import com.taskchain.core.schedule.ReminderPlanner
 import com.taskchain.core.schedule.ReminderRequest
-import com.taskchain.core.schedule.completedRoutineSinceCycle
-import com.taskchain.core.schedule.completedSinceCycle
 import com.taskchain.core.data.CompletionRepository
 import com.taskchain.core.data.RoutineRepository
 import com.taskchain.core.data.RoutineRunRepository
@@ -199,7 +197,7 @@ class ReminderHandlers(
             oneTimeEpochMillis = intent.getLongExtra(AndroidReminderScheduler.EXTRA_ONCE_EPOCH_MILLIS, 0L).takeIf { it != 0L },
         )
         val now = System.currentTimeMillis()
-        val next = ReminderPlanner.afterDelivery(
+        val next = ReminderDelivery.afterDelivery(
             ReminderRequest(
                 requestCode = intent.getIntExtra(AndroidReminderScheduler.EXTRA_REQUEST_CODE, 0),
                 routineId = intent.getStringExtra(AndroidReminderScheduler.EXTRA_ROUTINE_ID).orEmpty(),

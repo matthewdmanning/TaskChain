@@ -28,10 +28,8 @@ import com.example.cyberpunkandroid.components.CyberButton
 import com.example.cyberpunkandroid.components.CyberButtonSize
 import com.example.cyberpunkandroid.components.CyberButtonStyle
 import com.example.cyberpunkandroid.components.CyberTextField
-import com.example.cyberpunkandroid.config.CyberPrimitives
 import com.example.cyberpunkandroid.icons.CyberIcon
 import com.example.cyberpunkandroid.icons.CyberIcons
-import com.example.cyberpunkandroid.theme.CyberTheme
 import com.taskchain.R
 import com.taskchain.core.designsystem.TaskChainDesignSystem
 import com.taskchain.core.model.RoutineSubtask
@@ -43,7 +41,7 @@ import kotlin.math.absoluteValue
  * Inputs: `subtasks` — ordered subtask values; `durationText` — raw duration text for each subtask; callbacks — plain subtask IDs and
  * field values for the owning ViewModel; `durationErrorIds` — subtasks whose raw duration is invalid;
  * `showTitleErrors` — true after a save attempt found a blank subtask title.
- * Dependencies: `CyberTextField`, `CyberButton`, `CyberTheme`, and the caller's state holder.
+ * Dependencies: `CyberTextField`, `CyberButton`, `TaskChainDesignSystem` tokens, and the caller's state holder.
  */
 @Composable
 fun BuilderSubtaskEditor(
@@ -60,7 +58,7 @@ fun BuilderSubtaskEditor(
 ) {
     Column(
         modifier = modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(CyberPrimitives.Spacing.dp8),
+        verticalArrangement = Arrangement.spacedBy(TaskChainDesignSystem.Space.small),
     ) {
         subtasks.forEachIndexed { index, subtask ->
             key(subtask.id.value) {
@@ -77,15 +75,15 @@ fun BuilderSubtaskEditor(
                                 if (index < subtasks.lastIndex) add(CustomAccessibilityAction(moveDown) { onMoveSubtask(subtask.id, 1); true })
                             }
                         },
-                    horizontalArrangement = Arrangement.spacedBy(CyberPrimitives.Spacing.dp8),
+                    horizontalArrangement = Arrangement.spacedBy(TaskChainDesignSystem.Space.small),
                 ) {
                     CyberIcon(
                         iconRes = CyberIcons.Drag,
                         contentDescription = stringResource(R.string.subtask_drag_handle),
-                        tint = if (isDragging) CyberTheme.colors.primary else CyberTheme.colors.textSecondary,
-                        size = CyberPrimitives.IconSizes.dp48,
+                        tint = if (isDragging) TaskChainDesignSystem.Colors.primary else TaskChainDesignSystem.Colors.textSecondary,
+                        size = TaskChainDesignSystem.Sizes.iconLarge,
                         modifier = Modifier
-                            .heightIn(min = CyberPrimitives.IconSizes.dp48)
+                            .heightIn(min = TaskChainDesignSystem.Sizes.touchTarget)
                             .pointerInput(subtask.id.value) {
                                 detectDragGesturesAfterLongPress(
                                     onDragStart = { isDragging = true },
@@ -113,7 +111,7 @@ fun BuilderSubtaskEditor(
                             onValueChange = { onTitleChange(subtask.id, it) },
                         )
                         titleError?.let { BuilderErrorText(it) }
-                        Spacer(Modifier.height(CyberPrimitives.Spacing.dp8))
+                        Spacer(Modifier.height(TaskChainDesignSystem.Space.small))
                         val durationError = stringResource(R.string.subtask_duration_invalid)
                             .takeIf { subtask.id in durationErrorIds }
                         CyberTextField(
@@ -124,9 +122,9 @@ fun BuilderSubtaskEditor(
                             onValueChange = { onDurationChange(subtask.id, it) },
                         )
                         durationError?.let { BuilderErrorText(it) }
-                        Spacer(Modifier.height(CyberPrimitives.Spacing.dp8))
+                        Spacer(Modifier.height(TaskChainDesignSystem.Space.small))
                         CyberButton(
-                            modifier = Modifier.fillMaxWidth().heightIn(min = CyberPrimitives.IconSizes.dp48),
+                            modifier = Modifier.fillMaxWidth().heightIn(min = TaskChainDesignSystem.Sizes.touchTarget),
                             onClick = { onRemoveSubtask(subtask.id) },
                             style = CyberButtonStyle.Outline,
                             size = CyberButtonSize.Small,
@@ -138,7 +136,7 @@ fun BuilderSubtaskEditor(
             }
         }
         CyberButton(
-            modifier = Modifier.fillMaxWidth().heightIn(min = CyberPrimitives.IconSizes.dp48),
+            modifier = Modifier.fillMaxWidth().heightIn(min = TaskChainDesignSystem.Sizes.touchTarget),
             onClick = onAddSubtask,
             style = CyberButtonStyle.Outline,
             size = CyberButtonSize.Large,
@@ -154,7 +152,7 @@ fun BuilderSubtaskEditor(
 internal fun BuilderErrorText(text: String) {
     Text(
         text = text,
-        color = CyberTheme.semantics.colors.danger,
+        color = TaskChainDesignSystem.Colors.danger,
         modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
     )
 }

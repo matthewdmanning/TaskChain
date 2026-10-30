@@ -15,7 +15,7 @@ value class RoutineId(val value: String)
 @JvmInline
 value class RoutineTaskId(val value: String)
 
-/** Stable identity for one execution of a routine. */
+/** Stable identity for one run of a routine. */
 @Serializable
 @JvmInline
 value class RoutineRunId(val value: String)
@@ -111,7 +111,7 @@ data class RoutineTemplate(
     }
 }
 
-/** Durable execution status for one task in a run snapshot. */
+/** Durable run status for one task in a run snapshot. */
 @Serializable
 enum class RunTaskStatus { PENDING, COMPLETED, SKIPPED }
 
@@ -135,7 +135,7 @@ data class RoutineRunTask(
     val subtaskAdvancements: List<SubtaskAdvancement> = emptyList(),
 )
 
-/** Immutable snapshot of an active or completed routine execution. */
+/** Immutable snapshot of an active or completed routine run. */
 @Serializable
 data class RoutineRun(
     val id: RoutineRunId,

@@ -50,7 +50,7 @@ class MainActivity : ComponentActivity() {
                     routines = container.routines,
                     completions = container.completions,
                     preferences = container.preferences,
-                    recover = container.execution.recoverTerminalRun,
+                    recover = container.running.recoverTerminalRun,
                 )
                 startupReady = true
             } catch (error: CancellationException) {

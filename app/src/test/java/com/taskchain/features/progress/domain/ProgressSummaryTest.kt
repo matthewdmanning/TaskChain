@@ -32,7 +32,7 @@ class ProgressSummaryTest {
             RunStatus.ABORTED, listOf(RoutineRunTask(source, RunTaskStatus.PENDING)),
         )
 
-        val summary = projectProgress(listOf(completed, aborted), now, TimeZone.getTimeZone("UTC"))
+        val summary = projectProgress(listOf(completed, aborted), now, 2, TimeZone.getTimeZone("UTC"))
 
         assertEquals(1, summary.completedRuns)
         assertEquals(1, summary.abortedRuns)
@@ -41,5 +41,39 @@ class ProgressSummaryTest {
         assertEquals(33, summary.skippedTaskPercent)
         assertEquals(7, summary.lastSevenDays.size)
         assertEquals(1, summary.lastSevenDays.last().completedRuns)
+    }
+
+    /** Use this function to verify a 1 AM completion counts toward the previous day when the day starts at 2 AM. */
+    @Test
+    fun groupsCompletionBeforeDayStartIntoPreviousDay() {
+        val utc = TimeZone.getTimeZone("UTC")
+        val now = 8L * DAY + 12L * HOUR
+        val oneAm = CompletionEvent(
+            RoutineRunId("late"), RoutineId("routine"), "Evening", 8L * DAY, 8L * DAY + HOUR,
+            RunStatus.COMPLETED, emptyList(),
+        )
+        val threeAm = oneAm.copy(runId = RoutineRunId("early"), endedAtEpochMillis = 8L * DAY + 3L * HOUR)
+
+        val summary = projectProgress(listOf(oneAm, threeAm), now, 2, utc)
+
+        assertEquals(8L * DAY + 2L * HOUR, summary.lastSevenDays[6].dayStartEpochMillis)
+        assertEquals(1, summary.lastSevenDays[6].completedRuns)
+        assertEquals(7L * DAY + 2L * HOUR, summary.lastSevenDays[5].dayStartEpochMillis)
+        assertEquals(1, summary.lastSevenDays[5].completedRuns)
+        assertEquals(2, projectProgress(listOf(oneAm, threeAm), now, 0, utc).lastSevenDays[6].completedRuns)
+    }
+
+    /** Use this function to verify that before the day start the newest trend day is still the previous date. */
+    @Test
+    fun trendEndsAtCurrentDayStartBeforeTwoAm() {
+        val summary = projectProgress(emptyList(), 8L * DAY + HOUR, 2, TimeZone.getTimeZone("UTC"))
+
+        assertEquals(7L * DAY + 2L * HOUR, summary.lastSevenDays.last().dayStartEpochMillis)
+        assertEquals(1L * DAY + 2L * HOUR, summary.lastSevenDays.first().dayStartEpochMillis)
+    }
+
+    private companion object {
+        const val HOUR = 3_600_000L
+        const val DAY = 24L * HOUR
     }
 }

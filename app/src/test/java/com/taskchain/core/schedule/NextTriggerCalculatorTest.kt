@@ -101,7 +101,7 @@ class NextTriggerCalculatorTest {
     fun completionBeforeDailyScheduleMovesToTomorrow() {
         val completedAt = format.parse("2026-01-31 08:00")!!.time
         val result = NextTriggerCalculator.nextTriggerAfterCompletionEpochMillis(
-            ScheduleRule(ScheduleFrequency.DAILY, 9, 0), completedAt, zone,
+            ScheduleRule(ScheduleFrequency.DAILY, 9, 0), completedAt, DAY_START_HOUR, zone,
         )
         assertEquals("2026-02-01 09:00", format.format(Date(result!!)))
     }
@@ -111,7 +111,7 @@ class NextTriggerCalculatorTest {
     fun completionBeforeWeekdayScheduleMovesToMonday() {
         val completedAt = format.parse("2026-01-02 08:00")!!.time
         val result = NextTriggerCalculator.nextTriggerAfterCompletionEpochMillis(
-            ScheduleRule(ScheduleFrequency.WEEKDAYS, 9, 0), completedAt, zone,
+            ScheduleRule(ScheduleFrequency.WEEKDAYS, 9, 0), completedAt, DAY_START_HOUR, zone,
         )
         assertEquals("2026-01-05 09:00", format.format(Date(result!!)))
     }
@@ -121,9 +121,40 @@ class NextTriggerCalculatorTest {
     fun completionBeforeSelectedDayMovesToNextSelectedDay() {
         val completedAt = format.parse("2026-01-05 08:00")!!.time
         val result = NextTriggerCalculator.nextTriggerAfterCompletionEpochMillis(
-            ScheduleRule(ScheduleFrequency.SELECTED_DAYS, 9, 0, daysOfWeek = setOf(1)), completedAt, zone,
+            ScheduleRule(ScheduleFrequency.SELECTED_DAYS, 9, 0, daysOfWeek = setOf(1)), completedAt, DAY_START_HOUR, zone,
         )
         assertEquals("2026-01-12 09:00", format.format(Date(result!!)))
+    }
+
+    /** Use this function to verify a completion before the day start belongs to the previous day, so that night's occurrence stays. */
+    @Test
+    fun completionBeforeDayStartKeepsThatNightsOccurrence() {
+        val completedAt = format.parse("2026-01-31 01:00")!!.time
+        val result = NextTriggerCalculator.nextTriggerAfterCompletionEpochMillis(
+            ScheduleRule(ScheduleFrequency.DAILY, 23, 0), completedAt, DAY_START_HOUR, zone,
+        )
+        assertEquals("2026-01-31 23:00", format.format(Date(result!!)))
+    }
+
+    /** Use this function to verify a completion after the day start skips an early-morning occurrence before the next day start. */
+    @Test
+    fun completionAfterDayStartSkipsOccurrenceBeforeNextDayStart() {
+        val completedAt = format.parse("2026-01-31 08:00")!!.time
+        val result = NextTriggerCalculator.nextTriggerAfterCompletionEpochMillis(
+            ScheduleRule(ScheduleFrequency.DAILY, 1, 0), completedAt, DAY_START_HOUR, zone,
+        )
+        // 1 AM on February 1 still belongs to January 31's day, which this completion already handled.
+        assertEquals("2026-02-02 01:00", format.format(Date(result!!)))
+    }
+
+    /** Use this function to verify a midnight day start keeps calendar-day behavior for the same 1 AM completion. */
+    @Test
+    fun midnightDayStartMovesLateCompletionToNextCalendarDay() {
+        val completedAt = format.parse("2026-01-31 01:00")!!.time
+        val result = NextTriggerCalculator.nextTriggerAfterCompletionEpochMillis(
+            ScheduleRule(ScheduleFrequency.DAILY, 23, 0), completedAt, 0, zone,
+        )
+        assertEquals("2026-02-01 23:00", format.format(Date(result!!)))
     }
 
     /** Use this function to verify completion never rearms a one-time schedule. */
@@ -132,8 +163,13 @@ class NextTriggerCalculatorTest {
         val completedAt = format.parse("2026-01-01 08:00")!!.time
         assertNull(
             NextTriggerCalculator.nextTriggerAfterCompletionEpochMillis(
-                ScheduleRule(ScheduleFrequency.ONCE, 9, 0, oneTimeEpochMillis = completedAt), completedAt, zone,
+                ScheduleRule(ScheduleFrequency.ONCE, 9, 0, oneTimeEpochMillis = completedAt), completedAt, DAY_START_HOUR, zone,
             ),
         )
+    }
+
+    private companion object {
+        /** The default `home_day_start_hour`. */
+        const val DAY_START_HOUR = 2
     }
 }

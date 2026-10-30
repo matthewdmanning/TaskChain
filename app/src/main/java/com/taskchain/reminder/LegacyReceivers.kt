@@ -4,8 +4,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import com.taskchain.core.platform.PlatformEntryPointProvider
-import com.taskchain.features.notifications.platform.RunAlerts
-import com.taskchain.features.notifications.platform.RunNotification
+import com.taskchain.features.notifications.NotificationIntents
 import com.taskchain.features.reminders.ReminderActions
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -81,8 +80,8 @@ class ReminderRescheduleReceiver : BroadcastReceiver() {
 class RunActionReceiver : BroadcastReceiver() {
     /** Use this function when the user presses Skip or Complete on the run notification. */
     override fun onReceive(context: Context, intent: Intent) {
-        if (intent.action != RunNotification.ACTION_SKIP && intent.action != RunNotification.ACTION_COMPLETE) return
-        if (intent.getStringExtra(RunNotification.EXTRA_RUN_ID) == null) return
+        if (intent.action != NotificationIntents.RUN_ACTION_SKIP && intent.action != NotificationIntents.RUN_ACTION_COMPLETE) return
+        if (intent.getStringExtra(NotificationIntents.RUN_EXTRA_RUN_ID) == null) return
         val pendingResult = goAsync()
         CoroutineScope(Dispatchers.IO).launch {
             try {
@@ -104,7 +103,7 @@ class RunActionReceiver : BroadcastReceiver() {
 class RunAlertReceiver : BroadcastReceiver() {
     /** Use this function when the run alert alarm fires. */
     override fun onReceive(context: Context, intent: Intent) {
-        if (intent.action != RunAlerts.ACTION_ALERT) return
+        if (intent.action != NotificationIntents.RUN_ALERT) return
         val pendingResult = goAsync()
         CoroutineScope(Dispatchers.IO).launch {
             try {

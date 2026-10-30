@@ -34,13 +34,12 @@ import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.cyberpunkandroid.components.CyberButtonSize
 import com.example.cyberpunkandroid.components.CyberButtonStyle
-import com.example.cyberpunkandroid.config.CyberPrimitives
 import com.example.cyberpunkandroid.icons.CyberIcon
 import com.example.cyberpunkandroid.icons.CyberIcons
 import com.example.cyberpunkandroid.icons.SemanticIcons
 import com.example.cyberpunkandroid.components.CyberCard
 import com.example.cyberpunkandroid.effects.cyberGlowBorder
-import com.example.cyberpunkandroid.theme.CyberTheme
+import com.taskchain.core.designsystem.TaskChainDesignSystem
 import com.taskchain.R
 import com.taskchain.core.model.RoutineTemplate
 import com.taskchain.core.designsystem.Button
@@ -75,14 +74,14 @@ internal fun TodayRoute(
     }
     Box(
         modifier = Modifier.fillMaxSize().padding(padding).consumeWindowInsets(padding)
-            .background(CyberTheme.colors.background),
+            .background(TaskChainDesignSystem.Colors.background),
         contentAlignment = Alignment.TopCenter,
     ) {
         LazyColumn(
             modifier = Modifier.widthIn(max = dimensionResource(R.dimen.content_max_width)).fillMaxWidth(),
             state = listState,
-            contentPadding = PaddingValues(CyberPrimitives.Spacing.dp16),
-            verticalArrangement = Arrangement.spacedBy(CyberPrimitives.Spacing.dp8),
+            contentPadding = PaddingValues(TaskChainDesignSystem.Space.medium),
+            verticalArrangement = Arrangement.spacedBy(TaskChainDesignSystem.Space.small),
         ) {
             state.activeRun?.let { run ->
                 item {
@@ -91,16 +90,16 @@ internal fun TodayRoute(
                         header = {
                             Text(
                                 stringResource(R.string.active_run_label).uppercase(),
-                                style = CyberTheme.typography.terminal,
-                                color = CyberTheme.colors.textSecondary,
+                                style = TaskChainDesignSystem.TextStyles.terminalLabel,
+                                color = TaskChainDesignSystem.Colors.textSecondary,
                             )
                         },
                     ) {
-                        Text(run.routineTitle, style = CyberTheme.typography.display, color = CyberTheme.colors.textPrimary)
-                        Spacer(Modifier.height(CyberPrimitives.Spacing.dp16))
+                        Text(run.routineTitle, style = TaskChainDesignSystem.TextStyles.display, color = TaskChainDesignSystem.Colors.textPrimary)
+                        Spacer(Modifier.height(TaskChainDesignSystem.Space.medium))
                         CyberButton(onClick = { onResume(run) }, size = CyberButtonSize.Large) {
                             Row(
-                                horizontalArrangement = Arrangement.spacedBy(CyberPrimitives.Spacing.dp8),
+                                horizontalArrangement = Arrangement.spacedBy(TaskChainDesignSystem.Space.small),
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
                                 CyberIcon(iconRes = CyberIcons.Play, contentDescription = null)
@@ -113,8 +112,8 @@ internal fun TodayRoute(
             if (projection.scheduled.isEmpty() && projection.manual.isEmpty() && projection.completed.isEmpty()) {
                 item {
                     com.taskchain.core.designsystem.TaskCard(modifier = Modifier.fillMaxWidth()) {
-                        Text(stringResource(R.string.today_empty), style = CyberTheme.typography.body)
-                        Spacer(Modifier.height(CyberPrimitives.Spacing.dp16))
+                        Text(stringResource(R.string.today_empty), style = TaskChainDesignSystem.TextStyles.body)
+                        Spacer(Modifier.height(TaskChainDesignSystem.Space.medium))
                         CyberButton(onClick = onCreate) { Text(stringResource(R.string.new_routine)) }
                     }
                 }
@@ -123,16 +122,16 @@ internal fun TodayRoute(
                 item {
                     Text(
                         stringResource(title).uppercase(),
-                        modifier = Modifier.padding(top = CyberPrimitives.Spacing.dp24, bottom = CyberPrimitives.Spacing.dp8),
-                        style = CyberTheme.typography.display.copy(
+                        modifier = Modifier.padding(top = TaskChainDesignSystem.Space.large, bottom = TaskChainDesignSystem.Space.small),
+                        style = TaskChainDesignSystem.TextStyles.display.copy(
                             brush = androidx.compose.ui.graphics.Brush.linearGradient(
-                                listOf(CyberTheme.colors.primary, CyberTheme.semantics.colors.info),
+                                listOf(TaskChainDesignSystem.Colors.primary, TaskChainDesignSystem.Colors.info),
                             ),
                         ),
                     )
                 }
                 if (routines.isEmpty()) {
-                    item { Spacer(Modifier.fillMaxWidth().height(CyberPrimitives.IconSizes.dp48 + CyberPrimitives.Spacing.dp32)) }
+                    item { Spacer(Modifier.fillMaxWidth().height(TaskChainDesignSystem.Sizes.emptySectionHeight)) }
                 }
                 items(routines, key = { it.id.value }) { routine ->
                     CompactRoutineRow(
@@ -162,25 +161,25 @@ private fun CompactRoutineRow(
     onSkip: (() -> Unit)? = null,
     onStart: () -> Unit,
 ) {
-    val shape = CyberTheme.shapes.cyberCutCornerShape
+    val shape = TaskChainDesignSystem.Shapes.panel
     Row(
-        modifier = Modifier.fillMaxWidth().padding(CyberPrimitives.Spacing.dp4)
-            .cyberGlowBorder(CyberTheme.colors.primary.copy(alpha = 0.45f), shape, CyberPrimitives.Spacing.dp8, CyberPrimitives.BorderWidths.dp1)
-            .clip(shape).background(CyberTheme.colors.surfaceSecondary, shape)
-            .border(CyberPrimitives.BorderWidths.dp1, CyberTheme.colors.border, shape)
-            .padding(CyberPrimitives.Spacing.dp16).heightIn(min = CyberPrimitives.IconSizes.dp48),
+        modifier = Modifier.fillMaxWidth().padding(TaskChainDesignSystem.Space.extraSmall)
+            .cyberGlowBorder(TaskChainDesignSystem.Colors.primary.copy(alpha = 0.45f), shape, TaskChainDesignSystem.Sizes.cardGlowRadius, TaskChainDesignSystem.Strokes.hairline)
+            .clip(shape).background(TaskChainDesignSystem.Colors.surfaceSecondary, shape)
+            .border(TaskChainDesignSystem.Strokes.hairline, TaskChainDesignSystem.Colors.border, shape)
+            .padding(TaskChainDesignSystem.Space.medium).heightIn(min = TaskChainDesignSystem.Sizes.touchTarget),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(routine.title, style = CyberTheme.typography.body, color = CyberTheme.colors.textPrimary,
-            modifier = Modifier.weight(1f).padding(end = CyberPrimitives.Spacing.dp12))
+        Text(routine.title, style = TaskChainDesignSystem.TextStyles.body, color = TaskChainDesignSystem.Colors.textPrimary,
+            modifier = Modifier.weight(1f).padding(end = TaskChainDesignSystem.Space.smallMedium))
         if (isSkipped) {
             TextButton(onClick = onUndoSkip) { Text(stringResource(R.string.skipped_flag).uppercase()) }
         } else if (isCompleted) {
-            CyberIcon(iconRes = SemanticIcons.Success, contentDescription = stringResource(R.string.status_completed), tint = CyberTheme.colors.textPrimary)
+            CyberIcon(iconRes = SemanticIcons.Success, contentDescription = stringResource(R.string.status_completed), tint = TaskChainDesignSystem.Colors.textPrimary)
         } else {
             onSkip?.let { TextButton(onClick = it) { Text(stringResource(R.string.skip_routine)) } }
-            CyberButton(modifier = Modifier.size(CyberPrimitives.IconSizes.dp48), onClick = onStart, style = CyberButtonStyle.Outline, size = CyberButtonSize.Small) {
+            CyberButton(modifier = Modifier.size(TaskChainDesignSystem.Sizes.touchTarget), onClick = onStart, style = CyberButtonStyle.Outline, size = CyberButtonSize.Small) {
                 CyberIcon(iconRes = CyberIcons.Play, contentDescription = stringResource(R.string.start_routine))
             }
         }

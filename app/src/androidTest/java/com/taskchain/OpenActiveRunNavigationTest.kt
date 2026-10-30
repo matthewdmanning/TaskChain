@@ -57,8 +57,9 @@ class OpenActiveRunNavigationTest {
             .getBooleanExtra(MainActivity.EXTRA_OPEN_ACTIVE_RUN, false)
         runBlocking {
             val routine = container.builtInLibrary.load(System.currentTimeMillis()).first()
-            val activeRun = container.runEngine.start(routine, container.newRunId(), System.currentTimeMillis())
-            container.activeRun.saveActive(activeRun)
+            val running = container.running
+            val activeRun = running.runEngine.start(routine, running.newRunId(), System.currentTimeMillis())
+            running.activeRun.saveActive(activeRun)
         }
         var navController: NavHostController? = null
         val restorationTester = StateRestorationTester(composeRule)

@@ -18,7 +18,7 @@ import com.taskchain.core.model.RoutineRunId
 import com.taskchain.core.model.RoutineSubtaskId
 import com.taskchain.core.platform.PlatformIntents
 import com.taskchain.features.notifications.NotificationDependencies
-import com.taskchain.features.notifications.domain.NotificationRunRules
+import com.taskchain.features.notifications.NotificationRunRules
 import com.taskchain.features.notifications.domain.RunNotificationAction
 import com.taskchain.features.notifications.domain.RunNotificationClock
 import com.taskchain.features.notifications.domain.RunNotificationContent

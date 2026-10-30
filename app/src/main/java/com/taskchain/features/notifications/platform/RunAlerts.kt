@@ -4,13 +4,15 @@ import android.app.AlarmManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import com.taskchain.core.model.FeedbackGates
 import com.taskchain.core.model.RoutineRun
 import com.taskchain.core.model.SoundToken
 import com.taskchain.core.model.withTaskSound
 import com.taskchain.core.platform.PlatformIntents
 import com.taskchain.core.platform.setAlarm
 import com.taskchain.features.notifications.NotificationDependencies
-import com.taskchain.features.notifications.domain.NotificationRunRules
+import com.taskchain.features.notifications.domain.DueRunAlerts
+import com.taskchain.features.notifications.NotificationRunRules
 import com.taskchain.features.notifications.domain.RunAlertPolicy
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
@@ -18,7 +20,10 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.sync.withLock
 
-/** Keeps one background alarm for the next run nudge or timer expiry. */
+/**
+ * Keeps one background alarm for the next run nudge or timer expiry.
+ * It is the single owner of the background nudge cadence and untimed reminder limit.
+ */
 class RunAlerts(
     context: Context,
     private val engine: NotificationRunRules,
@@ -42,6 +47,20 @@ class RunAlerts(
             runCatching { setAlarm(alarmManager, at, alarmIntent()) }
         }
     }
+
+    /**
+     * Use this function when the alert alarm fires to acknowledge what is due under this alarm's cadence and limit.
+     * Inputs: `run` — the persisted run; `nowEpochMillis` — the delivery time.
+     */
+    fun takeDue(run: RoutineRun, nowEpochMillis: Long): DueRunAlerts =
+        RunAlertPolicy.takeDue(run, engine, nowEpochMillis, nudgeIntervalMillis, untimedIdleLimitMillis)
+
+    /**
+     * Use this function to decide whether periodic reminders must stop for this run under this alarm's limit;
+     * root binds it into Running so foreground and background nudges share one limit.
+     */
+    fun remindersExhausted(run: RoutineRun, nowEpochMillis: Long): Boolean =
+        RunAlertPolicy.remindersExhausted(run, engine, nowEpochMillis, untimedIdleLimitMillis)
 
     /** Use this function when no alert can occur. */
     fun cancel() {
@@ -75,24 +94,19 @@ suspend fun handleRunAlert(intent: Intent, dependencies: NotificationDependencie
                 dependencies.runAlerts.sync(run, now, dependencies.runnerVisible)
                 return@withLock
             }
-            val due = RunAlertPolicy.takeDue(
-                run,
-                dependencies.runRules,
-                now,
-                dependencies.taskNudgeIntervalMillis,
-                dependencies.untimedReminderLimitMillis,
-            )
+            val due = dependencies.runAlerts.takeDue(run, now)
             if (due.run != run) {
                 dependencies.activeRun.saveActive(due.run)
                 dependencies.runRevision.update { it + 1 }
             }
             val task = due.run.tasks[due.run.currentTaskIndex].source
             val sounds = due.run.soundSettings.withTaskSound(task.soundUri)
+            val vibrateEnabled = FeedbackGates.vibrateEnabled(due.run, task)
             if (due.nudge) {
                 dependencies.taskFeedback.fire(
                     token = SoundToken.TaskNudge,
-                    soundEnabled = due.run.routineSoundEnabled && task.soundEnabled && sounds[SoundToken.TaskNudge].enabled,
-                    vibrateEnabled = due.run.routineVibrateEnabled && task.vibrateEnabled,
+                    soundEnabled = FeedbackGates.soundEnabled(due.run, task, SoundToken.TaskNudge),
+                    vibrateEnabled = vibrateEnabled,
                     soundSettings = sounds,
                     intensity = intensity,
                 )
@@ -100,8 +114,8 @@ suspend fun handleRunAlert(intent: Intent, dependencies: NotificationDependencie
             }
             if (due.timerExpired) {
                 dependencies.timerFeedback.fire(
-                    soundEnabled = due.run.routineSoundEnabled && task.soundEnabled,
-                    vibrateEnabled = due.run.routineVibrateEnabled && task.vibrateEnabled,
+                    soundEnabled = FeedbackGates.soundEnabled(due.run, task, SoundToken.TimerExpired),
+                    vibrateEnabled = vibrateEnabled,
                     soundSettings = sounds,
                     intensity = intensity,
                 )

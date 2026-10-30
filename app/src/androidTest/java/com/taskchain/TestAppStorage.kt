@@ -19,7 +19,7 @@ internal fun resetTestAppState(context: Context) {
         container.routines.observeAll().first()
             .filterNot { it.id in builtInIds }
             .forEach { container.routines.delete(it.id) }
-        container.activeRun.clearActive()
+        container.running.activeRun.clearActive()
     }
 }
 
