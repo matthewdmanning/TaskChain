@@ -1,5 +1,7 @@
-package com.taskchain.features.execution.domain
+package com.taskchain.features.notifications.domain
 
+import com.taskchain.notificationRunRules
+import com.taskchain.features.execution.domain.RoutineRunEngine
 import com.taskchain.core.model.EntityMetadata
 import com.taskchain.core.model.RoutineId
 import com.taskchain.core.model.RoutineRunId
@@ -15,6 +17,7 @@ import org.junit.Test
 /** Guards when background alerts are due and when periodic reminders stop, independent of Android. */
 class RunAlertPolicyTest {
     private val engine = RoutineRunEngine()
+    private val rules = notificationRunRules(engine)
     private val interval = 60_000L
     private val idleLimit = 15 * 60_000L
 
@@ -31,8 +34,8 @@ class RunAlertPolicyTest {
     fun untimedRunStopsAfterIdleLimit() {
         val run = engine.start(routine(null, null), RoutineRunId("run"), 0)
 
-        assertFalse(RunAlertPolicy.remindersExhausted(run, engine, idleLimit - 1, idleLimit))
-        assertTrue(RunAlertPolicy.remindersExhausted(run, engine, idleLimit, idleLimit))
+        assertFalse(RunAlertPolicy.remindersExhausted(run, rules, idleLimit - 1, idleLimit))
+        assertTrue(RunAlertPolicy.remindersExhausted(run, rules, idleLimit, idleLimit))
     }
 
     /** Use this function to verify pausing and navigating restart the idle limit. */
@@ -41,11 +44,11 @@ class RunAlertPolicyTest {
         val started = engine.start(routine(null, null), RoutineRunId("run"), 0)
         val resumed = engine.resumeCurrent(engine.pauseCurrent(started, 600_000L), 660_000L)
 
-        assertFalse(RunAlertPolicy.remindersExhausted(resumed, engine, 660_000L + idleLimit - 1, idleLimit))
-        assertTrue(RunAlertPolicy.remindersExhausted(resumed, engine, 660_000L + idleLimit, idleLimit))
+        assertFalse(RunAlertPolicy.remindersExhausted(resumed, rules, 660_000L + idleLimit - 1, idleLimit))
+        assertTrue(RunAlertPolicy.remindersExhausted(resumed, rules, 660_000L + idleLimit, idleLimit))
 
         val navigated = engine.skipCurrent(started, 840_000L)
-        assertFalse(RunAlertPolicy.remindersExhausted(navigated, engine, 840_000L + idleLimit - 1, idleLimit))
+        assertFalse(RunAlertPolicy.remindersExhausted(navigated, rules, 840_000L + idleLimit - 1, idleLimit))
     }
 
     /** Use this function to verify the limit is the configured sum, whatever the tasks' remaining or passed time. */
@@ -53,13 +56,13 @@ class RunAlertPolicyTest {
     fun timedRunLimitIsConfiguredSumFromLatestInteraction() {
         val started = engine.start(routine(60L, 120L), RoutineRunId("run"), 0)
 
-        assertFalse(RunAlertPolicy.remindersExhausted(started, engine, 179_999L, idleLimit))
-        assertTrue(RunAlertPolicy.remindersExhausted(started, engine, 180_000L, idleLimit))
+        assertFalse(RunAlertPolicy.remindersExhausted(started, rules, 179_999L, idleLimit))
+        assertTrue(RunAlertPolicy.remindersExhausted(started, rules, 180_000L, idleLimit))
 
         // Completing the first task early does not shorten the limit; it restarts the same 180 s.
         val advanced = engine.completeCurrent(started, 10_000L)
-        assertFalse(RunAlertPolicy.remindersExhausted(advanced, engine, 189_999L, idleLimit))
-        assertTrue(RunAlertPolicy.remindersExhausted(advanced, engine, 190_000L, idleLimit))
+        assertFalse(RunAlertPolicy.remindersExhausted(advanced, rules, 189_999L, idleLimit))
+        assertTrue(RunAlertPolicy.remindersExhausted(advanced, rules, 190_000L, idleLimit))
     }
 
     /** Use this function to verify the next alarm is the earlier of timer expiry and the next reminder. */
@@ -69,9 +72,9 @@ class RunAlertPolicyTest {
         val longTimer = engine.start(routine(120L), RoutineRunId("run"), 0)
         val untimed = engine.start(routine(null), RoutineRunId("run"), 0)
 
-        assertEquals(30_000L, RunAlertPolicy.nextAlertAt(shortTimer, engine, 0, interval, idleLimit))
-        assertEquals(60_000L, RunAlertPolicy.nextAlertAt(longTimer, engine, 0, interval, idleLimit))
-        assertEquals(60_000L, RunAlertPolicy.nextAlertAt(untimed, engine, 0, interval, idleLimit))
+        assertEquals(30_000L, RunAlertPolicy.nextAlertAt(shortTimer, rules, 0, interval, idleLimit))
+        assertEquals(60_000L, RunAlertPolicy.nextAlertAt(longTimer, rules, 0, interval, idleLimit))
+        assertEquals(60_000L, RunAlertPolicy.nextAlertAt(untimed, rules, 0, interval, idleLimit))
     }
 
     /** Use this function to verify no alarm is wanted while paused or after reminders end. */
@@ -79,8 +82,8 @@ class RunAlertPolicyTest {
     fun noAlertWhilePausedOrExhausted() {
         val started = engine.start(routine(null), RoutineRunId("run"), 0)
 
-        assertNull(RunAlertPolicy.nextAlertAt(engine.pauseCurrent(started, 1_000L), engine, 2_000L, interval, idleLimit))
-        assertNull(RunAlertPolicy.nextAlertAt(started, engine, idleLimit, interval, idleLimit))
+        assertNull(RunAlertPolicy.nextAlertAt(engine.pauseCurrent(started, 1_000L), rules, 2_000L, interval, idleLimit))
+        assertNull(RunAlertPolicy.nextAlertAt(started, rules, idleLimit, interval, idleLimit))
     }
 
     /** Use this function to verify a due reminder is reported once. */
@@ -88,11 +91,11 @@ class RunAlertPolicyTest {
     fun dueReminderIsReportedOnce() {
         val run = engine.start(routine(120L), RoutineRunId("run"), 0)
 
-        val first = RunAlertPolicy.takeDue(run, engine, 60_000L, interval, idleLimit)
+        val first = RunAlertPolicy.takeDue(run, rules, 60_000L, interval, idleLimit)
         assertTrue(first.nudge)
         assertFalse(first.timerExpired)
 
-        assertFalse(RunAlertPolicy.takeDue(first.run, engine, 60_000L, interval, idleLimit).nudge)
+        assertFalse(RunAlertPolicy.takeDue(first.run, rules, 60_000L, interval, idleLimit).nudge)
     }
 
     /** Use this function to verify a timer expiry is reported once. */
@@ -100,10 +103,10 @@ class RunAlertPolicyTest {
     fun timerExpiryIsReportedOnce() {
         val run = engine.start(routine(30L), RoutineRunId("run"), 0)
 
-        val first = RunAlertPolicy.takeDue(run, engine, 30_000L, interval, idleLimit)
+        val first = RunAlertPolicy.takeDue(run, rules, 30_000L, interval, idleLimit)
         assertTrue(first.timerExpired)
 
-        assertFalse(RunAlertPolicy.takeDue(first.run, engine, 30_000L, interval, idleLimit).timerExpired)
+        assertFalse(RunAlertPolicy.takeDue(first.run, rules, 30_000L, interval, idleLimit).timerExpired)
     }
 
     /** Use this function to verify an exhausted run still acknowledges buckets but stays silent. */
@@ -111,7 +114,7 @@ class RunAlertPolicyTest {
     fun exhaustedRunStaysSilent() {
         val run = engine.start(routine(null), RoutineRunId("run"), 0)
 
-        val due = RunAlertPolicy.takeDue(run, engine, idleLimit + interval, interval, idleLimit)
+        val due = RunAlertPolicy.takeDue(run, rules, idleLimit + interval, interval, idleLimit)
 
         assertFalse(due.nudge)
         assertFalse(due.timerExpired)

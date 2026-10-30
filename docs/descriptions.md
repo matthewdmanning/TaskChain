@@ -2478,3 +2478,38 @@ Owns lifecycle-aware preference observation and edits for the keep-screen-on fea
 
 ## `RoutineRunnerRoute.runEffects` and `SettingsRoute.additionalSettings`
 Root-injected composable slots connect independent features without cross-feature imports. The run slot receives the currently presented nullable `RoutineRun`; the Settings slot renders the feature's own preference row and observation.
+
+
+## Notifications feature — `features/notifications`
+`RunNotificationPolicy`, its content/clock/target/action types, `RunAlertPolicy`
+and `DueRunAlerts` now belong to Notifications. They consume shared Core run
+snapshots and injected `NotificationRunRules`; they import no Execution types.
+`RunNotification`, `RunAlerts`, `handleRunAction` and `handleRunAlert` move with
+these policies and retain the existing Android identities and persistence order.
+
+## `NotificationRunRules` and `NotificationNudge` — features/notifications/domain/NotificationRunRules.kt
+Bounded run timing, transitions, timer acknowledgement and nudge capabilities.
+Root binds these functions to the existing engine and feedback policy; the nudge
+result carries the acknowledged immutable run and whether to emit feedback.
+
+## `NotificationDependencies` — features/notifications/NotificationDependencies.kt
+Background-handler dependencies: Core run/preferences repositories and feedback,
+notification adapters, run rules, clock/configuration, shared mutex/revision and
+runner visibility reader. No root container or other feature is imported.
+
+## `notificationRunRules` and `showReminderNotification` — NotificationIntegration.kt
+Root-only bridges bind Execution rules to Notifications and map Reminder intent
+extras/actions into presentation inputs. Button request codes, components,
+actions, extras and flags match the existing reminder protocol.
+
+## `ReminderNotification` — features/notifications/platform/ReminderNotification.kt
+Owns reminder channel creation, permission-gated shade posting and cancellation.
+`show` accepts the title, request code and prepared launch/action PendingIntents;
+its Boolean result preserves permission-gated reminder audio/haptic behavior.
+
+## Execution and Reminder notification callbacks
+`ExecutionDependencies.syncRunNotification`, `syncRunAlerts` and
+`remindersExhausted` replace concrete adapter/domain dependencies. Runner ticks
+supply the presented run and time; Notifications suppresses unchanged content.
+`AndroidReminderScheduler.clearNotification` and `ReminderHandlers.showDelivered`
+connect reminder lifecycle to shade presentation through root wiring.

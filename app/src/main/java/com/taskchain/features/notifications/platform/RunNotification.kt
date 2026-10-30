@@ -1,4 +1,4 @@
-package com.taskchain.features.execution.platform
+package com.taskchain.features.notifications.platform
 
 import android.Manifest
 import android.app.NotificationChannel
@@ -17,13 +17,13 @@ import com.taskchain.core.model.RoutineRun
 import com.taskchain.core.model.RoutineRunId
 import com.taskchain.core.model.RoutineSubtaskId
 import com.taskchain.core.platform.PlatformIntents
-import com.taskchain.features.execution.ExecutionDependencies
-import com.taskchain.features.execution.domain.RoutineRunEngine
-import com.taskchain.features.execution.domain.RunNotificationAction
-import com.taskchain.features.execution.domain.RunNotificationClock
-import com.taskchain.features.execution.domain.RunNotificationContent
-import com.taskchain.features.execution.domain.RunNotificationPolicy
-import com.taskchain.features.execution.domain.RunNotificationTarget
+import com.taskchain.features.notifications.NotificationDependencies
+import com.taskchain.features.notifications.domain.NotificationRunRules
+import com.taskchain.features.notifications.domain.RunNotificationAction
+import com.taskchain.features.notifications.domain.RunNotificationClock
+import com.taskchain.features.notifications.domain.RunNotificationContent
+import com.taskchain.features.notifications.domain.RunNotificationPolicy
+import com.taskchain.features.notifications.domain.RunNotificationTarget
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
@@ -33,18 +33,24 @@ import kotlin.math.abs
 /** Posts the ongoing Android notification for the active run and its two action buttons. */
 class RunNotification(
     context: Context,
-    private val engine: RoutineRunEngine,
+    private val engine: NotificationRunRules,
     private val intents: PlatformIntents,
 ) {
     private val appContext = context.applicationContext
     private val notifications = NotificationManagerCompat.from(appContext)
 
+    private var lastContent: RunNotificationContent? = null
+    private var synchronizedContent = false
+
     /** Use this function after a persisted run change; a missing or non-active run removes the notification. */
+    @Synchronized
     fun sync(run: RoutineRun?, nowEpochMillis: Long) {
-        show(run?.let { RunNotificationPolicy.content(it, engine, nowEpochMillis) })
+        val content = run?.let { RunNotificationPolicy.content(it, engine, nowEpochMillis) }
+        if (!synchronizedContent || content != lastContent) show(content)
     }
 
     /** Use this function to post or update the notification; null content removes it. */
+    @Synchronized
     fun show(content: RunNotificationContent?) {
         if (content == null) {
             cancel()
@@ -94,13 +100,18 @@ class RunNotification(
             )
         try {
             notifications.notify(NOTIFICATION_ID, builder.build())
+            lastContent = content
+            synchronizedContent = true
         } catch (_: SecurityException) {
             // Notification permission may be revoked between the check and posting.
         }
     }
 
     /** Use this function when the run ends or no active run exists. */
+    @Synchronized
     fun cancel() {
+        lastContent = null
+        synchronizedContent = true
         notifications.cancel(NOTIFICATION_ID)
     }
 
@@ -164,7 +175,7 @@ class RunNotification(
 }
 
 /** Applies a validated run notification action to the persisted run without opening the app. */
-suspend fun handleRunAction(intent: Intent, dependencies: ExecutionDependencies) {
+suspend fun handleRunAction(intent: Intent, dependencies: NotificationDependencies) {
     val action = when (intent.action) {
         RunNotification.ACTION_SKIP -> RunNotificationAction.SKIP
         RunNotification.ACTION_COMPLETE -> RunNotificationAction.COMPLETE
@@ -180,7 +191,7 @@ suspend fun handleRunAction(intent: Intent, dependencies: ExecutionDependencies)
             val run = dependencies.activeRun.observeActive().first()
             val now = dependencies.now()
             val updated = run?.let {
-                RunNotificationPolicy.applyAction(it, dependencies.runEngine, action, target, now)
+                RunNotificationPolicy.applyAction(it, dependencies.runRules, action, target, now)
             }
             if (updated != null) {
                 dependencies.activeRun.saveActive(updated)

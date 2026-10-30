@@ -9,20 +9,16 @@ import com.taskchain.core.model.RunTaskStatus
 import com.taskchain.core.model.SoundToken
 import com.taskchain.core.model.withTaskSound
 import com.taskchain.core.model.withUserDefaults
-import com.taskchain.features.execution.domain.RunAlertPolicy
 import com.taskchain.features.execution.domain.RunFeedbackEvent
 import com.taskchain.features.execution.domain.RunFeedbackPolicy
-import com.taskchain.features.execution.domain.RunNotificationPolicy
 import com.taskchain.features.execution.ExecutionDependencies
 import com.taskchain.core.schedule.ReminderPlanner
 import com.taskchain.core.designsystem.RunnerMotion
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.withLock
 
@@ -68,11 +64,9 @@ class RoutineRunnerViewModel(
             }
         }
         viewModelScope.launch {
-            // Equal content means the step, its pause state, and its clock anchors are unchanged, so nothing is reposted.
-            state.filter { it.run != null }
-                .map { RunNotificationPolicy.content(it.run!!, dependencies.runEngine, it.nowEpochMillis) }
-                .distinctUntilChanged()
-                .collect { dependencies.runNotification.show(it) }
+            state.filter { it.run != null }.collect {
+                dependencies.syncRunNotification(it.run!!, it.nowEpochMillis)
+            }
         }
     }
 
@@ -102,7 +96,7 @@ class RoutineRunnerViewModel(
         // Hiding the screen hands reminders and timer expiry to an alarm; showing it hands them back.
         viewModelScope.launch {
             runMutex.withLock {
-                dependencies.runAlerts.sync(dependencies.activeRun.observeActive().first(), dependencies.now(), active)
+                dependencies.syncRunAlerts(dependencies.activeRun.observeActive().first(), dependencies.now(), active)
             }
         }
     }
@@ -223,7 +217,7 @@ class RoutineRunnerViewModel(
             now,
             dependencies.taskNudgeIntervalMillis,
             // Reminders stop at the run's planned time, or after the idle limit for runs without timers.
-            emit = !RunAlertPolicy.remindersExhausted(run, dependencies.runEngine, now, dependencies.untimedReminderLimitMillis),
+            emit = !dependencies.remindersExhausted(run, now),
         )
         if (nudge.run != run) {
             try {

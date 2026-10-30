@@ -15,7 +15,7 @@ Inside a feature: Route -> ViewModel -> domain rules / Core repositories
 - `core/schedule` owns recurrence and shared reminder planning.
 - `core/browsing`, `core/navigation`, `core/ui` and `core/designsystem` own collection display, injected-content hosting, shared controls and provider/theme configuration. Core constructs no feature routes or ViewModels.
 - `core/platform` owns reminder/output ports, shared audio/haptic output and platform contracts. `core/startup` validates data and invokes injected recovery.
-- `features/authoring`, `features/settings`, `features/scheduling`, `features/execution`, `features/reminders`, `features/progress` and `features/keepscreenon` own current user workflows. Feature internals retain UI, pure domain and Android adapter separation.
+- `features/authoring`, `features/settings`, `features/scheduling`, `features/execution`, `features/reminders`, `features/progress`, `features/keepscreenon` and `features/notifications` own current user workflows. Feature internals retain UI, pure domain and Android adapter separation.
 - Executable root wiring constructs both features and Core. Neither features nor reusable Core imports `AppContainer`, `MainActivity`, `TaskChainApplication` or concrete root route binding.
 
 Collection browsing belongs to Core; occurrence projection/skip/undo belong to Scheduling. Execution owns start conflicts and all run transitions. Settings edits preferences while consumers apply them; Progress reads shared history while other features retain their writers. Features receive bounded dependencies rather than the root container.
@@ -34,11 +34,31 @@ Introduce a deeper module only when behavior is reused outside one ViewModel, ex
 
 Feature ViewModels initiate Reminder scheduling and cancellation in response to routine authoring and Routine run outcomes. Android broadcast receivers handle background delivery and rearming because those entry points exist outside the frontend lifecycle and cannot route through a ViewModel.
 
-Both entry points reuse the same platform-neutral recurrence and Reminder mapping policy. Keep recurrence calculations in `core/schedule` and Android intent, `AlarmManager`, notification, audio, and haptic behavior in `features/reminders` and shared output in `core/platform`. Do not add another interface around Reminder delivery unless behavior genuinely varies across a second adapter.
+Both entry points reuse the same platform-neutral recurrence and Reminder mapping policy. Keep recurrence calculations in `core/schedule`, routine alarm/recurrence handling in `features/reminders`, notification presentation in `features/notifications`, and shared audio/haptic output in `core/platform`. Do not add another interface around Reminder delivery unless behavior genuinely varies across a second adapter.
 
-The ongoing run notification follows the same split. `features/execution/domain/RunNotificationPolicy` derives its content and applies Skip and Complete through `RoutineRunEngine`. `features/execution/platform/RunNotification` maps that content to Android, and `RunActionReceiver` applies a button press to the persisted run. The receiver and the runner ViewModel share one Execution-owned run mutex; the receiver increments the shared run revision after saving, and a live ViewModel adopts the saved run before its next read. The ViewModel never infers navigation from this signal. Routine Reminder notifications carry Snooze and Dismiss through `ReminderActionReceiver`, which uses the same recurrence mapping as delivery.
+Notifications is a separate feature. `features/notifications/domain` owns ongoing-run
+content, stale button targets, and background alert timing/acknowledgement policy;
+`features/notifications/platform` owns Android notification rendering, button
+handling and run alarms. `NotificationRunRules` is a bounded capability contract
+bound in root `NotificationIntegration` to the existing Execution engine and
+nudge policy. Execution retains all run transitions and foreground feedback.
+Neither feature imports the other. Root supplies notification synchronization,
+background alarm synchronization and reminder exhaustion callbacks to Execution.
 
-Run alerts follow the same split. `features/execution/domain/RunAlertPolicy` decides when the next nudge or timer expiry is due, which alerts a firing delivers, and when nudges stop. `features/execution/platform/RunAlerts` keeps one exact alarm for that time only while the Run screen is hidden (shared runner visibility), and `RunAlertReceiver` plays what is due under the shared run mutex. The runner ViewModel owns the same alerts while the screen is visible, so each alert plays once.
+`NotificationDependencies` receives Core repositories/output, the same mutex and
+revision used by Execution, and an injected runner-visibility reader. Background
+buttons and alerts persist under that mutex before incrementing the revision; a
+live runner adopts the saved run before its next read. The ViewModel never infers
+navigation from this signal. Background alarms yield to foreground feedback using
+the existing visibility handoff and persisted acknowledgement markers.
+
+Reminders retains recurrence, snooze/dismiss processing and alarm restoration.
+Its injected presentation/cancellation callbacks are bound by root to
+`ReminderNotification`; all notification channels and shade content belong to
+Notifications. Root maps reminder intent extras and button identities. Core
+models, storage, recurrence, platform contracts and audio/haptic output remain
+in Core. Historical receiver component names, intent actions/extras and all
+request/channel/notification IDs remain stable.
 
 The initial app is Android-only, offline-only, and database-free. Repository interfaces keep the file format and Android APIs outside domain behavior without adding speculative cloud, sync, authentication, or backup implementations.
 

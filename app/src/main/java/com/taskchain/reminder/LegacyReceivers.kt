@@ -4,8 +4,8 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import com.taskchain.core.platform.PlatformEntryPointProvider
-import com.taskchain.features.execution.platform.RunAlerts
-import com.taskchain.features.execution.platform.RunNotification
+import com.taskchain.features.notifications.platform.RunAlerts
+import com.taskchain.features.notifications.platform.RunNotification
 import com.taskchain.features.reminders.ReminderActions
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope

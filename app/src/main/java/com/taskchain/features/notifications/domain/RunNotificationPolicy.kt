@@ -1,4 +1,4 @@
-package com.taskchain.features.execution.domain
+package com.taskchain.features.notifications.domain
 
 import com.taskchain.core.model.RoutineRun
 import com.taskchain.core.model.RoutineRunId
@@ -47,8 +47,8 @@ data class RunNotificationContent(
 enum class RunNotificationAction { SKIP, COMPLETE }
 
 /**
- * Derives the run notification and applies its actions through [RoutineRunEngine].
- * Use it from the Android notification adapter and the runner ViewModel; it holds no Android state.
+ * Derives the run notification and applies its actions through injected [NotificationRunRules].
+ * Used by notification adapters and root-injected runner integration; it holds no Android state.
  */
 object RunNotificationPolicy {
     /**
@@ -57,7 +57,7 @@ object RunNotificationPolicy {
      * Returns null when the run is not active, so the caller removes the notification.
      * The clock anchors do not change while the step keeps running, so equal content means no repost.
      */
-    fun content(run: RoutineRun, engine: RoutineRunEngine, nowEpochMillis: Long): RunNotificationContent? {
+    fun content(run: RoutineRun, engine: NotificationRunRules, nowEpochMillis: Long): RunNotificationContent? {
         if (run.status != RunStatus.ACTIVE) return null
         val task = run.tasks.getOrNull(run.currentTaskIndex) ?: return null
         val subtasks = task.source.subtasks
@@ -103,7 +103,7 @@ object RunNotificationPolicy {
      */
     fun applyAction(
         run: RoutineRun,
-        engine: RoutineRunEngine,
+        engine: NotificationRunRules,
         action: RunNotificationAction,
         target: RunNotificationTarget,
         nowEpochMillis: Long,

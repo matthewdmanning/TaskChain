@@ -1,5 +1,7 @@
-package com.taskchain.features.execution.domain
+package com.taskchain.features.notifications.domain
 
+import com.taskchain.notificationRunRules
+import com.taskchain.features.execution.domain.RoutineRunEngine
 import com.taskchain.core.model.EntityMetadata
 import com.taskchain.core.model.RoutineId
 import com.taskchain.core.model.RoutineRun
@@ -21,6 +23,7 @@ import org.junit.Test
 /** Guards the content and actions of the ongoing run notification, independent of Android. */
 class RunNotificationPolicyTest {
     private val engine = RoutineRunEngine()
+    private val rules = notificationRunRules(engine)
 
     /** Use this function to build a routine with a subtask task, a timed task, and a final untimed task. */
     private fun routine(): RoutineTemplate = RoutineTemplate(
@@ -46,7 +49,7 @@ class RunNotificationPolicyTest {
 
     /** Use this function to read content that the tests expect to exist. */
     private fun content(run: RoutineRun, now: Long): RunNotificationContent =
-        requireNotNull(RunNotificationPolicy.content(run, engine, now))
+        requireNotNull(RunNotificationPolicy.content(run, rules, now))
 
     /** Use this function to verify the active subtask name and its remaining time replace the main task's. */
     @Test
@@ -112,7 +115,7 @@ class RunNotificationPolicyTest {
     /** Use this function to verify a finished run has no notification. */
     @Test
     fun nonActiveRunHasNoContent() {
-        assertNull(RunNotificationPolicy.content(started().copy(status = RunStatus.ABORTED), engine, 0L))
+        assertNull(RunNotificationPolicy.content(started().copy(status = RunStatus.ABORTED), rules, 0L))
     }
 
     /** Use this function to verify Complete advances a subtask without opening the app. */
@@ -120,7 +123,7 @@ class RunNotificationPolicyTest {
     fun completeAdvancesSubtaskWithoutApp() {
         val run = started()
         val target = content(run, 60_000L).target
-        val updated = RunNotificationPolicy.applyAction(run, engine, RunNotificationAction.COMPLETE, target, 60_000L)
+        val updated = RunNotificationPolicy.applyAction(run, rules, RunNotificationAction.COMPLETE, target, 60_000L)
 
         assertNotNull(updated)
         assertEquals(RoutineSubtaskId("s2"), updated!!.tasks.first().activeSubtaskId)
@@ -132,7 +135,7 @@ class RunNotificationPolicyTest {
     fun skipMovesToNextTask() {
         val run = started()
         val target = content(run, 60_000L).target
-        val updated = RunNotificationPolicy.applyAction(run, engine, RunNotificationAction.SKIP, target, 60_000L)
+        val updated = RunNotificationPolicy.applyAction(run, rules, RunNotificationAction.SKIP, target, 60_000L)
 
         assertEquals(1, updated!!.currentTaskIndex)
         assertEquals(RunTaskStatus.SKIPPED, updated.tasks.first().status)
@@ -145,11 +148,11 @@ class RunNotificationPolicyTest {
         val staleTarget = content(run, 0L).target
         val advanced = engine.completeCurrent(run, 60_000L)
 
-        assertNull(RunNotificationPolicy.applyAction(advanced, engine, RunNotificationAction.COMPLETE, staleTarget, 61_000L))
+        assertNull(RunNotificationPolicy.applyAction(advanced, rules, RunNotificationAction.COMPLETE, staleTarget, 61_000L))
         assertNull(
             RunNotificationPolicy.applyAction(
                 advanced,
-                engine,
+                rules,
                 RunNotificationAction.SKIP,
                 staleTarget.copy(runId = RoutineRunId("other")),
                 61_000L,
@@ -165,8 +168,8 @@ class RunNotificationPolicyTest {
 
         assertTrue(content.skipNeedsApp)
         assertTrue(content.completeNeedsApp)
-        assertNull(RunNotificationPolicy.applyAction(atLast, engine, RunNotificationAction.COMPLETE, content.target, 100_000L))
-        assertNull(RunNotificationPolicy.applyAction(atLast, engine, RunNotificationAction.SKIP, content.target, 100_000L))
+        assertNull(RunNotificationPolicy.applyAction(atLast, rules, RunNotificationAction.COMPLETE, content.target, 100_000L))
+        assertNull(RunNotificationPolicy.applyAction(atLast, rules, RunNotificationAction.SKIP, content.target, 100_000L))
     }
 
     /** Use this function to verify an open confirmation dialog sends both buttons to the app. */
