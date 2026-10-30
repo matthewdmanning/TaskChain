@@ -17,16 +17,36 @@ Inside a feature: Route -> ViewModel -> domain rules / Core repositories
 - `core/platform` owns reminder/output ports, shared audio/haptic output and platform contracts. `core/startup` validates data and invokes injected recovery.
 - `features/authoring`, `features/settings`, `features/scheduling`, `features/running`, `features/reminders`, `features/progress`, `features/keepscreenon` and `features/notifications` own current user workflows. Feature internals retain UI, pure domain and Android adapter separation.
 - Executable root wiring constructs both features and Core. Neither features nor reusable Core imports `AppContainer`, `MainActivity`, `TaskChainApplication` or concrete root route binding.
+- Root reaches each feature through its entry file in the feature root package and its `ui` routes, never through `domain` or `platform` packages (see Feature entry files).
 
 Collection browsing belongs to Core; occurrence projection/skip/undo belong to Scheduling. Running owns start conflicts and all run transitions. Settings edits preferences while consumers apply them; Progress reads shared history while other features retain their writers. Features receive bounded dependencies rather than the root container.
 
 Quick return is absent from the current baseline and is not recreated. This change adds no feature switches, Gradle modules or storage migration. Root Android receiver adapters retain their historical component names for pending-intent compatibility; root supplies launch intents through Core contracts. Action strings, extras, request/channel/notification IDs remain stable.
 
-`python scripts/check-feature-boundaries.py` checks the owner-level source graph and runs in CI. It checks imports and explicit qualified references; behavioral and platform integration still require JVM/device verification.
+`python scripts/check-feature-boundaries.py` checks the owner-level source graph and runs in CI. It scans Kotlin in `main`, `test` and `androidTest`, plus `R` references to feature-owned value resource files (`RESOURCE_OWNERS`). It checks imports and explicit qualified references, and rejects root main sources that reference a feature's `domain` or `platform` package; behavioral and platform integration still require JVM/device verification.
+
+Tests follow the same rule as main sources. A unit or integration test in an owner package (`core/<area>`, `features/<feature>`) imports no other feature and no root declaration; it fakes the neighbor's injected contract (for example the shared `fakeRunRules` fake of `NotificationRunRules` in the Notifications test package) or uses hand-built Core values. An E2E or system test lives in the root package `com.taskchain` and may cross features through public routes, entries and root bindings; `NotificationIntegrationTest` covers the root `notificationRunRules` binding against the real Running engine.
+
+## Feature entry files
+
+Each feature exposes what root wiring needs from one entry file in its root package. Entries hold bounded dependencies and ViewModel factories; root `TaskChainApp` calls a factory inside `viewModel(key = ...)` instead of picking `AppContainer` fields, and routes keep their own parameters.
+
+| Feature | Entry | Exposes to root |
+| --- | --- | --- |
+| Authoring | `features/authoring/AuthoringDependencies.kt` | `builderViewModel(routineId)` for `RoutineBuilderRoute` |
+| Scheduling | `features/scheduling/SchedulingDependencies.kt` | `todayViewModel()`, with the day start |
+| Progress | `features/progress/ProgressDependencies.kt` | `progressViewModel()`, with the day start |
+| Settings | `features/settings/SettingsDependencies.kt` | `settingsViewModel()` |
+| Keep screen on | `features/keepscreenon/KeepScreenOnDependencies.kt` | `settingsViewModel()` for its Settings row |
+| Running | `features/running/RunningDependencies.kt` | `RunEngine` (type alias of the domain engine), `evaluateRunNudge`, `nextRunNudgeAt`, `RunningDependencies` with `entryViewModel()` and `runnerScreenRoutineIds()`; `recoverTerminalSession` stays beside it |
+| Notifications | `features/notifications/NotificationDependencies.kt` | `NotificationDependencies` (builds its Android adapters, `onRunAction`, `onRunAlert`), `NotificationIntents` receiver constants; contract `NotificationRunRules.kt` beside it |
+| Reminders | `features/reminders/ReminderScheduler.kt` | Already in the feature root package: `AndroidReminderScheduler`, `ReminderHandlers`, `ReminderActions` |
+
+`AppContainer` exposes only what root navigation, startup, receivers and instrumentation need: the routine, history and preference repositories, the built-in library, `now`, `migrateLegacyData`, `platformEntryPoints` and the feature entries. The active-run repository, engine, reminder port, day start and identity factories reach features only through those entries.
 
 ## MVVM ownership
 
-The feature ViewModel is the cornerstone of frontend architecture. Routes construct and observe it, screens render its state and emit user intent, and the ViewModel coordinates domain behavior, repository interfaces, and lifecycle-aware UI state. Direct ViewModel calls into domain modules and repository interfaces are expected; they are not, by themselves, evidence that another orchestration seam is needed.
+The feature ViewModel is the cornerstone of frontend architecture. Routes construct (Builder, Runner) or receive (Home tabs, built by root through the feature entry's factory) and observe it, screens render its state and emit user intent, and the ViewModel coordinates domain behavior, repository interfaces, and lifecycle-aware UI state. Direct ViewModel calls into domain modules and repository interfaces are expected; they are not, by themselves, evidence that another orchestration seam is needed.
 
 Introduce a deeper module only when behavior is reused outside one ViewModel, expresses a domain invariant, or is duplicated or difficult to verify through the ViewModel. Do not add use-case or lifecycle pass-through modules solely to move coordination out of a ViewModel.
 
@@ -34,19 +54,22 @@ Introduce a deeper module only when behavior is reused outside one ViewModel, ex
 
 Feature ViewModels initiate Reminder scheduling and cancellation in response to routine authoring and Routine run outcomes. Android broadcast receivers handle background delivery and rearming because those entry points exist outside the frontend lifecycle and cannot route through a ViewModel.
 
-Both entry points reuse the same platform-neutral recurrence and Reminder mapping policy. Keep recurrence calculations in `core/schedule`, routine alarm/recurrence handling in `features/reminders`, notification presentation in `features/notifications`, and shared audio/haptic output in `core/platform`. Do not add another interface around Reminder delivery unless behavior genuinely varies across a second adapter.
+Both entry points reuse the same platform-neutral recurrence and Reminder mapping policy. Completion-based planning (`ReminderPlanner.afterCompletion`) takes the day start (`home_day_start_hour`), which root reads once and passes through the Running and Scheduling entries. Keep recurrence calculations in `core/schedule`, routine alarm/recurrence handling in `features/reminders`, notification presentation in `features/notifications`, and shared audio/haptic output in `core/platform`. Do not add another interface around Reminder delivery unless behavior genuinely varies across a second adapter.
 
 Notifications is a separate feature. `features/notifications/domain` owns ongoing-run
 content, stale button targets, and background alert timing/acknowledgement policy;
 `features/notifications/platform` owns Android notification rendering, button
-handling and run alarms. `NotificationRunRules` is a bounded capability contract
-bound in root `NotificationIntegration` to the existing Running engine and
-nudge policy. Running retains all run transitions and foreground feedback.
+handling and run alarms. `NotificationRunRules` (feature root package) is a bounded
+capability contract bound in root `NotificationIntegration` to the Running entry's
+`RunEngine`, `evaluateRunNudge` and `nextRunNudgeAt`. Root binds the nudge reminder
+limit into Running through `RunAlerts.remindersExhausted`. Running retains all run transitions and foreground feedback.
 Neither feature imports the other. Root supplies notification synchronization,
 background alarm synchronization and reminder exhaustion callbacks to Running.
 
-`NotificationDependencies` receives Core repositories/output, the same mutex and
-revision used by Running, and an injected runner-visibility reader. Background
+`NotificationDependencies` receives Core repositories/output, launch intents, alert
+cadence and limit, the same mutex and revision used by Running, and an injected
+runner-visibility reader; it constructs `RunNotification`, `RunAlerts` and
+`ReminderNotification`. Background
 buttons and alerts persist under that mutex before incrementing the revision; a
 live runner adopts the saved run before its next read. The ViewModel never infers
 navigation from this signal. Background alarms yield to foreground feedback using
