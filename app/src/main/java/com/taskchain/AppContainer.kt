@@ -87,7 +87,7 @@ class AppContainer(context: Context) {
         .toLong() * 60_000L
 
     /** Bounded background notification runtime; reads runner visibility from [running] when an alert fires. */
-    private val notifications = NotificationDependencies(
+    private val notifications: NotificationDependencies = NotificationDependencies(
         context = appContext,
         intents = platformIntents,
         activeRun = activeRun,
@@ -106,7 +106,7 @@ class AppContainer(context: Context) {
         AndroidReminderScheduler(appContext, platformIntents, notifications.reminderNotification::cancel)
 
     /** Bounded Running runtime shared by the runner UI and Android background entry points. */
-    val running = RunningDependencies(
+    val running: RunningDependencies = RunningDependencies(
         routines = routines,
         activeRun = activeRun,
         completions = completions,
