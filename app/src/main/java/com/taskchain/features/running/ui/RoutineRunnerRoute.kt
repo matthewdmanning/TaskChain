@@ -8,6 +8,7 @@ import androidx.navigationevent.NavigationEventInfo
 import androidx.navigationevent.compose.NavigationBackHandler
 import androidx.navigationevent.compose.rememberNavigationEventState
 import com.taskchain.core.ui.navigationBackPreview
+import com.taskchain.features.keepscreenon.ui.RunKeepScreenOnEffect
 import android.animation.ValueAnimator
 import android.os.Build
 import android.provider.Settings
@@ -148,6 +149,7 @@ internal fun RoutineRunnerRoute(
     val run = presentation.run
     val timing = viewModel.timingFor(run, state.nowEpochMillis)
     runEffects(run)
+    RunKeepScreenOnEffect(run, preferences.keepScreenOnDuringRun)
     NavigationBackHandler(
         state = backState,
         isBackEnabled = run?.status == RunStatus.ACTIVE || presentation.holdingCompletion,
