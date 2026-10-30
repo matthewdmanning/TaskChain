@@ -11,7 +11,7 @@ rather than merging older package layouts or unrelated main-branch changes.
 
 - Notifications owns run content/button policy, background run alert policy and
   delivery, and routine-reminder channel/shade presentation.
-- Execution retains the run engine, foreground feedback and nudge bucket rules.
+- Running retains the run engine, foreground feedback and nudge bucket rules.
   Root binds those rules to a Notifications-owned capability contract.
 - Reminders retains recurrence, snooze/dismiss and alarm restoration. Root maps
   its delivery protocol to Notifications presentation and cancellation callbacks.
@@ -28,7 +28,7 @@ rather than merging older package layouts or unrelated main-branch changes.
 
 - `python scripts/check-feature-boundaries.py`: passed; 76 Kotlin files,
   18 owners, no forbidden feature imports or cycles. Self-tests explicitly reject
-  Notifications dependencies in either direction with Execution and Reminders.
+  Notifications dependencies in either direction with Running and Reminders.
 - All 158 JVM tests passed, with zero failures, errors or skipped tests. The moved
   notification/alert policy suites exercise the root-bound existing run engine.
 - `:app:lintDebug`: passed, zero errors (111 warnings and 7 hints across the app).

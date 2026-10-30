@@ -34,11 +34,11 @@ The machine-local SDK input is `sdk.dir=C\:\\Users\\<you>\\AppData\\Local\\Andro
 
 ## Coding Style & Naming
 
-Use four-space indentation in Kotlin and Gradle Kotlin scripts. Follow existing `UpperCamelCase` type names, `lowerCamelCase` functions and properties, and package names under `com.taskchain`. Keep UI screens state-driven, put run rules in `features/execution/domain` rather than ViewModels, and isolate Android/file APIs behind the existing boundaries. Core imports no feature or executable root, and features receive bounded dependencies rather than `AppContainer`. Run `python scripts/check-feature-boundaries.py` to verify ownership imports and cycles. No formatter or Kotlin-specific lint tool is configured; match nearby code and run Android lint.
+Use four-space indentation in Kotlin and Gradle Kotlin scripts. Follow existing `UpperCamelCase` type names, `lowerCamelCase` functions and properties, and package names under `com.taskchain`. Keep UI screens state-driven, put run rules in `features/running/domain` rather than ViewModels, and isolate Android/file APIs behind the existing boundaries. Core imports no feature or executable root, and features receive bounded dependencies rather than `AppContainer`. Run `python scripts/check-feature-boundaries.py` to verify ownership imports and cycles. No formatter or Kotlin-specific lint tool is configured; match nearby code and run Android lint.
 
 ## Testing Guidelines
 
-Tests use JUnit 4 and are named `*Test.kt`, mirroring production packages (for example, `features/execution/domain/RoutineRunEngineTest.kt`). Add a focused regression test when changing run transitions, persisted timestamps, or confirmation rules. No coverage threshold is configured; run the JVM tests before opening a PR and verify UI or reminder changes on a device when applicable.
+Tests use JUnit 4 and are named `*Test.kt`, mirroring production packages (for example, `features/running/domain/RoutineRunEngineTest.kt`). Add a focused regression test when changing run transitions, persisted timestamps, or confirmation rules. No coverage threshold is configured; run the JVM tests before opening a PR and verify UI or reminder changes on a device when applicable.
 
 ## Commits & Pull Requests
 

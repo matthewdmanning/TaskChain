@@ -1,4 +1,4 @@
-package com.taskchain.features.execution.domain
+package com.taskchain.features.running.domain
 
 import com.taskchain.core.model.CompletionEvent
 import com.taskchain.core.model.MILLIS_PER_SECOND

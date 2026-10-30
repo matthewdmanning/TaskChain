@@ -1,4 +1,4 @@
-package com.taskchain.features.execution.ui
+package com.taskchain.features.running.ui
 
 import org.junit.Assert.assertEquals
 import org.junit.Test

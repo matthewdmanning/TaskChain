@@ -1,4 +1,4 @@
-package com.taskchain.features.execution.ui
+package com.taskchain.features.running.ui
 
 import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.Spring

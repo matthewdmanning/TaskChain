@@ -1,4 +1,4 @@
-package com.taskchain.features.execution.ui
+package com.taskchain.features.running.ui
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect

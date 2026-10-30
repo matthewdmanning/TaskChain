@@ -1,4 +1,4 @@
-package com.taskchain.features.execution.ui
+package com.taskchain.features.running.ui
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -9,9 +9,9 @@ import com.taskchain.core.model.RunTaskStatus
 import com.taskchain.core.model.SoundToken
 import com.taskchain.core.model.withTaskSound
 import com.taskchain.core.model.withUserDefaults
-import com.taskchain.features.execution.domain.RunFeedbackEvent
-import com.taskchain.features.execution.domain.RunFeedbackPolicy
-import com.taskchain.features.execution.ExecutionDependencies
+import com.taskchain.features.running.domain.RunFeedbackEvent
+import com.taskchain.features.running.domain.RunFeedbackPolicy
+import com.taskchain.features.running.RunningDependencies
 import com.taskchain.core.schedule.ReminderPlanner
 import com.taskchain.core.designsystem.RunnerMotion
 import kotlinx.coroutines.delay
@@ -32,7 +32,7 @@ data class RunnerState(
 
 /** Coordinates runner UI and delegates every transition to the RoutineRunEngine. */
 class RoutineRunnerViewModel(
-    private val dependencies: ExecutionDependencies,
+    private val dependencies: RunningDependencies,
     private val routineId: RoutineId,
 ) : ViewModel() {
     val state = MutableStateFlow(RunnerState(nowEpochMillis = dependencies.now()))

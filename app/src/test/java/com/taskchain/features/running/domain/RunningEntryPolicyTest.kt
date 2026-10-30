@@ -1,4 +1,4 @@
-package com.taskchain.features.execution.domain
+package com.taskchain.features.running.domain
 
 import com.taskchain.core.model.RoutineId
 import com.taskchain.core.model.RoutineRun
@@ -8,8 +8,8 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** Verifies that Execution entry blocks only a different active routine. */
-class ExecutionEntryPolicyTest {
+/** Verifies that Running entry blocks only a different active routine. */
+class RunningEntryPolicyTest {
     /** Use this test when guarding start eligibility for absent, same, and different active runs. */
     @Test
     fun startIsBlocked_onlyDifferentActiveRoutine() {

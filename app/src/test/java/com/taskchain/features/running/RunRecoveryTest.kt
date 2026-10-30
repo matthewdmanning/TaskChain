@@ -1,4 +1,4 @@
-package com.taskchain.features.execution
+package com.taskchain.features.running
 
 import com.taskchain.core.data.CompletionRepository
 import com.taskchain.core.data.RoutineRunRepository
@@ -12,7 +12,7 @@ import com.taskchain.core.model.RoutineTask
 import com.taskchain.core.model.RoutineTaskId
 import com.taskchain.core.model.RoutineTemplate
 import com.taskchain.core.model.RunStatus
-import com.taskchain.features.execution.domain.RoutineRunEngine
+import com.taskchain.features.running.domain.RoutineRunEngine
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.runBlocking

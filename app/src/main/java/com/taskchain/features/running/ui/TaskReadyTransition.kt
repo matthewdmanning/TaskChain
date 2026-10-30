@@ -1,4 +1,4 @@
-package com.taskchain.features.execution.ui
+package com.taskchain.features.running.ui
 
 import com.taskchain.core.model.RoutineRun
 import com.taskchain.core.model.RunStatus

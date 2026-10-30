@@ -18,7 +18,7 @@ Dependencies: `RoutineTaskId`.
 
 ## `newRunId` — app/src/main/java/com/taskchain/AppContainer.kt
 
-Use this function when starting a distinct routine execution offline.
+Use this function when starting a distinct routine run offline.
 Inputs: none.
 Dependencies: `RoutineRunId`.
 
@@ -222,7 +222,7 @@ Dependencies: None.
 
 ## `RoutineRunId` — app/src/main/java/com/taskchain/domain/model/Models.kt
 
-Stable identity for one execution of a routine.
+Stable identity for one run of a routine.
 Inputs: val value: String
 Dependencies: None.
 
@@ -264,7 +264,7 @@ Dependencies: `RoutineTask`, `RunTaskStatus`.
 
 ## `RoutineRun` — app/src/main/java/com/taskchain/domain/model/Models.kt
 
-Immutable snapshot of an active or completed routine execution.
+Immutable snapshot of an active or completed routine run.
 Inputs: val id: RoutineRunId, val routineId: RoutineId, val routineTitle: String, val tasks: List<RoutineRunTask>, val currentTaskIndex: Int, val startedAtEpochMillis: Long, val endedAtEpochMillis: Long? = null, val status: RunStatus = RunStatus.ACTIVE, val finishConfirmationRequested: Boolean = false, val abortConfirmationRequested: Boolean = false, val confirmationStartedAtEpochMillis: Long? = null, val taskBeforeFinishConfirmation: RoutineRunTask? = null,
 Dependencies: `RoutineId`, `RoutineRunId`, `RoutineRunTask`, `RunStatus`.
 
@@ -2281,10 +2281,10 @@ Use this function to preserve startup ordering by running migration, routine/his
 Inputs: `migrate` — local-data migration action; `routines`, `completions`, `preferences` — shared repositories to validate; `recover` — terminal-run recovery action.
 Dependencies: Repository `Flow.first`; feature-owned recovery remains injected at the root.
 
-## `ExecutionDependencies` — app/src/main/java/com/taskchain/features/execution/ExecutionDependencies.kt
-Bounds the shared runtime used by the runner UI and execution Android adapters.
+## `RunningDependencies` — app/src/main/java/com/taskchain/features/running/RunningDependencies.kt
+Bounds the shared runtime used by the runner UI and Running Android adapters.
 Inputs: Routine/history/preferences repositories; built-in library; `RoutineRunEngine`; Core `ReminderScheduler`; shared `Mutex`; mutable revision flow; `runnerVisible`; timer/task feedback; run notification/alert adapters; timing limits; run-ID and clock functions; terminal-recovery action.
-Dependencies: Core data/model/platform contracts, execution domain/platform adapters, Kotlin coroutines `Mutex` and `MutableStateFlow`.
+Dependencies: Core data/model/platform contracts, Running domain/platform adapters, Kotlin coroutines `Mutex` and `MutableStateFlow`.
 
 ## `ReminderActions` — app/src/main/java/com/taskchain/features/reminders/ReminderScheduler.kt
 Preserves the stable Snooze and Dismiss action strings used by routine reminder notifications.
@@ -2311,14 +2311,14 @@ Use this function to rebuild saved routine alarms after reboot or local-time cha
 Inputs: Restore broadcast `Intent` (action validation remains in the legacy receiver).
 Dependencies: `RoutineRepository`, `ReminderPlanner.forRestore`, Core `ReminderScheduler`, and the wall clock.
 
-## `handleRunAction` — app/src/main/java/com/taskchain/features/execution/platform/RunNotification.kt
-Use this function to validate and apply one run notification Skip or Complete action under the shared execution lock.
-Inputs: Raw action `Intent`; `ExecutionDependencies` containing the run stores, engine, mutex, revision, notification, and alert adapters.
+## `handleRunAction` — app/src/main/java/com/taskchain/features/notifications/platform/RunNotification.kt
+Use this function to validate and apply one run notification Skip or Complete action under the shared Running lock.
+Inputs: Raw action `Intent`; `RunningDependencies` containing the run stores, engine, mutex, revision, notification, and alert adapters.
 Dependencies: `RunNotificationPolicy`, persisted active-run storage, post-save revision update, and shared platform adapters.
 
-## `handleRunAlert` — app/src/main/java/com/taskchain/features/execution/platform/RunAlerts.kt
+## `handleRunAlert` — app/src/main/java/com/taskchain/features/notifications/platform/RunAlerts.kt
 Use this function to acknowledge due background nudges/timer expiry, emit output once and rearm the next alert under the shared lock.
-Inputs: Raw alert `Intent`; `ExecutionDependencies` containing stores, preferences, engine, mutex, revision, visibility, timing, and outputs.
+Inputs: Raw alert `Intent`; `RunningDependencies` containing stores, preferences, engine, mutex, revision, visibility, timing, and outputs.
 Dependencies: `RunAlertPolicy`, Core task/timer feedback, and `RunAlerts` alarm mapping.
 
 ## `platformEntryPoints` — app/src/main/java/com/taskchain/reminder/LegacyReceivers.kt
@@ -2326,10 +2326,10 @@ Use this function to resolve the provider-backed handler set without importing t
 Inputs: Android `Context`.
 Dependencies: `PlatformEntryPointProvider` implemented by the root `TaskChainApplication`.
 
-## `AppContainer.execution` — app/src/main/java/com/taskchain/AppContainer.kt
-Exposes the one root-constructed `ExecutionDependencies` instance shared by runner UI and background execution handlers.
+## `AppContainer.running` — app/src/main/java/com/taskchain/AppContainer.kt
+Exposes the one root-constructed `RunningDependencies` instance shared by runner UI and background Running handlers.
 Inputs: Root repositories, outputs, platform factories, timing resources, clock/ID functions, and terminal recovery.
-Dependencies: `ExecutionDependencies`, feature execution platform adapters, Core platform ports, and local Android resources.
+Dependencies: `RunningDependencies`, feature Running platform adapters, Core platform ports, and local Android resources.
 
 ## `TaskChainApplication.platformEntryPoints` — app/src/main/java/com/taskchain/TaskChainApplication.kt
 Publishes root-wired platform handlers through the Core provider contract to historical receivers.
@@ -2401,20 +2401,20 @@ Coordinates Today occurrence projection, skip/undo markers, and reminder effects
 Inputs: routine/run/completion stores, built-in library, reminder port, clock, day-start hour, and run-ID factory.
 Dependencies: `projectTodayRoutines`, `skipEvent`, `skipUndoneEvent`, `ReminderPlanner`.
 
-## `ExecutionEntryViewModel` — app/src/main/java/com/taskchain/features/execution/ui/ExecutionEntryViewModel.kt
-Coordinates active-run observation and start conflict decisions at the Execution boundary.
+## `RunningEntryViewModel` — app/src/main/java/com/taskchain/features/running/ui/RunningEntryViewModel.kt
+Coordinates active-run observation and start conflict decisions at the Running boundary.
 Inputs: `RoutineRunRepository` — persisted active run store.
 Dependencies: `startIsBlocked`, active-run observation, Compose state flows.
 
-## `startIsBlocked` — app/src/main/java/com/taskchain/features/execution/domain/ExecutionEntryPolicy.kt
+## `startIsBlocked` — app/src/main/java/com/taskchain/features/running/domain/RunningEntryPolicy.kt
 Use this function to decide whether a different active run blocks a selected routine.
 Inputs: `activeRun` — current persisted run; `routineId` — selected routine identity.
 Dependencies: `RoutineRun.status`, `RoutineRun.routineId`.
 
-## `ExecutionEntryDialog` — app/src/main/java/com/taskchain/features/execution/ui/ExecutionEntryViewModel.kt
+## `RunningEntryDialog` — app/src/main/java/com/taskchain/features/running/ui/RunningEntryViewModel.kt
 Use this function to render the active-run conflict and offer resume or continued browsing.
 Inputs: `viewModel` — entry state/actions; `onResume` — root navigation callback.
-Dependencies: `ExecutionEntryViewModel`, Compose Material3 `AlertDialog`.
+Dependencies: `RunningEntryViewModel`, Compose Material3 `AlertDialog`.
 
 ## `TodayState` — app/src/main/java/com/taskchain/features/scheduling/ui/TodayViewModel.kt
 Represents Scheduling-owned Today projection and the currently resumable active run.
@@ -2431,17 +2431,17 @@ Use this function to render one Today occurrence row and its available action.
 Inputs: `routine` — displayed definition; completion/skip flags — occurrence status; action callbacks — skip, undo, and start behavior.
 Dependencies: Compose row controls, `RoutineTemplate`, Cyberpunk design tokens.
 
-## `ExecutionEntryState` — app/src/main/java/com/taskchain/features/execution/ui/ExecutionEntryViewModel.kt
+## `RunningEntryState` — app/src/main/java/com/taskchain/features/running/ui/RunningEntryViewModel.kt
 Represents active-run observation and pending or blocked routine-start requests.
 Inputs: `activeRun` — current active run; `pendingStart` — selected routine allowed to start; `blockedRoutine` — selected routine waiting on conflict resolution.
 Dependencies: `RoutineRun`, `RoutineTemplate`.
 
-## `ExecutionEntryPolicyTest` — app/src/test/java/com/taskchain/features/execution/domain/ExecutionEntryPolicyTest.kt
-Verifies that Execution entry blocks only a different active routine.
+## `RunningEntryPolicyTest` — app/src/test/java/com/taskchain/features/running/domain/RunningEntryPolicyTest.kt
+Verifies that Running entry blocks only a different active routine.
 Inputs: none.
 Dependencies: JUnit assertions, `startIsBlocked`, core run models.
 
-## `startIsBlocked_onlyDifferentActiveRoutine` — app/src/test/java/com/taskchain/features/execution/domain/ExecutionEntryPolicyTest.kt
+## `startIsBlocked_onlyDifferentActiveRoutine` — app/src/test/java/com/taskchain/features/running/domain/RunningEntryPolicyTest.kt
 Use this function to guard start eligibility for absent, same and different active runs.
 Inputs: none.
 Dependencies: `startIsBlocked`, `RoutineRun`, `RunStatus`, JUnit.
@@ -2468,7 +2468,7 @@ Use this function to persist the keep-screen-on setting under `keep_screen_on_du
 Use this function when Settings toggles whether the Run screen keeps the display awake; input enabled is the new value, dependency is the preference repository.
 
 ## `RunKeepScreenOnEffect` — app/src/main/java/com/taskchain/features/keepscreenon/ui/RunKeepScreenOnEffect.kt
-Applies the feature policy to the run supplied by the root's Execution slot; inputs are the presented run and persisted preference, dependencies are `runKeepsScreenOn` and Core `KeepScreenOnEffect`.
+Applies the feature policy to the run supplied by the root's Running slot; inputs are the presented run and persisted preference, dependencies are `runKeepsScreenOn` and Core `KeepScreenOnEffect`.
 
 ## `KeepScreenOnSettings` — app/src/main/java/com/taskchain/features/keepscreenon/ui/KeepScreenOnSettings.kt
 Observes the feature ViewModel and presents the persisted switch using the shared labeled row; input is `KeepScreenOnViewModel`.
@@ -2483,7 +2483,7 @@ Root-injected composable slots connect independent features without cross-featur
 ## Notifications feature — `features/notifications`
 `RunNotificationPolicy`, its content/clock/target/action types, `RunAlertPolicy`
 and `DueRunAlerts` now belong to Notifications. They consume shared Core run
-snapshots and injected `NotificationRunRules`; they import no Execution types.
+snapshots and injected `NotificationRunRules`; they import no Running types.
 `RunNotification`, `RunAlerts`, `handleRunAction` and `handleRunAlert` move with
 these policies and retain the existing Android identities and persistence order.
 
@@ -2498,7 +2498,7 @@ notification adapters, run rules, clock/configuration, shared mutex/revision and
 runner visibility reader. No root container or other feature is imported.
 
 ## `notificationRunRules` and `showReminderNotification` — NotificationIntegration.kt
-Root-only bridges bind Execution rules to Notifications and map Reminder intent
+Root-only bridges bind Running rules to Notifications and map Reminder intent
 extras/actions into presentation inputs. Button request codes, components,
 actions, extras and flags match the existing reminder protocol.
 
@@ -2507,8 +2507,8 @@ Owns reminder channel creation, permission-gated shade posting and cancellation.
 `show` accepts the title, request code and prepared launch/action PendingIntents;
 its Boolean result preserves permission-gated reminder audio/haptic behavior.
 
-## Execution and Reminder notification callbacks
-`ExecutionDependencies.syncRunNotification`, `syncRunAlerts` and
+## Running and Reminder notification callbacks
+`RunningDependencies.syncRunNotification`, `syncRunAlerts` and
 `remindersExhausted` replace concrete adapter/domain dependencies. Runner ticks
 supply the presented run and time; Notifications suppresses unchanged content.
 `AndroidReminderScheduler.clearNotification` and `ReminderHandlers.showDelivered`

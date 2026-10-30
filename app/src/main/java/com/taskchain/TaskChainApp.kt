@@ -39,9 +39,9 @@ import com.taskchain.core.model.RunStatus
 import com.taskchain.core.model.UserPreferences
 import com.taskchain.features.authoring.ui.RoutineBuilderRoute
 import com.taskchain.features.authoring.ui.RoutineBuilderViewModel
-import com.taskchain.features.execution.ui.ExecutionEntryDialog
-import com.taskchain.features.execution.ui.ExecutionEntryViewModel
-import com.taskchain.features.execution.ui.RoutineRunnerRoute
+import com.taskchain.features.running.ui.RunningEntryDialog
+import com.taskchain.features.running.ui.RunningEntryViewModel
+import com.taskchain.features.running.ui.RoutineRunnerRoute
 import com.taskchain.features.keepscreenon.ui.KeepScreenOnSettings
 import com.taskchain.features.keepscreenon.ui.KeepScreenOnViewModel
 import com.taskchain.features.keepscreenon.ui.RunKeepScreenOnEffect
@@ -98,8 +98,8 @@ fun TaskChainApp(
                             val keepScreenOnViewModel: KeepScreenOnViewModel = viewModel(key = "keep-screen-on") {
                                 KeepScreenOnViewModel(container.preferences)
                             }
-                            val entryViewModel: ExecutionEntryViewModel = viewModel(key = "execution-entry") {
-                                ExecutionEntryViewModel(container.activeRun)
+                            val entryViewModel: RunningEntryViewModel = viewModel(key = "running-entry") {
+                                RunningEntryViewModel(container.activeRun)
                             }
                             val todayListState = rememberSaveable(saver = LazyListState.Saver) { LazyListState() }
                             val routinesListState = rememberSaveable(saver = LazyListState.Saver) { LazyListState() }
@@ -129,7 +129,7 @@ fun TaskChainApp(
                                     entryViewModel.startHandled()
                                 }
                             }
-                            ExecutionEntryDialog(entryViewModel) { navController.navigate(runnerRoute(it)) }
+                            RunningEntryDialog(entryViewModel) { navController.navigate(runnerRoute(it)) }
                         }
                         composable(
                             route = BUILDER_ROUTE,
@@ -166,7 +166,7 @@ fun TaskChainApp(
                             arguments = listOf(navArgument(ROUTINE_ID_ARGUMENT) { type = NavType.StringType }),
                         ) { entry ->
                             RoutineRunnerRoute(
-                                dependencies = container.execution,
+                                dependencies = container.running,
                                 preferences = preferences,
                                 routineId = RoutineId(requireNotNull(entry.arguments?.getString(ROUTINE_ID_ARGUMENT))),
                                 onFinished = navController::popBackStack,

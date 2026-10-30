@@ -1,4 +1,4 @@
-package com.taskchain.features.execution
+package com.taskchain.features.running
 
 import com.taskchain.core.data.BuiltInRoutineLibrary
 import com.taskchain.core.data.CompletionRepository
@@ -10,12 +10,12 @@ import com.taskchain.core.model.RoutineRunId
 import com.taskchain.core.platform.ReminderScheduler
 import com.taskchain.core.platform.TaskFeedback
 import com.taskchain.core.platform.TimerFeedback
-import com.taskchain.features.execution.domain.RoutineRunEngine
+import com.taskchain.features.running.domain.RoutineRunEngine
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.sync.Mutex
 
-/** Bounded shared runtime used by the runner UI and the execution Android adapters. */
-class ExecutionDependencies(
+/** Bounded shared runtime used by the runner UI and the Running Android adapters. */
+class RunningDependencies(
     /** Local routine definitions used when starting and completing runs. */
     val routines: RoutineRepository,
     /** Persisted active run storage. */

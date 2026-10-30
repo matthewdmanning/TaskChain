@@ -11,7 +11,7 @@ Severity: **H** = rule drift or divergent behavior likely; **M** = boundary eros
 | Domino dependency | Main sources clean; tests and checker leak | 1.1, 1.2 |
 | Clone and own | Main problem area | 2.1, 2.2, 2.3, 2.4 |
 | Cross-feature envy (via root) | Present | 3.1, 3.2, 3.3 |
-| God slice | Execution UI layer | 4.1, 4.2 |
+| God slice | Running UI layer | 4.1, 4.2 |
 | Fake shared core | Minor; mostly justified by `architecture.md` | 5.1–5.4 |
 | Leaky technical UI | Token bypass widespread | 6.1, 6.2 |
 | Tramp data | Holder duplication | 7.1, 7.2 |
@@ -20,12 +20,12 @@ Severity: **H** = rule drift or divergent behavior likely; **M** = boundary eros
 ## 1. Domino dependency / import enforcement
 
 - **1.1 H — tests cross owners; checker skips `app/src/test`** (`check-feature-boundaries.py:56` scans `app/src/main/java` only).
-  - `test/.../core/model/SubtaskSerializationTest.kt:3` imports `features.execution.domain.RoutineRunEngine`.
-  - `test/.../features/notifications/domain/RunAlertPolicyTest.kt:3-4`, `RunNotificationPolicyTest.kt:3-4` import root `notificationRunRules` and the Execution engine.
+  - `test/.../core/model/SubtaskSerializationTest.kt:3` imports `features.Running.domain.RoutineRunEngine`.
+  - `test/.../features/notifications/domain/RunAlertPolicyTest.kt:3-4`, `RunNotificationPolicyTest.kt:3-4` import root `notificationRunRules` and the Running engine.
   - Contradicts `docs/feature-refactor-plan.md:32` ("Tests follow the owner of their assertions").
   - Fix: scan test sources; move cross-owner tests to root `com.taskchain`, or use `NotificationRunRules` fakes.
 - **1.2 M — char literal `'"'` defeats string stripping** (`check-feature-boundaries.py:80`). Reproduced in a scratch copy: a forbidden qualified reference after `'"'` passes. Fix: strip char literals before strings.
-- **1.3 M — shared `R` resources unchecked** (`:84-85`). Cross-owner resources: `R.integer.reminder_snooze_minutes` (reminders, notifications), `R.string.resume_routine` (execution, scheduling), `start_routine`/`new_routine` (core.browsing, scheduling), `R.string.cancel` (authoring, scheduling). Fix: owner-prefixed resource names, or move shared values to Core-owned resource files.
+- **1.3 M — shared `R` resources unchecked** (`:84-85`). Cross-owner resources: `R.integer.reminder_snooze_minutes` (reminders, notifications), `R.string.resume_routine` (Running, scheduling), `start_routine`/`new_routine` (core.browsing, scheduling), `R.string.cancel` (authoring, scheduling). Fix: owner-prefixed resource names, or move shared values to Core-owned resource files.
 - **1.4 L — no intra-owner layering rule.** No current violation (no Android imports in `*/domain`, `core/model`, `core/schedule`). Fix: forbid `android*`/`.ui` imports from `*/domain`.
 - Clean: Core↔Core cycles, wildcard/aliased imports and qualified references are detected; no main-source Core→feature or feature→feature imports.
 
@@ -39,8 +39,8 @@ Severity: **H** = rule drift or divergent behavior likely; **M** = boundary eros
   - `ScheduleRule(...)` built three times (`:127`, `:228`, `:629`).
   - Fix: `BuilderState.toTemplate()`, then call `normalizedForSave`/`validationIssues()`; map Core issues to `BuilderValidationError`.
 - **2.2 H — "current task is running" predicate (ACTIVE, no confirmation, PENDING, unpaused) written separately:**
-  - `features/execution/domain/RunFeedbackPolicy.kt:36-40`, `:51-53`
-  - `features/execution/ui/RoutineRunnerViewModel.kt:209-213`
+  - `features/running/domain/RunFeedbackPolicy.kt:36-40`, `:51-53`
+  - `features/running/ui/RoutineRunnerViewModel.kt:209-213`
   - `features/notifications/domain/RunAlertPolicy.kt:52`, `:79`
   - Variant: `RoutineRunEngine.kt:338-343` `requiresRunnerScreen` (also true during confirmation).
   - Fix: one `RoutineRunEngine.isTaskRunning(run)`, exposed via `NotificationRunRules`.
@@ -53,19 +53,19 @@ Severity: **H** = rule drift or divergent behavior likely; **M** = boundary eros
 
 ## 3. Cross-feature envy (routed through root)
 
-- **3.1 H — Runner rule owned by Notifications, injected back into Execution.** The `CONTEXT.md` nudge reminder limit lives in `RunAlertPolicy.remindersExhausted` (`RunAlertPolicy.kt:26`); `AppContainer.kt:112-113` binds it into `ExecutionDependencies`; used at `RoutineRunnerViewModel.kt:220`. Fix: move it to Execution domain; expose to Notifications via `NotificationRunRules`.
-- **3.2 H — active-run navigation rule in root.** `TaskChainApp.kt:179-191` combines `observeActive()` with `runEngine::requiresRunnerScreen` and force-navigates; `:193-203` applies a separate `RunStatus.ACTIVE` rule. `feature-folder-draft.md` M03 assigns active-run readiness to Execution. Fix: Execution exposes `Flow<RoutineId?>`; root only navigates.
-- **3.3 M — root reaches into feature internals.** Root imports `domain.*` and `platform.*` directly (e.g. `RoutineRunEngine`, `RunFeedbackPolicy`, `RunAlertPolicy`, `RunNotification`, `AndroidReminderScheduler.EXTRA_*`). Only Execution and Notifications have a `*Dependencies` entry. `NotificationIntegration.kt:16-54` holds untested adapter logic that feature tests import (1.1). Fix: one public entry file per feature; root never imports `domain.*`; move adapters to a tested root integration file.
+- **3.1 H — Runner rule owned by Notifications, injected back into Running.** The `CONTEXT.md` nudge reminder limit lives in `RunAlertPolicy.remindersExhausted` (`RunAlertPolicy.kt:26`); `AppContainer.kt:112-113` binds it into `RunningDependencies`; used at `RoutineRunnerViewModel.kt:220`. Fix: move it to Running domain; expose to Notifications via `NotificationRunRules`.
+- **3.2 H — active-run navigation rule in root.** `TaskChainApp.kt:179-191` combines `observeActive()` with `runEngine::requiresRunnerScreen` and force-navigates; `:193-203` applies a separate `RunStatus.ACTIVE` rule. `feature-folder-draft.md` M03 assigns active-run readiness to Running. Fix: Running exposes `Flow<RoutineId?>`; root only navigates.
+- **3.3 M — root reaches into feature internals.** Root imports `domain.*` and `platform.*` directly (e.g. `RoutineRunEngine`, `RunFeedbackPolicy`, `RunAlertPolicy`, `RunNotification`, `AndroidReminderScheduler.EXTRA_*`). Only Running and Notifications have a `*Dependencies` entry. `NotificationIntegration.kt:16-54` holds untested adapter logic that feature tests import (1.1). Fix: one public entry file per feature; root never imports `domain.*`; move adapters to a tested root integration file.
 
 ## 4. God slice
 
-- **4.1 M — `features/execution/ui/RoutineRunnerViewModel.kt` (393 lines), six jobs:** run bootstrap/default sounds/reminder clearing (`:377-388`), tick clock (`:60-65`), foreground feedback (`:183-251`), visibility handoff (`:91-101`), external-save adoption (`:257-263`), terminal persistence + history + rescheduling (`:305-373`).
+- **4.1 M — `features/running/ui/RoutineRunnerViewModel.kt` (393 lines), six jobs:** run bootstrap/default sounds/reminder clearing (`:377-388`), tick clock (`:60-65`), foreground feedback (`:183-251`), visibility handoff (`:91-101`), external-save adoption (`:257-263`), terminal persistence + history + rescheduling (`:305-373`).
   - Rule leak: `complete()` `:112-122` decides readiness delay (a `CONTEXT.md` invariant); same check in `RunPresentation.kt:100-105`.
   - Reschedule try/catch duplicated (`:162-171`, `:329-338`).
   - Fix: `engine.completeCurrent(run, now, readinessDelay)`; extract a terminal-run writer shared with `RunRecovery.kt`.
-- **4.2 M — `features/execution/ui/RoutineRunnerRoute.kt` (821 lines)** calls the engine directly for timing (`:196-206`), decides Back (`:176-182`), repeats paused-or-skipped checks (`:288,529,537,541`) and hosts the countdown dial (`:615-776`). Fix: derived times in `RunnerState`, Back decision in engine, dial in its own file.
+- **4.2 M — `features/running/ui/RoutineRunnerRoute.kt` (821 lines)** calls the engine directly for timing (`:196-206`), decides Back (`:176-182`), repeats paused-or-skipped checks (`:288,529,537,541`) and hosts the countdown dial (`:615-776`). Fix: derived times in `RunnerState`, Back decision in engine, dial in its own file.
 - **4.3 M — `RoutineBuilderViewModel.kt` (665 lines):** mostly 2.1; removing duplication leaves draft mutation.
-- **4.4 L — `ExecutionEntryViewModel.kt:66-92`** holds a Composable dialog; `status == ACTIVE` checked three times. Fix: move dialog to a UI file.
+- **4.4 L — `RunningEntryViewModel.kt:66-92`** holds a Composable dialog; `status == ACTIVE` checked three times. Fix: move dialog to a UI file.
 - Not a God class: `RoutineRunEngine` (492 lines) holds only transitions, clocks and acknowledgement, per `architecture.md`.
 
 ## 5. Fake shared core (three-strike rule)
@@ -76,7 +76,7 @@ Counts are distinct non-Core owners naming the declaration.
 - **5.2 M — single-feature helpers in Core:**
   - `routineDurationParts` (`core/browsing/HomeScreen.kt:153`) used only by authoring. Move to `features/authoring/ui`.
   - `completedSinceCycle`/`completedRoutineSinceCycle` (`core/schedule/ReminderPlanner.kt:64,89`), `afterDelivery` (`:208`) and the two-hour repeat window used only by reminders. Move to `features/reminders`, keeping shared planning in Core.
-- **5.3 M — run timing in design system:** `RunnerMotion.taskReadyTransitionDurationMillis` (`core/designsystem/RunnerMotion.kt:19`) sets the persisted start delay (`RoutineRunnerViewModel.kt:118`). Fix: move run-delay constants to `features/execution/domain`; keep animation values in designsystem.
+- **5.3 M — run timing in design system:** `RunnerMotion.taskReadyTransitionDurationMillis` (`core/designsystem/RunnerMotion.kt:19`) sets the persisted start delay (`RoutineRunnerViewModel.kt:118`). Fix: move run-delay constants to `features/running/domain`; keep animation values in designsystem.
 - **5.4 L — naming:** `TimerFeedback` lives in `core/platform/ReminderPlatform.kt:37`. Move to its own file.
 - Justified single-owner Core (documented in `architecture.md`): `core/browsing`, `core/navigation`, `core/startup`, `KeepScreenOnEffect`, `RunnerGestureTokens`.
 - Healthy shared Core: repository interfaces (5 owners each), `RunStatus` (6), `ReminderScheduler` port (5), `NextTriggerCalculator`, `RoutineValidation` invariants.
@@ -92,7 +92,7 @@ Counts are distinct non-Core owners naming the declaration.
 
 - **7.1 M — intervals passed standalone and inside the holder:** `RunAlerts.kt:26-27` and `NotificationDependencies.kt:25-26` both carry `nudgeIntervalMillis`/`untimedIdleLimitMillis`; `RunAlerts.kt:82-83` passes them again. Fix: one config owner.
 - **7.2 L — `NotificationNudge` re-wraps `NudgeDecision` field for field** (`NotificationIntegration.kt:25-28`). Acceptable under the no-cross-import rule; drop if `NudgeDecision` moves to Core.
-- **7.3 L — `ExecutionDependencies` exposes writable `Mutex`, `MutableStateFlow` revision and `@Volatile var runnerVisible`** (`:18-38`), read by Notifications via root (`AppContainer.kt:123`). Fix: expose read-only views.
+- **7.3 L — `RunningDependencies` exposes writable `Mutex`, `MutableStateFlow` revision and `@Volatile var runnerVisible`** (`:18-38`), read by Notifications via root (`AppContainer.kt:123`). Fix: expose read-only views.
 - **7.4 M — `AppContainer` near god object:** ~12 public members; `TaskChainApp(container)` builds 8 ViewModels positionally (e.g. `TodayViewModel`, 8 args, `TaskChainApp.kt:80-91`). Contradicts `feature-refactor-plan.md:39` ("ViewModel factories"). Fix: per-feature factory, as Builder does (`TaskChainApp.kt:144`).
 
 ## 8. Layered wolf
@@ -110,10 +110,10 @@ Counts are distinct non-Core owners naming the declaration.
 ## Recommended order
 
 1. 2.1 (Builder duplication) — pure deletion toward Core calls; existing validation tests cover it.
-2. 2.2 + 3.1 — one running predicate and reminder-limit rule in Execution domain.
+2. 2.2 + 3.1 — one running predicate and reminder-limit rule in Running domain.
 3. 1.1 + 1.2 — extend checker to tests; fix char-literal stripping; relocate three tests.
 4. 2.3, 2.4 (needs a decision on Progress day start), 2.6.
-5. 3.2, 3.3, 7.4 — feature entry files and factories; Execution-owned active-run flow.
+5. 3.2, 3.3, 7.4 — feature entry files and factories; Running-owned active-run flow.
 6. 6.1/6.2 token migration, screen by screen.
 
 Each behavior change needs a focused JVM regression test (AGENTS.md).

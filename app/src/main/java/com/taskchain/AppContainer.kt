@@ -18,13 +18,13 @@ import com.taskchain.core.model.RoutineTaskId
 import com.taskchain.core.platform.PlatformEntryPoints
 import com.taskchain.core.platform.PlatformIntents
 import com.taskchain.core.platform.ReminderScheduler
-import com.taskchain.features.execution.domain.RoutineRunEngine
+import com.taskchain.features.running.domain.RoutineRunEngine
 import com.taskchain.core.platform.TaskFeedback
 import com.taskchain.core.platform.TimerFeedback
 import com.taskchain.features.notifications.platform.ReminderNotification
 import com.taskchain.features.notifications.NotificationDependencies
 import com.taskchain.features.notifications.domain.RunAlertPolicy
-import com.taskchain.features.execution.ExecutionDependencies
+import com.taskchain.features.running.RunningDependencies
 import com.taskchain.features.notifications.platform.RunAlerts
 import com.taskchain.features.notifications.platform.RunNotification
 import com.taskchain.features.notifications.platform.handleRunAction
@@ -43,7 +43,7 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.serialization.json.Json
-import com.taskchain.features.execution.recoverTerminalSession
+import com.taskchain.features.running.recoverTerminalSession
 
 /** Small application composition root that wires domain ports to local Android adapters. */
 class AppContainer(context: Context) {
@@ -93,8 +93,8 @@ class AppContainer(context: Context) {
         untimedReminderLimitMillis,
     )
 
-    /** Bounded execution runtime shared by the runner UI and Android background entry points. */
-    val execution = ExecutionDependencies(
+    /** Bounded Running runtime shared by the runner UI and Android background entry points. */
+    val running = RunningDependencies(
         routines = routines,
         activeRun = activeRun,
         completions = completions,
@@ -124,7 +124,7 @@ class AppContainer(context: Context) {
         runRules = notificationRules,
         runMutex = runMutex,
         runRevision = runRevision,
-        isRunnerVisible = { execution.runnerVisible },
+        isRunnerVisible = { running.runnerVisible },
         timerFeedback = timerFeedback,
         taskFeedback = taskFeedback,
         runNotification = runNotification,
@@ -163,7 +163,7 @@ class AppContainer(context: Context) {
     /** Use this function when creating a new routine-task identity offline. */
     fun newTaskId(): RoutineTaskId = RoutineTaskId(UUID.randomUUID().toString())
 
-    /** Use this function when starting a distinct routine execution offline. */
+    /** Use this function when starting a distinct routine run offline. */
     fun newRunId(): RoutineRunId = RoutineRunId(UUID.randomUUID().toString())
 
     /** Use this function wherever domain state needs wall-clock epoch milliseconds. */

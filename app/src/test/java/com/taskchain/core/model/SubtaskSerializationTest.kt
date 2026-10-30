@@ -1,6 +1,6 @@
 package com.taskchain.core.model
 
-import com.taskchain.features.execution.domain.RoutineRunEngine
+import com.taskchain.features.running.domain.RoutineRunEngine
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import org.junit.Assert.assertEquals

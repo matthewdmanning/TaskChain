@@ -15,7 +15,7 @@ No other changes from `main` were merged.
 - `core/ui/KeepScreenOnEffect.kt`: generic host-view flag acquisition/restoration.
 - `core/model` and `core/data`: shared preferences and existing DataStore ownership.
 - `TaskChainApp`: constructs the feature ViewModel and injects Settings content and
-  the run effect. Settings and Execution do not depend on the new feature.
+  the run effect. Settings and Running do not depend on the new feature.
 - `values/keep_screen_on_strings.xml`: feature-owned switch label.
 
 The persisted key remains `keep_screen_on_during_run`, default true. Pausing or

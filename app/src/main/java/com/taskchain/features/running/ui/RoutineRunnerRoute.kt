@@ -3,7 +3,7 @@
     androidx.compose.foundation.layout.ExperimentalLayoutApi::class,
 )
 
-package com.taskchain.features.execution.ui
+package com.taskchain.features.running.ui
 import androidx.navigationevent.NavigationEventInfo
 import androidx.navigationevent.compose.NavigationBackHandler
 import androidx.navigationevent.compose.rememberNavigationEventState
@@ -113,11 +113,11 @@ import com.taskchain.core.designsystem.Button
 import com.taskchain.core.designsystem.CyberButton
 import com.taskchain.core.designsystem.TextButton
 import com.taskchain.core.ui.SECONDS_PER_MINUTE
-import com.taskchain.features.execution.ExecutionDependencies
+import com.taskchain.features.running.RunningDependencies
 
 @Composable
 internal fun RoutineRunnerRoute(
-    dependencies: ExecutionDependencies,
+    dependencies: RunningDependencies,
     preferences: UserPreferences,
     routineId: RoutineId,
     onFinished: () -> Unit,

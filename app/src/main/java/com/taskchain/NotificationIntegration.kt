@@ -4,15 +4,15 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import com.taskchain.core.platform.PlatformIntents
-import com.taskchain.features.execution.domain.RoutineRunEngine
-import com.taskchain.features.execution.domain.RunFeedbackPolicy
+import com.taskchain.features.running.domain.RoutineRunEngine
+import com.taskchain.features.running.domain.RunFeedbackPolicy
 import com.taskchain.features.notifications.domain.NotificationNudge
 import com.taskchain.features.notifications.domain.NotificationRunRules
 import com.taskchain.features.notifications.platform.ReminderNotification
 import com.taskchain.features.reminders.AndroidReminderScheduler
 import com.taskchain.features.reminders.ReminderActions
 
-/** Binds notification capabilities to the single execution engine without feature-to-feature imports. */
+/** Binds notification capabilities to the single Running engine without feature-to-feature imports. */
 internal fun notificationRunRules(engine: RoutineRunEngine) = NotificationRunRules(
     remainingMillis = engine::remainingMillis,
     subtaskRemainingMillis = engine::subtaskRemainingMillis,

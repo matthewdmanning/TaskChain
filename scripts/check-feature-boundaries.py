@@ -100,18 +100,18 @@ def check(root):
 
 def self_test():
     """Use this function to verify import direction and cycle detection rules; dependencies: owner, forbidden and cycle."""
-    assert owner("com.taskchain.features.execution.ui") == "features.execution"
+    assert owner("com.taskchain.features.running.ui") == "features.running"
     assert owner("com.taskchain.core.data") == "core.data"
-    assert forbidden("core.data", "features.execution")
-    assert forbidden("features.execution", "root")
+    assert forbidden("core.data", "features.running")
+    assert forbidden("features.running", "root")
     assert forbidden("features.settings", "features.authoring")
-    assert forbidden("features.execution", "features.notifications")
-    assert forbidden("features.notifications", "features.execution")
+    assert forbidden("features.running", "features.notifications")
+    assert forbidden("features.notifications", "features.running")
     assert forbidden("features.reminders", "features.notifications")
     assert forbidden("features.notifications", "features.reminders")
-    assert not forbidden("root", "features.execution")
-    assert not forbidden("features.execution", "core.data")
-    assert not forbidden("features.execution", "features.execution")
+    assert not forbidden("root", "features.running")
+    assert not forbidden("features.running", "core.data")
+    assert not forbidden("features.running", "features.running")
     assert cycle({"a": {"b"}, "b": set()}) is None
     assert cycle({"a": {"b"}, "b": {"a"}}) == ["a", "b", "a"]
     with tempfile.TemporaryDirectory() as directory:
@@ -120,7 +120,7 @@ def self_test():
         file.parent.mkdir(parents=True)
         file.write_text(
             'package com.taskchain.core.data\nimport com.taskchain.R\n'
-            '// com.taskchain.AppContainer\nval example = "com.taskchain.features.execution"\n',
+            '// com.taskchain.AppContainer\nval example = "com.taskchain.features.running"\n',
             encoding="utf-8",
         )
         assert not check(root)[2], "Comments, strings and generated resources are not source dependencies"
