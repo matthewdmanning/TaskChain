@@ -117,3 +117,33 @@ Counts are distinct non-Core owners naming the declaration.
 6. 6.1/6.2 token migration, screen by screen.
 
 Each behavior change needs a focused JVM regression test (AGENTS.md).
+
+## Remediation status (2026-10-30)
+
+Execution was renamed to Running (`features/running`). All **M** items, plus 1.1, 2.1 and 3.2 (prerequisites), are implemented; remaining **L** items are open unless listed. Not compiled: the session had no JDK 17 or Android SDK. Run `:app:compileDebugKotlin :app:testDebugUnitTest :app:lintDebug :app:assembleDeviceTestAndroidTest`.
+
+| Item | Change |
+|---|---|
+| 1.1 | Checker scans `test`/`androidTest`; owner tests use fakes (`FakeNotificationRunRules`); real-engine assertions moved to root `NotificationIntegrationTest`; AGENTS.md test-type table |
+| 1.2 | Char literals stripped before reference scan |
+| 1.3 | `RESOURCE_OWNERS` rule; cross-owner strings moved to `strings.xml`; `settings_strings.xml` added; `punch_strings.xml` removed. Names unchanged |
+| 2.1/4.3 | Builder maps `toTemplate()` and calls Core `validationIssues`, `normalizedForSave`, legacy-settings rules |
+| 2.3 | `core/model/FeedbackGates` shared by runner and background alerts |
+| 2.4 | 2 AM day start (`core/schedule/DayStart.kt`) for Home, Progress and completion-based next reminders |
+| 2.5 | `RunFeedbackPolicy.nextNudgeAt` via `NotificationRunRules` |
+| 2.6 | `core/model/RunTimestamps.completedAtOrNull` |
+| 3.2 | `RunningDependencies.runnerScreenRoutineIds`; root only navigates |
+| 3.3 | Entry file per feature; checker forbids root use of `features.*.domain`/`platform` |
+| 4.1 | `completeCurrentWithReadiness`, `TerminalRunWriter` (shared with recovery) |
+| 4.2 | `RunTiming`, `systemBack`, `RunCountdownDial.kt` |
+| 5.1 | `RepeatedPath*` and their resources deleted |
+| 5.2 | `routineDurationParts` → authoring; reminder repeat rules → `features/reminders/ReminderRepeatRules.kt` |
+| 5.3 | `features/running/domain/RunReadiness` |
+| 6.1/6.2/6.3 (runner) | `TaskChainDesignSystem` Space/Sizes/Strokes/Dial/Colors/Shapes/TextStyles; checker forbids `CyberTheme.`, `CyberPrimitives.`, `MaterialTheme.typography` in features |
+| 7.1 | `RunAlerts` sole owner of cadence/limit |
+| 7.4 | Feature `*Dependencies` factories; `AppContainer` internals private |
+
+Deliberate behavior changes:
+- Progress trend days start at 2 AM.
+- A completion between midnight and 2 AM schedules that night's occurrence. A routine scheduled before 2 AM, completed after 2 AM, skips the next calendar night's occurrence (it belongs to the handled day).
+- First terminal write skips a duplicate history append, matching retry/recovery.

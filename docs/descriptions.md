@@ -526,12 +526,6 @@ Use this function when no compatible active run exists for the requested routine
 Inputs: none.
 Dependencies: `ProgressSummary`, `RoutineRun`, `get`, `load`, `newRunId`, `now`, `routine`, `start`.
 
-## `ProgressViewModel` — app/src/main/java/com/taskchain/ui/FeatureViewModels.kt
-
-Projects local completion events into the small progress summary.
-Inputs: container: AppContainer
-Dependencies: `AppContainer`, `ProgressSummary`, `now`, `observeAll`, `projectProgress`.
-
 ## `SettingsViewModel` — app/src/main/java/com/taskchain/ui/FeatureViewModels.kt
 
 Coordinates Settings UI with persisted user preferences.
@@ -687,18 +681,6 @@ Dependencies: None.
 Derived progress metrics that are never stored as mutable counters.
 Inputs: val completedRuns: Int, val abortedRuns: Int, val actualDurationMillis: Long, val taskAdherencePercent: Int, val skippedTaskPercent: Int, val lastSevenDays: List<DailyCompletion>,
 Dependencies: `DailyCompletion`.
-
-## `projectProgress` — app/src/main/java/com/taskchain/domain/progress/ProgressSummary.kt
-
-Use this function when Progress needs a summary derived from durable completion events.
-Inputs: events: List<CompletionEvent>, nowEpochMillis: Long, timeZone: TimeZone = TimeZone.getDefault(),
-Dependencies: `CompletionEvent`, `DailyCompletion`, `ProgressSummary`, `RunStatus`, `RunTaskStatus`, `localDayStart`.
-
-## `localDayStart` — app/src/main/java/com/taskchain/domain/progress/ProgressSummary.kt
-
-Use this function when grouping an event into a local-day progress trend.
-Inputs: timestamp: Long, timeZone: TimeZone
-Dependencies: None.
 
 ## `ProgressSummaryTest` — app/src/test/java/com/taskchain/domain/progress/ProgressSummaryTest.kt
 
@@ -1048,35 +1030,11 @@ Use this function to verify a repeated prompt yields to the next regular task oc
 Inputs: none.
 Dependencies: `NextTriggerCalculator`, `ScheduleFrequency`, `ScheduleRule`, `nextRepeatedTriggerEpochMillis`.
 
-## `nextTriggerAfterCompletionEpochMillis` — app/src/main/java/com/taskchain/reminder/NextTriggerCalculator.kt
-
-Use this function after completing a scheduled task to start recurrence on a later local calendar day.
-Inputs: rule: ScheduleRule, completedAtEpochMillis: Long, timeZone: TimeZone = TimeZone.getDefault(),
-Dependencies: `ScheduleFrequency`, `ScheduleRule`, `nextTriggerEpochMillis`.
-
 ## `projectTodayRoutines` — app/src/main/java/com/taskchain/domain/home/TodayProjection.kt
 
 Use this function when Home needs only the scheduled occurrences actionable on the current local date.
 Inputs: routines: List<RoutineTemplate>, activeRun: RoutineRun?, history: List<CompletionEvent>, nowEpochMillis: Long, timeZone: TimeZone = TimeZone.getDefault(),
 Dependencies: `CompletionEvent`, `RoutineRun`, `RoutineTemplate`, `RunTaskStatus`, `ScheduleFrequency`, `activeRun`, `get`, `routine`, `schedule`, `task`.
-
-## `completedSinceCycle` — app/src/main/java/com/taskchain/reminder/ReminderScheduler.kt
-
-Use this function when a repeated task alert must honor a completion persisted in an active run or history.
-Inputs: routineId: String, taskId: String, cycleStartEpochMillis: Long, activeRun: RoutineRun?, history: List<CompletionEvent>,
-Dependencies: `CompletionEvent`, `RoutineRun`, `RunTaskStatus`, `activeRun`, `task`.
-
-## `ReminderRepeatTest` — app/src/test/java/com/taskchain/reminder/ReminderRepeatTest.kt
-
-Verifies that repeated alerts stop only for the task's current scheduled cycle.
-Inputs: none.
-Dependencies: None.
-
-## `completedTaskStopsOnlyItsCurrentCycle` — app/src/test/java/com/taskchain/reminder/ReminderRepeatTest.kt
-
-Use this function to verify active and historical completions stop repeats without hiding a new occurrence.
-Inputs: none.
-Dependencies: `CompletionEvent`, `RoutineId`, `RoutineRun`, `RoutineRunId`, `RoutineRunTask`, `RoutineTask`, `RoutineTaskId`, `RunStatus`, `RunTaskStatus`, `completedSinceCycle`, `task`.
 
 ## `ScheduleFrequency` — app/src/main/java/com/taskchain/domain/model/Models.kt
 
@@ -1294,12 +1252,6 @@ Identifies a routine-builder field or persistence failure that the UI can explai
 Constructor inputs: none.
 Dependencies: `BuilderState`, `RoutineBuilderViewModel`.
 
-## `validateBuilderState` — app/src/main/java/com/taskchain/ui/FeatureViewModels.kt
-
-Use this function to return field-specific errors for the current builder draft at a fixed time.
-Inputs: `state` — the editable draft; `nowEpochMillis` — the fixed comparison clock.
-Dependencies: `BuilderState`, `BuilderValidationError`, `ScheduleFrequency`, `ScheduleRule`.
-
 ## `mutateDraft` — app/src/main/java/com/taskchain/ui/FeatureViewModels.kt
 
 Use this function to apply a user draft mutation while preserving only still-relevant validation errors.
@@ -1428,12 +1380,6 @@ Inputs: enabled: Boolean
 Dependencies: DataStore boolean preference.
 Returns: none.
 
-## `routineDurationParts` — app/src/main/java/com/taskchain/ui/TaskChainApp.kt
-
-Use this function to split persisted routine duration seconds into display minutes and seconds without losing values longer than one hour.
-Inputs: `seconds` — non-negative persisted duration.
-Dependencies: None.
-
 ## `TaskReadyPhase` — app/src/main/java/com/taskchain/ui/TaskReadyTransition.kt
 
 Labels the fixed preparation phases shown before the next timed task begins.
@@ -1444,7 +1390,7 @@ Dependencies: None.
 
 Use this function to map elapsed preparation time to Get Ready, countdown, or completion state.
 Inputs: `elapsedMillis` — elapsed transition time.
-Dependencies: `RunnerMotion` timing constants.
+Dependencies: `RunReadiness` timing constants.
 
 ## `shouldHoldTaskReadyTransition` — app/src/main/java/com/taskchain/ui/TaskReadyTransition.kt
 
@@ -1463,12 +1409,6 @@ Dependencies: None.
 Use this function to invoke Android vibration with the requested duration and amplitude on supported API levels.
 Inputs: `context` — Android vibration service source; `durationMillis` — pulse duration; `amplitude` — Android amplitude.
 Dependencies: `Vibrator`, `VibrationEffect`.
-
-## `builder_punch_DurationFormatTest` — app/src/test/java/com/taskchain/ui/builder_punch_DurationFormatTest.kt
-
-Verifies routine-builder duration formatting preserves minute and second components across hour boundaries.
-Constructor inputs: none.
-Dependencies: `routineDurationParts`.
 
 ## `pressAction` — app/src/main/java/com/taskchain/ui/PressFeedback.kt
 
@@ -1753,16 +1693,6 @@ Maps one routine occurrence to the complete adapter request. Use this function w
 Inputs: routine receiver and triggerAtEpochMillis - selected occurrence
 Dependencies: Domain model snapshots, ReminderRequest; NextTriggerCalculator for planning.
 
-## completedSinceCycle - app/src/main/java/com/taskchain/domain/schedule/ReminderPlanner.kt
-Checks whether a task completed during the current reminder cycle. Use this function before rearming repeated task prompts; inputs are routine/task ids, cycle start, active run, and completion history, and it depends only on persisted run timestamps and statuses.
-Inputs: routineId, taskId, cycleStartEpochMillis, activeRun, history - completion snapshots
-Dependencies: Domain model snapshots, ReminderRequest; NextTriggerCalculator for planning.
-
-## completedRoutineSinceCycle - app/src/main/java/com/taskchain/domain/schedule/ReminderPlanner.kt
-Checks whether a routine completed during the current reminder cycle. Use this function before rearming repeated routine prompts; inputs are the routine id, cycle start, active run, and completion history, and it depends on completed status plus the persisted end time.
-Inputs: routineId, cycleStartEpochMillis, activeRun, history - completion snapshots
-Dependencies: Domain model snapshots, ReminderRequest; NextTriggerCalculator for planning.
-
 ## ReminderPlanner - app/src/main/java/com/taskchain/domain/schedule/ReminderPlanner.kt
 Produces platform-neutral reminder changes for routine lifecycle events. Use these functions from ViewModels and broadcast receivers; inputs are domain snapshots and epoch times, and the only dependency is [NextTriggerCalculator], with no Android state.
 Inputs: None.
@@ -1776,16 +1706,6 @@ Dependencies: Domain model snapshots, ReminderRequest; NextTriggerCalculator for
 ## forRestore - app/src/main/java/com/taskchain/domain/schedule/ReminderPlanner.kt
 Plans alarm restoration after reboot or local-time changes. Use this function with one saved routine and current epoch; routine-level settings suppress legacy task alarms, while a routine with no settings restores each future task alarm with its own gates.
 Inputs: routine - saved snapshot; nowEpochMillis - restoration time
-Dependencies: Domain model snapshots, ReminderRequest; NextTriggerCalculator for planning.
-
-## afterCompletion - app/src/main/java/com/taskchain/domain/schedule/ReminderPlanner.kt
-Plans the next alarm after a routine completion. Use this function with the completed routine when available, its stable id, and completion epoch; a next recurring trigger schedules the routine and every other case cancels its routine alarm.
-Inputs: routine - optional saved snapshot; routineId - completed identity; completedAtEpochMillis - completion time
-Dependencies: Domain model snapshots, ReminderRequest; NextTriggerCalculator for planning.
-
-## afterDelivery - app/src/main/java/com/taskchain/domain/schedule/ReminderPlanner.kt
-Computes a delivery rearm request from a delivered request. Use this function in the receiver with the request, current epoch, and whether an immediate repeat is wanted; it depends on [NextTriggerCalculator] and returns null for missing/expired policy.
-Inputs: request - delivered alarm; nowEpochMillis - delivery time; repeatNow - repeat eligibility
 Dependencies: Domain model snapshots, ReminderRequest; NextTriggerCalculator for planning.
 
 ## routineRequestCode - app/src/main/java/com/taskchain/domain/schedule/ReminderPlanner.kt
@@ -1845,11 +1765,6 @@ Dependencies: ReminderPlanner, domain model snapshots, JUnit assertions.
 
 ## deliveryOnceRepeatsOnlyWithPositiveInterval - app/src/test/java/com/taskchain/domain/schedule/ReminderPlannerTest.kt
 Use this function to verify one-time reminders repeat only when explicitly configured.
-Inputs: None.
-Dependencies: ReminderPlanner, domain model snapshots, JUnit assertions.
-
-## completedRoutineSinceCycleMatchesOnlyCurrentCompletedRoutine - app/src/test/java/com/taskchain/domain/schedule/ReminderPlannerTest.kt
-Use this function to verify completed routine cycles ignore stale, unrelated, and aborted runs.
 Inputs: None.
 Dependencies: ReminderPlanner, domain model snapshots, JUnit assertions.
 
@@ -2102,14 +2017,8 @@ Dependencies: adb run-as, tar, SHA-256, binary process streams.
 ## `skipEvent` — domain/home/TodayProjection.kt
 Use this function when the user skips a scheduled routine's current occurrence; inputs are the routine, a new run id, and the clock, and it returns a task-less `SKIPPED` history event.
 
-## `ReminderPlanner.REPEAT_WINDOW_MILLIS` — domain/schedule/ReminderPlanner.kt
-Use this constant to end repeated reminders two hours after the scheduled time; delivery then rearms the next regular occurrence.
-
 ## `skipUndoneEvent` — domain/home/TodayProjection.kt
 Use this function when the user undoes a skip; inputs are the routine, a new run id, and the clock, and the newer `SKIP_UNDONE` event cancels the older `SKIPPED` one in Home projection.
-
-## `dayStartAtOrBeforeEpochMillis` — domain/home/TodayProjection.kt
-Use this function to find the last local day start (configured hour) at or before an instant.
 
 ## `returnToScheduledEpochMillis` — domain/home/TodayProjection.kt
 Use this function to find when a handled routine returns to Scheduled: the day start of the day of its next occurrence, never before the next day start.
@@ -2487,16 +2396,6 @@ snapshots and injected `NotificationRunRules`; they import no Running types.
 `RunNotification`, `RunAlerts`, `handleRunAction` and `handleRunAlert` move with
 these policies and retain the existing Android identities and persistence order.
 
-## `NotificationRunRules` and `NotificationNudge` — features/notifications/domain/NotificationRunRules.kt
-Bounded run timing, transitions, timer acknowledgement and nudge capabilities.
-Root binds these functions to the existing engine and feedback policy; the nudge
-result carries the acknowledged immutable run and whether to emit feedback.
-
-## `NotificationDependencies` — features/notifications/NotificationDependencies.kt
-Background-handler dependencies: Core run/preferences repositories and feedback,
-notification adapters, run rules, clock/configuration, shared mutex/revision and
-runner visibility reader. No root container or other feature is imported.
-
 ## `notificationRunRules` and `showReminderNotification` — NotificationIntegration.kt
 Root-only bridges bind Running rules to Notifications and map Reminder intent
 extras/actions into presentation inputs. Button request codes, components,
@@ -2513,3 +2412,200 @@ its Boolean result preserves permission-gated reminder audio/haptic behavior.
 supply the presented run and time; Notifications suppresses unchanged content.
 `AndroidReminderScheduler.clearNotification` and `ReminderHandlers.showDelivered`
 connect reminder lifecycle to shade presentation through root wiring.
+
+# 2026-10-30 anti-pattern remediation
+
+## `toTemplate` — app/src/main/java/com/taskchain/features/authoring/ui/RoutineBuilderViewModel.kt
+Use this function to map the editable builder draft to the domain routine it describes, before trimming or clearing legacy task settings.
+Inputs: `id` and `metadata` — the persisted identity; validation uses private placeholders that are never saved.
+Dependencies: `RoutineTemplate`, `ScheduleRule`; the builder's only `ScheduleRule` construction.
+
+## `toBuilderError` — app/src/main/java/com/taskchain/features/authoring/ui/RoutineBuilderViewModel.kt
+Use this function to translate one Core `RoutineValidationError` into the `BuilderValidationError` the builder shows, or null when the builder does not surface it (subtask rules are owned by `subtaskErrorsFor`; other unshown rules fail persistence as `SAVE_FAILED`).
+Inputs: the receiver Core validation error.
+Dependencies: `RoutineValidationError`, `BuilderValidationError`.
+
+## `BuilderTemplateMappingTest` — app/src/test/java/com/taskchain/features/authoring/ui/BuilderTemplateMappingTest.kt
+Verifies that the builder's draft-to-template mapping, Core-backed validation, and `normalizedForSave` path match the former inline builder rules for schedule, reminder, legacy-conflict and trimming cases.
+Constructor inputs: none.
+Dependencies: `toTemplate`, `validateBuilderState`, `toBuilderState`, `normalizedForSave`.
+
+## `dayStartAtOrBeforeEpochMillis` — app/src/main/java/com/taskchain/core/schedule/DayStart.kt
+Use this function to find the last local day start at or before an instant; a day begins at the configured `home_day_start_hour` (default 2 AM), so earlier times belong to the previous date. Shared by Home and Progress.
+Inputs: epochMillis: Long, dayStartHour: Int, timeZone: TimeZone
+Dependencies: `Calendar`.
+
+## `RoutineRunTask.completedAtOrNull` — app/src/main/java/com/taskchain/core/model/RunTimestamps.kt
+Use this function to read when a run task completed; null unless COMPLETED, preferring `completedAtEpochMillis` and falling back to `finishedAtEpochMillis`.
+Inputs: receiver RoutineRunTask
+Dependencies: `RunTaskStatus`.
+
+## `RoutineRun.completedAtOrNull` — app/src/main/java/com/taskchain/core/model/RunTimestamps.kt
+Use this function to read when a Routine run completed; null unless COMPLETED, preferring `endedAtEpochMillis` and falling back to the latest completed task.
+Inputs: receiver RoutineRun
+Dependencies: `RunStatus`, `RoutineRunTask.completedAtOrNull`.
+
+## `completedSinceCycle` — app/src/main/java/com/taskchain/features/reminders/ReminderRepeatRules.kt
+Checks whether a task completed during the current reminder cycle before rearming repeated task prompts.
+Inputs: routineId, taskId, cycleStartEpochMillis, activeRun, history
+Dependencies: `RoutineRunTask.completedAtOrNull`, `CompletionEvent`, `RoutineRun`.
+
+## `completedRoutineSinceCycle` — app/src/main/java/com/taskchain/features/reminders/ReminderRepeatRules.kt
+Checks whether a routine completed during the current reminder cycle before rearming repeated routine prompts.
+Inputs: routineId, cycleStartEpochMillis, activeRun, history
+Dependencies: `RoutineRun.completedAtOrNull`, `CompletionEvent`, `RunStatus`.
+
+## `ReminderDelivery` — app/src/main/java/com/taskchain/features/reminders/ReminderRepeatRules.kt
+Rearm policy for a delivered routine reminder: repeats inside the repeat window, then the next regular occurrence.
+Dependencies: `NextTriggerCalculator`, `ReminderRequest`.
+
+## `ReminderDelivery.REPEAT_WINDOW_MILLIS` — app/src/main/java/com/taskchain/features/reminders/ReminderRepeatRules.kt
+Use this constant to end repeated reminders two hours after the scheduled time; delivery then rearms the next regular occurrence.
+
+## `ReminderDelivery.afterDelivery` — app/src/main/java/com/taskchain/features/reminders/ReminderRepeatRules.kt
+Computes a delivery rearm request from a delivered request; returns null for missing or expired policy.
+Inputs: request: ReminderRequest, nowEpochMillis: Long, repeatNow: Boolean = true
+Dependencies: `NextTriggerCalculator`, `ScheduleFrequency`.
+
+## `projectProgress` — app/src/main/java/com/taskchain/features/progress/domain/ProgressSummary.kt
+Use this function when Progress needs a summary derived from durable completion events; trend days begin at the configured day start, as on Home.
+Inputs: events, nowEpochMillis, dayStartHour: Int, timeZone
+Dependencies: `CompletionEvent`, `DailyCompletion`, `ProgressSummary`, `RunStatus`, `RunTaskStatus`, `dayStartAtOrBeforeEpochMillis`.
+
+## `ProgressViewModel` — app/src/main/java/com/taskchain/features/progress/ui/ProgressViewModel.kt
+Projects local completion events into the progress summary; trend days begin at the injected day-start hour.
+Inputs: completions: CompletionRepository, now: () -> Long, dayStartHour: Int
+Dependencies: `ProgressSummary`, `projectProgress`, `observeAll`.
+
+## `RunTimestampsTest`, `DayStartTest`, `ReminderRepeatRulesTest` — app/src/test/java/com/taskchain/{core/model,core/schedule,features/reminders}/
+Regression tests for completion-time fallbacks, the shared day start, and the moved reminder repeat rules.
+
+## `FeedbackGates` — app/src/main/java/com/taskchain/core/model/FeedbackGates.kt
+Decides whether run feedback may sound or vibrate, for foreground runner feedback and background alerts alike. Routine mute takes precedence over task settings.
+`soundEnabled(run, task, token)` — routine Sound gate, task Sound gate, and the token's enabled flag in the run's sound snapshot.
+`vibrateEnabled(run, task)` — routine and task Vibrate gates; used for nudges, timer expiry and readiness pulses.
+Dependencies: `RoutineRun`, `RoutineTask`, `SoundSettings`.
+
+## `RunReadiness` — app/src/main/java/com/taskchain/features/running/domain/RunReadiness.kt
+Owns the completion-effect (350 ms) and readiness-countdown (2 s Get Ready plus three 1 s steps) timing that delays a newly started task's persisted start (`taskStartDelayMillis`, 5,350 ms).
+`startDelayMillis(presented)` picks the delay; `completedCurrentTask` and `startsTaskReadyTransition` decide when it applies and are shared with runner presentation.
+Dependencies: `RoutineRun`, `RunStatus`, `RunTaskStatus`.
+
+## `RunTiming` — app/src/main/java/com/taskchain/features/running/domain/RoutineRunEngine.kt
+Timer values the Run screen derives from one run snapshot and wall-clock sample: remaining, active-subtask remaining, per-subtask elapsed, behind-schedule and unfinished task indexes. `RunTiming.None` is shown before a run loads.
+Dependencies: None.
+
+## `RoutineRunEngine.completeCurrentWithReadiness`, `systemBack`, `timing` — app/src/main/java/com/taskchain/features/running/domain/RoutineRunEngine.kt
+`completeCurrentWithReadiness(run, now, readinessDelayMillis)` completes the current task and, when it advances to a later pending task, persists that task's start `readinessDelayMillis` later.
+`systemBack(run, now)` closes an open finish or abort confirmation and continues the run; otherwise it applies `back`.
+`timing(run, now)` derives `RunTiming` for the presented run.
+Dependencies: `RunReadiness`, `prepareNextTask`, `continueRun`, `back`, engine clock functions.
+
+## `RunFeedbackPolicy.nextNudgeAt` — app/src/main/java/com/taskchain/features/running/domain/RunFeedbackPolicy.kt
+Predicts the wall-clock time at which `evaluateNudge` next reports a due bucket for a running task; null when the run is not active, a confirmation is open, or the task is not pending, paused or not started. Does not apply the reminder limit.
+Inputs: `run`, `intervalMillis`. Dependencies: current-task start time and persisted nudge count.
+
+## `TerminalRunWriter` — app/src/main/java/com/taskchain/features/running/TerminalRunWriter.kt
+Persists a terminal run: saves it, appends its history event once (skipped when a retry already appended it), clears the active run, and best-effort reschedules a completed routine's next reminder. An Aborted run is only saved.
+`write(terminal)` is used by the runner and its retry; `recoverPersisted()` by startup recovery. Storage failures propagate; reminder failures never fail the write.
+Dependencies: `RoutineRunRepository`, `CompletionRepository`, `RoutineRunEngine`, optional `ReminderScheduler`, injected `findRoutine` and `now`.
+
+## `RunAlerts.takeDue` — app/src/main/java/com/taskchain/features/notifications/platform/RunAlerts.kt
+Acknowledges due background alerts using the alarm's own nudge cadence and untimed reminder limit; `RunAlerts` is the single owner of both values.
+Inputs: `run`, `nowEpochMillis`. Dependencies: `RunAlertPolicy.takeDue`, `NotificationRunRules`.
+
+## `RoutineRunnerViewModel.timingFor`, `systemBack` — app/src/main/java/com/taskchain/features/running/ui/RoutineRunnerViewModel.kt
+`timingFor(run, now)` returns the engine's `RunTiming` for the run the route presents (which can be a held completion snapshot).
+`systemBack()` persists the engine's system-Back transition.
+Dependencies: `RoutineRunEngine`.
+
+## `RunCountdownDial`, `countdownProgress` — app/src/main/java/com/taskchain/features/running/ui/RunCountdownDial.kt
+Moved unchanged from `RoutineRunnerRoute.kt`. Paints elapsed countdown progress over the dial ticks with time-responsive effects; `countdownProgress` maps a timer and remaining time to 0..1.
+Dependencies: cyberpunkAndroid dial components, `RunReadiness.completionDurationMillis` for the completion pulse.
+
+## `TaskChainDesignSystem.Space` — app/src/main/java/com/taskchain/core/designsystem/TaskChainTheme.kt
+Feature spacing scale (extraSmall 4, small 8, smallMedium 12, medium 16, large 24, extraLarge 32) read from the cyberpunkAndroid spacing grid. Non-composable, so usable in draw scopes.
+
+## `TaskChainDesignSystem.Sizes` — app/src/main/java/com/taskchain/core/designsystem/TaskChainTheme.kt
+Touch-target, icon, action-width, empty-section and card-glow sizes for feature UI.
+
+## `TaskChainDesignSystem.Strokes` — app/src/main/java/com/taskchain/core/designsystem/TaskChainTheme.kt
+Outline widths: hairline, emphasis, primary-action border and destructive-alert border.
+
+## `TaskChainDesignSystem.Dial` — app/src/main/java/com/taskchain/core/designsystem/TaskChainTheme.kt
+Runner countdown dial and subtask rim geometry: minimum diameter, screen inset, rim thickness, tick lengths, sweep stroke, timer glow radii, rim slot and maximum rim stroke.
+
+## `TaskChainDesignSystem.Colors` — app/src/main/java/com/taskchain/core/designsystem/TaskChainTheme.kt
+Composable color roles (accents, background, surfaces, text, border, success, warning, error, danger, info) resolved from the installed theme, plus `shade` for darkening.
+
+## `TaskChainDesignSystem.Shapes` — app/src/main/java/com/taskchain/core/designsystem/TaskChainTheme.kt
+Cut-corner `panel` and `compactPanel` shapes from the installed theme.
+
+## `TaskChainDesignSystem.TextStyles` — app/src/main/java/com/taskchain/core/designsystem/TaskChainTheme.kt
+The single feature typography system: theme display, body and terminalLabel, plus the Material type-scale roles hero, heading, subheading, actionLabel and title.
+
+## `TaskChainDesignSystemTokensTest` — app/src/test/java/com/taskchain/core/designsystem/TaskChainDesignSystemTokensTest.kt
+Checks that each feature dimension token keeps the exact value features used before the migration.
+
+## `NotificationRunRules` and `NotificationNudge` — app/src/main/java/com/taskchain/features/notifications/NotificationRunRules.kt
+Public Notifications contract in the feature root package: bounded run timing, transitions, timer acknowledgement and nudge capabilities. Root binds it in `notificationRunRules` to the Running entry; the nudge result carries the acknowledged run and whether to emit feedback.
+
+## `NotificationDependencies` — app/src/main/java/com/taskchain/features/notifications/NotificationDependencies.kt
+Public Notifications entry. Receives Context, launch intents, Core run/preference repositories and feedback, run rules, shared mutex/revision, a runner-visibility reader, alert cadence/limit and clock; builds `runNotification`, `runAlerts` and `reminderNotification`. `onRunAction`/`onRunAlert` are the root receiver handlers.
+
+## `NotificationIntents` — app/src/main/java/com/taskchain/features/notifications/NotificationDependencies.kt
+Receiver filter constants (`RUN_ACTION_SKIP`, `RUN_ACTION_COMPLETE`, `RUN_EXTRA_RUN_ID`, `RUN_ALERT`) aliasing the historical platform values.
+
+## `RunAlerts.remindersExhausted` — app/src/main/java/com/taskchain/features/notifications/platform/RunAlerts.kt
+Applies `RunAlertPolicy.remindersExhausted` with this alarm's rules and untimed limit; root binds it into Running.
+
+## `RunEngine`, `evaluateRunNudge`, `nextRunNudgeAt` — app/src/main/java/com/taskchain/features/running/RunningDependencies.kt
+Running entry names for root: type alias of `RoutineRunEngine` and thin forwards to `RunFeedbackPolicy.evaluateNudge`/`nextNudgeAt`.
+
+## `RunningDependencies.entryViewModel`, `runnerScreenRoutineIds`, `dayStartHour` — app/src/main/java/com/taskchain/features/running/RunningDependencies.kt
+Factory for `RunningEntryViewModel`; distinct flow of the routine whose run must hold the Run screen (root only navigates); day start passed to `TerminalRunWriter`.
+
+## `AuthoringDependencies` — app/src/main/java/com/taskchain/features/authoring/AuthoringDependencies.kt
+Builder inputs (routines, built-in loader, reminder port, clock, identity factories); `builderViewModel(routineId)`.
+
+## `SchedulingDependencies` — app/src/main/java/com/taskchain/features/scheduling/SchedulingDependencies.kt
+Today inputs including day start and run identity; `todayViewModel()`.
+
+## `ProgressDependencies` — app/src/main/java/com/taskchain/features/progress/ProgressDependencies.kt
+History, clock and day start; `progressViewModel()`.
+
+## `SettingsDependencies` — app/src/main/java/com/taskchain/features/settings/SettingsDependencies.kt
+Preference store; `settingsViewModel()`.
+
+## `KeepScreenOnDependencies` — app/src/main/java/com/taskchain/features/keepscreenon/KeepScreenOnDependencies.kt
+Preference store; `settingsViewModel()` for the injected Settings row.
+
+## `nextTriggerAfterCompletionEpochMillis` — app/src/main/java/com/taskchain/core/schedule/NextTriggerCalculator.kt
+Takes `dayStartHour`; the completion belongs to the day that began at the last day start, and the result is the first occurrence at or after the next day start.
+
+## `ReminderPlanner.afterCompletion` — app/src/main/java/com/taskchain/core/schedule/ReminderPlanner.kt
+Plans the next reminder after a completion or skip; takes the day start (`home_day_start_hour`). `TerminalRunWriter` takes the same value.
+
+## `fakeRunRules`, `fakeRun` — app/src/test/java/com/taskchain/features/notifications/domain/FakeNotificationRunRules.kt
+Shared inert `NotificationRunRules` fake and hand-built active run for Notifications unit tests.
+
+## `NotificationIntegrationTest` — app/src/test/java/com/taskchain/NotificationIntegrationTest.kt
+Root system test of `notificationRunRules` with the real Running engine (alert limit/timing/acknowledgement and run notification content/actions).
+
+## `RunSubtaskSerializationTest` — app/src/test/java/com/taskchain/features/running/domain/RunSubtaskSerializationTest.kt
+Engine-built subtask run and history event JSON round-trip.
+
+## `builder_punch_DurationFormatTest` — app/src/test/java/com/taskchain/features/authoring/ui/builder_punch_DurationFormatTest.kt
+Verifies the builder's persisted-seconds to visible minutes/seconds conversion.
+Dependencies: `routineDurationParts`.
+
+## `routineDurationParts` — app/src/main/java/com/taskchain/features/authoring/ui/RoutineBuilderViewModel.kt
+Use this function to split a persisted duration into builder minutes and seconds; negative input is treated as zero.
+Inputs: `totalSeconds` — persisted duration in seconds. Dependencies: `SECONDS_PER_MINUTE`.
+
+## `validateBuilderState` — app/src/main/java/com/taskchain/features/authoring/ui/RoutineBuilderViewModel.kt
+Use this function to return field-specific errors for the current builder draft at a fixed time.
+Inputs: `state`, `nowEpochMillis`. Dependencies: Core `validationIssues` and `hasConflictingLegacyRoutineSettings` on `BuilderState.toTemplate`, `toBuilderError`, `subtaskErrorsFor`.
+
+## `resource_owners`, `check_file`, `RESOURCE_OWNERS` — scripts/check-feature-boundaries.py
+Map feature-owned value resource files to owners; check one Kotlin file in main, test or androidTest for forbidden owner imports, feature-resource use, root use of feature internals and feature theme bypasses. Root-package tests are system tests and may cross features.
