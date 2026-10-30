@@ -7,14 +7,13 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.lerp
 import com.example.cyberpunkandroid.components.CyberGlowIcon
 import com.example.cyberpunkandroid.icons.CyberIcon
 import com.example.cyberpunkandroid.icons.CyberIcons
 import com.example.cyberpunkandroid.icons.SemanticIcons
-import com.example.cyberpunkandroid.theme.CyberTheme
+import com.taskchain.core.designsystem.TaskChainDesignSystem
 import com.taskchain.core.designsystem.RunnerGestureTokens
 
 /** Fraction of full opacity the swipe symbol reaches at the commit distance. */
@@ -39,7 +38,7 @@ internal fun BoxScope.RunnerSwipeCue(state: RunnerGestureState) {
     CyberIcon(
         iconRes = if (previous) CyberIcons.ArrowLeft else SemanticIcons.Caution,
         contentDescription = null,
-        tint = if (previous) CyberTheme.colors.secondary else CyberTheme.semantics.colors.warning,
+        tint = if (previous) TaskChainDesignSystem.Colors.secondary else TaskChainDesignSystem.Colors.warning,
         size = RunnerGestureTokens.swipeCueIconSize.current(),
         modifier = Modifier
             .align(Alignment.Center)
@@ -64,11 +63,11 @@ internal fun BoxScope.RunnerToggleFlash(state: RunnerGestureState) {
     if (alpha <= 0f) return
     val showPause = state.flashShowsPause
     BoxWithConstraints(modifier = Modifier.align(Alignment.Center).fillMaxSize()) {
-        val color = if (showPause) CyberTheme.semantics.colors.warning else CyberTheme.semantics.colors.success
+        val color = if (showPause) TaskChainDesignSystem.Colors.warning else TaskChainDesignSystem.Colors.success
         CyberGlowIcon(
             iconRes = if (showPause) CyberIcons.Pause else CyberIcons.Play,
             contentDescription = null,
-            color = lerp(Color.Black, color, TOGGLE_FLASH_BODY_BRIGHTNESS),
+            color = lerp(TaskChainDesignSystem.Colors.shade, color, TOGGLE_FLASH_BODY_BRIGHTNESS),
             glowColor = color,
             radius = RunnerGestureTokens.toggleFlashGlowRadius.current(),
             modifier = Modifier

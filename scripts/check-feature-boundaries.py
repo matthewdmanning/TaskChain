@@ -66,6 +66,8 @@ RESOURCE_OWNERS = {
     "subtask_runner.xml": "features.running",
 }
 SOURCE_SETS = ("main", "test", "androidTest")
+# Library theme values and the Material type scale that features must reach through core/designsystem tokens.
+THEME_BYPASS = re.compile(r"\b(?:CyberTheme|CyberPrimitives)\.|\bMaterialTheme\s*\.\s*typography\b")
 STRIPPED = re.compile(r'/\*.*?\*/|//[^\n]*|""".*?"""|"(?:\\.|[^"\\])*"' + r"|'(?:\\.|[^'\\])+'", re.S)
 
 
@@ -101,7 +103,7 @@ def check(root):
 
 
 def check_file(root, source_root, source_set, file, graph, resources, errors):
-    """Use this function to check one Kotlin file; main files build the owner graph, root-package tests are system tests that may cross features; dependencies: owner and forbidden."""
+    """Use this function to check one Kotlin file; main files build the owner graph, root-package tests are system tests that may cross features, and feature files may not read library theme values or Material typography; dependencies: owner, forbidden and THEME_BYPASS."""
     text = file.read_text(encoding="utf-8-sig")
     package_match = re.search(r"^package\s+([\w.]+)", text, re.M)
     if not package_match:
@@ -137,6 +139,9 @@ def check_file(root, source_root, source_set, file, graph, resources, errors):
             graph[source].add(target)
         if forbidden(source, target):
             errors.append(f"{file.relative_to(root)}: forbidden {source} -> {target}: {reference}")
+    if source.startswith("features."):
+        for bypass in sorted(set(match.group(0) for match in THEME_BYPASS.finditer(code))):
+            errors.append(f"{file.relative_to(root)}: theme bypass {bypass} in {source}; use TaskChainDesignSystem tokens")
     for kind, name in set(re.findall(r"(?<![\w.])R\.(\w+)\.(\w+)", code)):
         target = resources.get((kind, name))
         if target and forbidden(source, target):
@@ -144,7 +149,7 @@ def check_file(root, source_root, source_set, file, graph, resources, errors):
 
 
 def self_test():
-    """Use this function to verify import direction and cycle detection rules; dependencies: owner, forbidden and cycle."""
+    """Use this function to verify import direction, cycle detection and feature theme-bypass rules; dependencies: owner, forbidden, cycle and check."""
     assert owner("com.taskchain.features.running.ui") == "features.running"
     assert owner("com.taskchain.core.data") == "core.data"
     assert forbidden("core.data", "features.running")
@@ -190,6 +195,21 @@ def self_test():
         system = root / "app/src/test/java/com/taskchain/JourneyTest.kt"
         system.write_text("package com.taskchain\nimport com.taskchain.features.running.Engine\n", encoding="utf-8")
         assert not check(root)[2], "Root system tests may cross features"
+        screen.write_text(
+            "package com.taskchain.features.scheduling\n"
+            "// CyberTheme.colors.primary\nval label = \"MaterialTheme.typography.titleLarge\"\n"
+            "val gap = TaskChainDesignSystem.Space.small\n",
+            encoding="utf-8",
+        )
+        assert not check(root)[2], "Comments, strings and semantic tokens are not theme bypasses"
+        for bypass in ("CyberTheme.colors.primary", "CyberPrimitives.Spacing.dp8", "MaterialTheme.typography.titleLarge"):
+            screen.write_text(f"package com.taskchain.features.scheduling\nval value = {bypass}\n", encoding="utf-8")
+            assert any("theme bypass" in error for error in check(root)[2]), f"Features may not read {bypass}"
+        core_theme = root / "app/src/main/java/com/taskchain/core/designsystem/Theme.kt"
+        core_theme.parent.mkdir(parents=True)
+        core_theme.write_text("package com.taskchain.core.designsystem\nval value = CyberTheme.colors.primary\n", encoding="utf-8")
+        screen.unlink()
+        assert not check(root)[2], "The Core theme boundary may read library tokens"
 
 
 if __name__ == "__main__":

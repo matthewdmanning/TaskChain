@@ -8,9 +8,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.integerResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.unit.dp
 import com.example.cyberpunkandroid.components.CyberCard
-import com.example.cyberpunkandroid.theme.CyberTheme
+import com.taskchain.core.designsystem.TaskChainDesignSystem
 import com.taskchain.R
 import com.taskchain.core.model.RoutineRun
 import com.taskchain.core.model.RunTaskStatus
@@ -25,11 +24,11 @@ internal fun RunnerNextUpPreview(run: RoutineRun) {
         .filter { it.value.status == RunTaskStatus.PENDING }.take(count)
     if (upcoming.isEmpty()) return
     CyberCard(Modifier.fillMaxWidth()) {
-        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text(stringResource(R.string.runner_next_up_label), style = CyberTheme.typography.terminal)
+        Column(verticalArrangement = Arrangement.spacedBy(TaskChainDesignSystem.Space.small)) {
+            Text(stringResource(R.string.runner_next_up_label), style = TaskChainDesignSystem.TextStyles.terminalLabel)
             upcoming.forEach { (index, task) ->
                 Text(stringResource(R.string.runner_next_up_task, index + 1, task.source.title),
-                    style = CyberTheme.typography.body)
+                    style = TaskChainDesignSystem.TextStyles.body)
             }
         }
     }

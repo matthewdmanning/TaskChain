@@ -97,7 +97,6 @@ import com.example.cyberpunkandroid.components.CyberButtonSize
 import com.example.cyberpunkandroid.components.CyberButtonStyle
 import com.example.cyberpunkandroid.components.CyberCard
 import com.taskchain.core.designsystem.TaskCard
-import com.example.cyberpunkandroid.config.CyberPrimitives
 import com.example.cyberpunkandroid.icons.CyberIcon
 import com.example.cyberpunkandroid.icons.CyberIcons
 import androidx.compose.animation.core.FastOutSlowInEasing
@@ -110,7 +109,6 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.runtime.key
 import androidx.compose.ui.unit.Dp
-import com.example.cyberpunkandroid.theme.CyberTheme
 import kotlin.math.absoluteValue
 import kotlinx.coroutines.flow.first
 import com.taskchain.core.designsystem.Button
@@ -160,13 +158,13 @@ internal fun RoutineBuilderRoute(
         contentWindowInsets = WindowInsets.safeDrawing,
         topBar = {
             CenterAlignedTopAppBar(
-                title = { Text(stringResource(R.string.builder_title), style = CyberTheme.typography.display) },
+                title = { Text(stringResource(R.string.builder_title), style = TaskChainDesignSystem.TextStyles.display) },
             )
         },
     ) { innerPadding ->
     Box(
         modifier = Modifier.fillMaxSize().padding(innerPadding).consumeWindowInsets(innerPadding)
-            .imePadding().background(CyberTheme.colors.background),
+            .imePadding().background(TaskChainDesignSystem.Colors.background),
         contentAlignment = Alignment.TopCenter,
     ) {
     LazyColumn(
@@ -216,8 +214,8 @@ internal fun RoutineBuilderRoute(
                 Column(verticalArrangement = Arrangement.spacedBy(spacing.medium)) {
                     Text(
                         stringResource(R.string.routine_settings),
-                        style = CyberTheme.typography.display,
-                        color = CyberTheme.colors.textPrimary,
+                        style = TaskChainDesignSystem.TextStyles.display,
+                        color = TaskChainDesignSystem.Colors.textPrimary,
                     )
                     ScheduleEditor(state, viewModel, spacing)
                     LabeledSwitchRow(stringResource(R.string.authoring_sound), state.soundEnabled, viewModel::setSoundEnabled)
@@ -228,8 +226,8 @@ internal fun RoutineBuilderRoute(
         item {
             Text(
                 stringResource(R.string.authoring_tasks),
-                style = CyberTheme.typography.display,
-                color = CyberTheme.colors.textPrimary,
+                style = TaskChainDesignSystem.TextStyles.display,
+                color = TaskChainDesignSystem.Colors.textPrimary,
             )
             if (BuilderValidationError.TASK_REQUIRED in state.validationErrors) {
                 BuilderErrorText(stringResource(R.string.validation_task_required))
@@ -273,17 +271,17 @@ internal fun RoutineBuilderRoute(
                             if (index < state.tasks.lastIndex) add(CustomAccessibilityAction(moveDown) { viewModel.moveTask(task.id, 1); true })
                         }
                     }
-                    .clip(CyberTheme.shapes.cyberCutCornerShapeSmall)
-                    .background(CyberTheme.colors.surface)
-                    .border(CyberPrimitives.BorderWidths.dp1, when {
-                        isDragging -> CyberTheme.colors.primary
-                        taskErrors.isNotEmpty() -> CyberTheme.semantics.colors.danger
-                        else -> CyberTheme.colors.border
-                    }, CyberTheme.shapes.cyberCutCornerShapeSmall),
+                    .clip(TaskChainDesignSystem.Shapes.compactPanel)
+                    .background(TaskChainDesignSystem.Colors.surface)
+                    .border(TaskChainDesignSystem.Strokes.hairline, when {
+                        isDragging -> TaskChainDesignSystem.Colors.primary
+                        taskErrors.isNotEmpty() -> TaskChainDesignSystem.Colors.danger
+                        else -> TaskChainDesignSystem.Colors.border
+                    }, TaskChainDesignSystem.Shapes.compactPanel),
             ) {
                 Row(
-                    modifier = Modifier.fillMaxWidth().heightIn(min = CyberPrimitives.IconSizes.dp48)
-                        .padding(CyberPrimitives.Spacing.dp12)
+                    modifier = Modifier.fillMaxWidth().heightIn(min = TaskChainDesignSystem.Sizes.touchTarget)
+                        .padding(TaskChainDesignSystem.Space.smallMedium)
                         .semantics { stateDescription = expansionState }
                         .toggleable(value = expanded, role = Role.Button, onValueChange = changeExpansion),
                     verticalAlignment = Alignment.CenterVertically,
@@ -291,10 +289,10 @@ internal fun RoutineBuilderRoute(
                     CyberIcon(
                         iconRes = CyberIcons.Drag,
                         contentDescription = stringResource(R.string.authoring_drag_handle),
-                        tint = CyberTheme.colors.textSecondary,
-                        size = CyberPrimitives.IconSizes.dp48,
+                        tint = TaskChainDesignSystem.Colors.textSecondary,
+                        size = TaskChainDesignSystem.Sizes.iconLarge,
                         modifier = Modifier
-                            .widthIn(min = CyberPrimitives.IconSizes.dp48)
+                            .widthIn(min = TaskChainDesignSystem.Sizes.touchTarget)
                             .pointerInput(task.id.value) {
                                 detectDragGesturesAfterLongPress(
                                     onDragStart = { isDragging = true },
@@ -325,8 +323,8 @@ internal fun RoutineBuilderRoute(
                     } else {
                         Text(
                             text = task.title.ifBlank { stringResource(R.string.task_name) },
-                            style = CyberTheme.typography.body,
-                            color = if (task.title.isBlank()) CyberTheme.colors.textSecondary else CyberTheme.colors.textPrimary,
+                            style = TaskChainDesignSystem.TextStyles.body,
+                            color = if (task.title.isBlank()) TaskChainDesignSystem.Colors.textSecondary else TaskChainDesignSystem.Colors.textPrimary,
                             modifier = if (expanded) {
                                 Modifier.wrapContentWidth().clickable { viewModel.startTaskNameEdit(task.id) }
                             } else {
@@ -345,7 +343,7 @@ internal fun RoutineBuilderRoute(
                                 duration.first,
                                 duration.second,
                             ),
-                            color = CyberTheme.colors.textSecondary,
+                            color = TaskChainDesignSystem.Colors.textSecondary,
                         )
                     }
                     if (expanded) {
@@ -353,15 +351,15 @@ internal fun RoutineBuilderRoute(
                             CyberIcon(
                                 iconRes = R.drawable.ic_task_collapse,
                                 contentDescription = stringResource(R.string.authoring_collapse_task),
-                                tint = CyberTheme.colors.primary,
-                                size = CyberPrimitives.IconSizes.dp48,
+                                tint = TaskChainDesignSystem.Colors.primary,
+                                size = TaskChainDesignSystem.Sizes.iconLarge,
                             )
                         }
                     }
                 }
                 AnimatedVisibility(visible = expanded, enter = expandVertically(), exit = shrinkVertically()) {
                 Column(
-                    modifier = Modifier.fillMaxWidth().padding(CyberPrimitives.Spacing.dp12),
+                    modifier = Modifier.fillMaxWidth().padding(TaskChainDesignSystem.Space.smallMedium),
                     verticalArrangement = Arrangement.spacedBy(spacing.medium),
                 ) {
                     if (BuilderValidationError.TASK_NAME_REQUIRED in state.validationErrors && state.editingTaskIndex == index) {
@@ -375,7 +373,7 @@ internal fun RoutineBuilderRoute(
                         val seconds = task.durationSeconds ?: 0L
                         val duration = routineDurationParts(seconds)
                         CyberButton(
-                            modifier = Modifier.fillMaxWidth().heightIn(min = CyberPrimitives.IconSizes.dp48),
+                            modifier = Modifier.fillMaxWidth().heightIn(min = TaskChainDesignSystem.Sizes.touchTarget),
                             enabled = task.subtasks.isEmpty(),
                             onClick = {
                                 val pickerSeconds = task.timerSeconds ?: DEFAULT_TASK_TIMER_SECONDS
@@ -437,7 +435,7 @@ internal fun RoutineBuilderRoute(
                         BuilderErrorText(stringResource(R.string.subtask_id_duplicated))
                     }
                     CyberButton(
-                        modifier = Modifier.fillMaxWidth().heightIn(min = CyberPrimitives.IconSizes.dp48),
+                        modifier = Modifier.fillMaxWidth().heightIn(min = TaskChainDesignSystem.Sizes.touchTarget),
                         onClick = { viewModel.removeTask(task.id) },
                         style = CyberButtonStyle.Outline,
                         size = CyberButtonSize.Small,
@@ -450,7 +448,7 @@ internal fun RoutineBuilderRoute(
         }
         item {
             CyberButton(
-                modifier = Modifier.fillMaxWidth().heightIn(min = CyberPrimitives.IconSizes.dp48),
+                modifier = Modifier.fillMaxWidth().heightIn(min = TaskChainDesignSystem.Sizes.touchTarget),
                 onClick = { viewModel.addTask("") },
                 style = CyberButtonStyle.Outline,
                 size = CyberButtonSize.Large,
@@ -484,15 +482,15 @@ internal fun RoutineBuilderRoute(
             ) {
                 OutlinedButton(
                     onClick = requestClose,
-                    modifier = Modifier.weight(1f).heightIn(min = CyberPrimitives.IconSizes.dp48),
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = CyberTheme.semantics.colors.warning),
+                    modifier = Modifier.weight(1f).heightIn(min = TaskChainDesignSystem.Sizes.touchTarget),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = TaskChainDesignSystem.Colors.warning),
                 ) {
                     Text(stringResource(R.string.discard))
                 }
                 CyberButton(
                     onClick = viewModel::save,
                     enabled = !state.isSaving,
-                    modifier = Modifier.weight(1f).heightIn(min = CyberPrimitives.IconSizes.dp48),
+                    modifier = Modifier.weight(1f).heightIn(min = TaskChainDesignSystem.Sizes.touchTarget),
                 ) {
                     Row(
                         horizontalArrangement = Arrangement.spacedBy(spacing.small),
@@ -517,8 +515,8 @@ internal fun RoutineBuilderRoute(
                 Button(
                     onClick = { showDiscardDialog = false; onClose() },
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = CyberTheme.semantics.colors.warning,
-                        contentColor = CyberTheme.colors.background,
+                        containerColor = TaskChainDesignSystem.Colors.warning,
+                        contentColor = TaskChainDesignSystem.Colors.background,
                     ),
                 ) {
                     Text(stringResource(R.string.discard_changes))
@@ -575,7 +573,7 @@ private fun ScheduleEditor(state: BuilderState, viewModel: RoutineBuilderViewMod
                 TextButton(onClick = { showTimePicker(context, state.scheduleHour, state.scheduleMinute, viewModel::setScheduleTime) }) {
                     Text(
                         text = formatScheduleTime(context, state.scheduleHour, state.scheduleMinute),
-                        style = CyberTheme.typography.display,
+                        style = TaskChainDesignSystem.TextStyles.display,
                     )
                 }
             }

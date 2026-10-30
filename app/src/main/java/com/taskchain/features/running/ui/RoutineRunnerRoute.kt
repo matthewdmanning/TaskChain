@@ -27,7 +27,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.foundation.background
@@ -81,14 +80,12 @@ import com.taskchain.core.designsystem.RunnerMotion
 import com.taskchain.core.designsystem.Spacing
 import com.example.cyberpunkandroid.components.CyberButtonSize
 import com.example.cyberpunkandroid.components.CyberButtonStyle
-import com.example.cyberpunkandroid.config.CyberPrimitives
 import com.example.cyberpunkandroid.icons.CyberIcon
 import com.example.cyberpunkandroid.icons.CyberIcons
 import com.example.cyberpunkandroid.icons.SemanticIcons
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
 import androidx.compose.runtime.key
-import com.example.cyberpunkandroid.theme.CyberTheme
 import kotlin.math.absoluteValue
 import com.taskchain.core.designsystem.Button
 import com.taskchain.core.designsystem.CyberButton
@@ -232,9 +229,9 @@ private fun RoutineRunnerScreen(
     val current = run.tasks[run.currentTaskIndex]
     val configuration = LocalConfiguration.current
     val smallerDimensionDp = minOf(configuration.screenWidthDp, configuration.screenHeightDp).dp
-    val controlMinWidth = RUNNER_CONTROL_MIN_WIDTH * androidx.compose.ui.platform.LocalDensity.current.fontScale
-    val dialDiameter = (smallerDimensionDp - CyberPrimitives.Spacing.dp32 * 2)
-        .coerceAtLeast(CyberPrimitives.IconSizes.dp48)
+    val controlMinWidth = TaskChainDesignSystem.Sizes.actionMinWidth * androidx.compose.ui.platform.LocalDensity.current.fontScale
+    val dialDiameter = (smallerDimensionDp - TaskChainDesignSystem.Dial.screenInset * 2)
+        .coerceAtLeast(TaskChainDesignSystem.Dial.minDiameter)
         .coerceAtMost(RunnerMotion.dialDiameter)
     val entrance = remember(run.currentTaskIndex) { Animatable(0f) }
     LaunchedEffect(run.currentTaskIndex, animationsEnabled) {
@@ -251,7 +248,7 @@ private fun RoutineRunnerScreen(
     } else {
         ""
     }
-    val transitionColor = CyberTheme.semantics.colors.warning
+    val transitionColor = TaskChainDesignSystem.Colors.warning
     val gestureState = rememberRunnerGestureState()
     // A paused or skipped task offers Resume; a running one offers Pause.
     val offersResume = current.pausedAtEpochMillis != null || current.status == RunTaskStatus.SKIPPED
@@ -284,7 +281,7 @@ private fun RoutineRunnerScreen(
         contentWindowInsets = WindowInsets.safeDrawing,
         topBar = {
             CenterAlignedTopAppBar(title = {
-                Text(run.routineTitle, style = CyberTheme.typography.display)
+                Text(run.routineTitle, style = TaskChainDesignSystem.TextStyles.display)
             })
         },
     ) { innerPadding ->
@@ -294,7 +291,7 @@ private fun RoutineRunnerScreen(
                 .fillMaxSize()
                 .padding(innerPadding)
                 .consumeWindowInsets(innerPadding)
-                .background(CyberTheme.colors.background)
+                .background(TaskChainDesignSystem.Colors.background)
                 .then(gestureActions)
                 .then(swipeGesture),
             contentAlignment = Alignment.TopCenter,
@@ -307,7 +304,7 @@ private fun RoutineRunnerScreen(
                     .heightIn(min = minHeight)
                     .followRunnerSwipe(gestureState)
                     .verticalScroll(rememberScrollState())
-                    .padding(horizontal = CyberPrimitives.Spacing.dp24),
+                    .padding(horizontal = TaskChainDesignSystem.Space.large),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 Spacer(modifier = Modifier.weight(1f))
@@ -315,12 +312,12 @@ private fun RoutineRunnerScreen(
                 Column(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(CyberPrimitives.Spacing.dp24),
+                    verticalArrangement = Arrangement.spacedBy(TaskChainDesignSystem.Space.large),
                 ) {
                     Text(
                         text = current.source.title,
-                        style = MaterialTheme.typography.displayMedium,
-                        color = if (presentation.readyLabel != null) CyberTheme.semantics.colors.warning else CyberTheme.colors.secondary,
+                        style = TaskChainDesignSystem.TextStyles.hero,
+                        color = if (presentation.readyLabel != null) TaskChainDesignSystem.Colors.warning else TaskChainDesignSystem.Colors.secondary,
                         textAlign = TextAlign.Center,
                         modifier = Modifier
                             .fillMaxWidth()
@@ -372,30 +369,30 @@ private fun RoutineRunnerScreen(
                         }
                     }
                     CyberButton(
-                        modifier = Modifier.fillMaxWidth().heightIn(min = CyberPrimitives.IconSizes.dp64)
+                        modifier = Modifier.fillMaxWidth().heightIn(min = TaskChainDesignSystem.Sizes.prominentTouchTarget)
                             .clip(completeShape)
-                            .background(Brush.verticalGradient(listOf(CyberTheme.semantics.colors.success.copy(alpha = 0.7f),
-                                CyberTheme.semantics.colors.success.copy(alpha = 0.1f))))
-                            .border(2.dp, CyberTheme.semantics.colors.success, completeShape),
+                            .background(Brush.verticalGradient(listOf(TaskChainDesignSystem.Colors.success.copy(alpha = 0.7f),
+                                TaskChainDesignSystem.Colors.success.copy(alpha = 0.1f))))
+                            .border(TaskChainDesignSystem.Strokes.primaryActionBorder, TaskChainDesignSystem.Colors.success, completeShape),
                         enabled = !presentation.holdingCompletion,
                         onClick = { if (!presentation.holdingCompletion) onComplete() },
                         size = CyberButtonSize.Large,
                         style = CyberButtonStyle.Ghost,
                     ) {
                         Row(
-                            modifier = Modifier.padding(horizontal = CyberPrimitives.Spacing.dp16, vertical = CyberPrimitives.Spacing.dp12),
-                            horizontalArrangement = Arrangement.spacedBy(CyberPrimitives.Spacing.dp16),
+                            modifier = Modifier.padding(horizontal = TaskChainDesignSystem.Space.medium, vertical = TaskChainDesignSystem.Space.smallMedium),
+                            horizontalArrangement = Arrangement.spacedBy(TaskChainDesignSystem.Space.medium),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
                             CyberIcon(
                                 iconRes = SemanticIcons.Success,
                                 contentDescription = null,
-                                size = CyberPrimitives.IconSizes.dp48,
-                                tint = CyberTheme.semantics.colors.success,
+                                size = TaskChainDesignSystem.Sizes.iconLarge,
+                                tint = TaskChainDesignSystem.Colors.success,
                             )
                             Text(
                                 stringResource(R.string.complete),
-                                style = MaterialTheme.typography.headlineSmall,
+                                style = TaskChainDesignSystem.TextStyles.actionLabel,
                             )
                         }
                     }
@@ -403,8 +400,8 @@ private fun RoutineRunnerScreen(
                     FlowRow(
                         modifier = Modifier
                             .fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(CyberPrimitives.Spacing.dp12, Alignment.CenterHorizontally),
-                        verticalArrangement = Arrangement.spacedBy(CyberPrimitives.Spacing.dp12),
+                        horizontalArrangement = Arrangement.spacedBy(TaskChainDesignSystem.Space.smallMedium, Alignment.CenterHorizontally),
+                        verticalArrangement = Arrangement.spacedBy(TaskChainDesignSystem.Space.smallMedium),
                     ) {
                         run.tasks.forEachIndexed { index, task ->
                             val isCurrent = index == run.currentTaskIndex
@@ -419,9 +416,9 @@ private fun RoutineRunnerScreen(
                             )
                             Box(
                                 modifier = Modifier
-                                    .size(CyberPrimitives.IconSizes.dp48)
+                                    .size(TaskChainDesignSystem.Sizes.touchTarget)
                                     .border(
-                                        if (isCurrent) CyberPrimitives.BorderWidths.dp2 else CyberPrimitives.BorderWidths.dp1,
+                                        if (isCurrent) TaskChainDesignSystem.Strokes.emphasis else TaskChainDesignSystem.Strokes.hairline,
                                         statusColor(task.status),
                                         CircleShape,
                                     )
@@ -437,22 +434,22 @@ private fun RoutineRunnerScreen(
                                         CyberIcon(
                                             iconRes = CyberIcons.Play,
                                             contentDescription = null,
-                                            size = if (isCurrent) CyberPrimitives.IconSizes.dp24 else CyberPrimitives.IconSizes.dp16,
-                                            tint = CyberTheme.semantics.colors.info,
+                                            size = if (isCurrent) TaskChainDesignSystem.Sizes.iconMedium else TaskChainDesignSystem.Sizes.iconSmall,
+                                            tint = TaskChainDesignSystem.Colors.info,
                                         )
                                     }
                                     RunTaskStatus.COMPLETED -> {
                                         CyberIcon(
                                             iconRes = SemanticIcons.Success,
                                             contentDescription = null,
-                                            tint = CyberTheme.semantics.colors.success,
+                                            tint = TaskChainDesignSystem.Colors.success,
                                         )
                                     }
                                     RunTaskStatus.SKIPPED -> {
                                         CyberIcon(
                                             iconRes = SemanticIcons.Caution,
                                             contentDescription = null,
-                                            tint = CyberTheme.semantics.colors.warning,
+                                            tint = TaskChainDesignSystem.Colors.warning,
                                         )
                                     }
                                 }
@@ -474,24 +471,24 @@ private fun RoutineRunnerScreen(
                     FlowRow(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(bottom = CyberPrimitives.Spacing.dp16),
-                        horizontalArrangement = Arrangement.spacedBy(CyberPrimitives.Spacing.dp8),
-                        verticalArrangement = Arrangement.spacedBy(CyberPrimitives.Spacing.dp8),
+                            .padding(bottom = TaskChainDesignSystem.Space.medium),
+                        horizontalArrangement = Arrangement.spacedBy(TaskChainDesignSystem.Space.small),
+                        verticalArrangement = Arrangement.spacedBy(TaskChainDesignSystem.Space.small),
                     ) {
                         CyberButton(
-                            modifier = Modifier.weight(1f).widthIn(min = controlMinWidth).heightIn(min = CyberPrimitives.IconSizes.dp48),
+                            modifier = Modifier.weight(1f).widthIn(min = controlMinWidth).heightIn(min = TaskChainDesignSystem.Sizes.touchTarget),
                             enabled = !presentation.holdingCompletion,
                             onClick = { if (!presentation.holdingCompletion) onBack() },
                             style = CyberButtonStyle.Outline,
                             size = CyberButtonSize.Small,
                         ) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                CyberIcon(iconRes = CyberIcons.ArrowLeft, contentDescription = null, size = CyberPrimitives.Spacing.dp16)
+                                CyberIcon(iconRes = CyberIcons.ArrowLeft, contentDescription = null, size = TaskChainDesignSystem.Sizes.inlineIcon)
                                 Text(stringResource(R.string.back))
                             }
                         }
                         CyberButton(
-                            modifier = Modifier.weight(1f).widthIn(min = controlMinWidth).heightIn(min = CyberPrimitives.IconSizes.dp48),
+                            modifier = Modifier.weight(1f).widthIn(min = controlMinWidth).heightIn(min = TaskChainDesignSystem.Sizes.touchTarget),
                             enabled = !presentation.holdingCompletion,
                             onClick = {
                                 if (!presentation.holdingCompletion) {
@@ -505,13 +502,13 @@ private fun RoutineRunnerScreen(
                                 CyberIcon(
                                     iconRes = if (offersResume) CyberIcons.Play else CyberIcons.Pause,
                                     contentDescription = null,
-                                    size = CyberPrimitives.Spacing.dp16,
+                                    size = TaskChainDesignSystem.Sizes.inlineIcon,
                                 )
                                 Text(stringResource(if (offersResume) R.string.resume else R.string.pause))
                             }
                         }
                         CyberButton(
-                            modifier = Modifier.weight(1f).widthIn(min = controlMinWidth).heightIn(min = CyberPrimitives.IconSizes.dp48),
+                            modifier = Modifier.weight(1f).widthIn(min = controlMinWidth).heightIn(min = TaskChainDesignSystem.Sizes.touchTarget),
                             enabled = !presentation.holdingCompletion,
                             onClick = { if (!presentation.holdingCompletion) onSkip() },
                             style = CyberButtonStyle.Outline,
@@ -521,8 +518,8 @@ private fun RoutineRunnerScreen(
                                 CyberIcon(
                                     iconRes = SemanticIcons.Caution,
                                     contentDescription = null,
-                                    size = CyberPrimitives.Spacing.dp16,
-                                    tint = CyberTheme.semantics.colors.warning,
+                                    size = TaskChainDesignSystem.Sizes.inlineIcon,
+                                    tint = TaskChainDesignSystem.Colors.warning,
                                 )
                                 Text(stringResource(R.string.skip))
                             }
@@ -559,19 +556,19 @@ private fun RoutineRunnerScreen(
     }
     if (run.status == RunStatus.ACTIVE && run.abortConfirmationRequested && !presentation.holdingCompletion) {
         AlertDialog(
-            modifier = Modifier.border(3.dp, CyberTheme.semantics.colors.error, CyberTheme.shapes.cyberCutCornerShape),
+            modifier = Modifier.border(TaskChainDesignSystem.Strokes.alertBorder, TaskChainDesignSystem.Colors.error, TaskChainDesignSystem.Shapes.panel),
             onDismissRequest = { if (!presentation.holdingCompletion) onContinue() },
-            title = { Text(stringResource(R.string.abort_title), style = MaterialTheme.typography.headlineLarge) },
-            text = { Text(stringResource(R.string.abort_run), style = MaterialTheme.typography.titleLarge) },
+            title = { Text(stringResource(R.string.abort_title), style = TaskChainDesignSystem.TextStyles.heading) },
+            text = { Text(stringResource(R.string.abort_run), style = TaskChainDesignSystem.TextStyles.title) },
             confirmButton = {
                 Button(
                     modifier = Modifier.background(Brush.verticalGradient(listOf(
-                        CyberTheme.semantics.colors.error, CyberTheme.semantics.colors.error.copy(alpha = 0.55f))),
-                        CyberTheme.shapes.cyberCutCornerShape),
+                        TaskChainDesignSystem.Colors.error, TaskChainDesignSystem.Colors.error.copy(alpha = 0.55f))),
+                        TaskChainDesignSystem.Shapes.panel),
                     colors = ButtonDefaults.buttonColors(containerColor = androidx.compose.ui.graphics.Color.Transparent,
-                        contentColor = CyberTheme.colors.textPrimary),
+                        contentColor = TaskChainDesignSystem.Colors.textPrimary),
                     onClick = { if (!presentation.holdingCompletion) onAbort() },
-                ) { Text(stringResource(R.string.abort_run), style = MaterialTheme.typography.titleLarge) }
+                ) { Text(stringResource(R.string.abort_run), style = TaskChainDesignSystem.TextStyles.title) }
             },
             dismissButton = {
                 TextButton(onClick = { if (!presentation.holdingCompletion) onContinue() }) { Text(stringResource(R.string.continue_run)) }
@@ -595,12 +592,12 @@ internal fun formatRunnerTimer(remainingMillis: Long?, actualDurationMillis: Lon
     return String.format("%s%d:%02d", prefix, seconds / SECONDS_PER_MINUTE, seconds % SECONDS_PER_MINUTE)
 }
 
-/** Use this function to map each runner task state to the library's semantic status color. */
+/** Use this function to map each runner task state to its semantic status color. */
 @Composable
 private fun statusColor(status: RunTaskStatus) = when (status) {
-    RunTaskStatus.PENDING -> CyberTheme.semantics.colors.info
-    RunTaskStatus.COMPLETED -> CyberTheme.semantics.colors.success
-    RunTaskStatus.SKIPPED -> CyberTheme.semantics.colors.warning
+    RunTaskStatus.PENDING -> TaskChainDesignSystem.Colors.info
+    RunTaskStatus.COMPLETED -> TaskChainDesignSystem.Colors.success
+    RunTaskStatus.SKIPPED -> TaskChainDesignSystem.Colors.warning
 }
 
 /** Use this function when deciding whether decorative runner motion should honor the system animator setting. */
@@ -611,8 +608,6 @@ private fun runnerAnimationsEnabled(context: android.content.Context): Boolean =
         Settings.Global.getFloat(context.contentResolver, Settings.Global.ANIMATOR_DURATION_SCALE, 1f) > 0f
     }
 
-/** Smallest runner control width at default font scale; it grows with the font scale. */
-private val RUNNER_CONTROL_MIN_WIDTH = 112.dp
 /** Fill opacity of the current and other task markers. */
 private const val TASK_DOT_CURRENT_FILL_ALPHA = 0.16f
 private const val TASK_DOT_FILL_ALPHA = 0.06f

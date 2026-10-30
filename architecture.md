@@ -74,13 +74,15 @@ for schema migration, update/reboot behavior, snapshots and testing commands.
 
 cyberpunkAndroid supplies UI components, theme tokens, and effects through the published `com.github.matthewdmanning:cyberpunkAndroid:v1.0.8` dependency. TaskChain has no `third_party` source checkout, submodule, or Gradle project inclusion for it.
 
+Features may call cyberpunkAndroid components and effects where Core has no wrapper, but they style only through `TaskChainDesignSystem` in `core/designsystem/TaskChainTheme.kt`: its spacing, size, stroke, dial, color, shape and text-style tokens read the library and Material values at the theme boundary. `TaskChainDesignSystem.TextStyles` is the single feature typography system. Feature files never read `CyberTheme`, `CyberPrimitives` or `MaterialTheme.typography`; `scripts/check-feature-boundaries.py` rejects them.
+
 ## Runner feature composition
 
 The Run route owns ViewModel creation, lifecycle-aware observation, navigation, and completion/readiness presentation. `RoutineRunnerScreen` receives immutable state, derived timer values, and callbacks; nested subtasks and runner visuals compose within that screen. No runner feature observes repository emissions to infer navigation or starts an independent polling clock.
 
 `RoutineRunEngine` owns subtask advancement, frozen elapsed time, and behind-schedule policy. Subtask definitions live inside `RoutineTask`; persisted active identity and advancement markers live inside `RoutineRunTask`. All run sequence indexes and completion/progress summaries refer to main tasks. The existing ViewModel persists transitions before semantic feedback dispatch, including `subtaskAdvanced`.
 
-The Screen displays only the current subtask. Subtask rims, next-up main tasks, segmented main progress and transient feedback use that same run snapshot and sampled time. Gesture detection and drag feedback stay in Compose (`features/running/ui/RunnerGestures.kt` for detection and state, `features/running/ui/RunnerGestureCues.kt` for visuals); they emit existing ViewModel intents and preserve accessibility actions. Gesture distances and glow radii are screen-relative semantic tokens in `core/designsystem/RunnerGestureTokens.kt`, not borrowed library sizes. Font-sensitive action rows wrap, and shared typography is configured at the theme boundary.
+The Screen displays only the current subtask. Subtask rims, next-up main tasks, segmented main progress and transient feedback use that same run snapshot and sampled time. Gesture detection and drag feedback stay in Compose (`features/running/ui/RunnerGestures.kt` for detection and state, `features/running/ui/RunnerGestureCues.kt` for visuals); they emit existing ViewModel intents and preserve accessibility actions. Gesture distances and glow radii are screen-relative semantic tokens in `core/designsystem/RunnerGestureTokens.kt`, not borrowed library sizes. Font-sensitive action rows wrap, and runner text, colors and dial geometry come from `TaskChainDesignSystem` tokens configured at the theme boundary.
 
 ## Keep screen on
 

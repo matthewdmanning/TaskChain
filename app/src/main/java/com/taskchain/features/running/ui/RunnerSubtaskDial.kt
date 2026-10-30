@@ -13,24 +13,22 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.dp
 import com.taskchain.R
 import com.taskchain.core.model.RoutineRunTask
 import com.taskchain.core.model.MILLIS_PER_SECOND
 import com.taskchain.core.model.RoutineTask
-import com.example.cyberpunkandroid.config.CyberPrimitives
 import com.taskchain.core.designsystem.TaskChainDesignSystem
 import kotlin.math.cos
 import kotlin.math.sin
 
 /** Radial space reserved for each rim, including the gap to its neighbour. */
-private val RIM_SLOT = CyberPrimitives.Spacing.dp8
+private val RIM_SLOT = TaskChainDesignSystem.Dial.subtaskRimSlot
 
 /** Upper bound of the rim band as a share of the dial diameter, so the countdown keeps its room. */
 private const val RIM_BAND_MAX_FRACTION = 0.28f
 
 /** Thickest rim stroke; thinner when many subtasks share the band. */
-private val RIM_STROKE_MAX = 3.dp
+private val RIM_STROKE_MAX = TaskChainDesignSystem.Dial.subtaskRimMaxStroke
 private const val RIM_STROKE_MIN_PX = 1f
 
 /** Opacity of the planned (unfilled) rim arc. */

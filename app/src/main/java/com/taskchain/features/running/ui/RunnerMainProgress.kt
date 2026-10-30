@@ -16,9 +16,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import com.example.cyberpunkandroid.components.CyberProgress
-import com.example.cyberpunkandroid.config.CyberPrimitives
 import com.example.cyberpunkandroid.components.CyberProgressVariant
-import com.example.cyberpunkandroid.theme.CyberTheme
+import com.taskchain.core.designsystem.TaskChainDesignSystem
 import com.taskchain.R
 import com.taskchain.core.model.RoutineRun
 import com.taskchain.core.model.RunTaskStatus
@@ -54,7 +53,7 @@ internal fun RunnerMainProgress(
         .maxByOrNull { it.finishedAtEpochMillis ?: Long.MIN_VALUE }
     val feedback = if (!animate) null else if (holdingCompletion) RunTaskStatus.COMPLETED else
         recent?.takeIf { task -> task.finishedAtEpochMillis?.let { nowEpochMillis - it in 0..FEEDBACK_VISIBLE_MILLIS } == true }?.status
-    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(CyberPrimitives.Spacing.dp8)) {
+    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(TaskChainDesignSystem.Space.small)) {
         CyberProgress(
             progress = progress, variant = CyberProgressVariant.Segmented,
             segments = run.tasks.size.coerceAtLeast(1),
@@ -68,9 +67,9 @@ internal fun RunnerMainProgress(
             if (status != null) {
                 Text(stringResource(if (status == RunTaskStatus.COMPLETED) R.string.runner_task_complete_feedback
                     else R.string.runner_task_skipped_feedback),
-                    color = if (status == RunTaskStatus.COMPLETED) CyberTheme.semantics.colors.success
-                        else CyberTheme.semantics.colors.warning,
-                    style = CyberTheme.typography.body)
+                    color = if (status == RunTaskStatus.COMPLETED) TaskChainDesignSystem.Colors.success
+                        else TaskChainDesignSystem.Colors.warning,
+                    style = TaskChainDesignSystem.TextStyles.body)
             }
         }
     }
