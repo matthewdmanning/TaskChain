@@ -1,6 +1,5 @@
 package com.taskchain.core.model
 
-import com.taskchain.features.running.domain.RoutineRunEngine
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import org.junit.Assert.assertEquals
@@ -29,18 +28,31 @@ class SubtaskSerializationTest {
                 ),
             ),
         )
-        val run = RoutineRunEngine().completeCurrent(
-            RoutineRunEngine().start(template, RoutineRunId("run"), 0),
-            30_000L,
-        )
-        val event = RoutineRunEngine().toCompletionEvent(
-            run.copy(
-                tasks = run.tasks.map {
-                    it.copy(status = RunTaskStatus.COMPLETED, actualDurationMillis = 30_000L)
-                },
-                status = RunStatus.COMPLETED,
-                endedAtEpochMillis = 30_000L,
+        // Hand-built snapshot of a run whose first subtask advanced at 30 s; engine-built runs are covered in Running.
+        val run = RoutineRun(
+            id = RoutineRunId("run"),
+            routineId = template.id,
+            routineTitle = template.title,
+            tasks = listOf(
+                RoutineRunTask(
+                    source = template.tasks.single(),
+                    startedAtEpochMillis = 0,
+                    activeSubtaskId = RoutineSubtaskId("two"),
+                    subtaskAdvancements = listOf(SubtaskAdvancement(RoutineSubtaskId("one"), 30_000L, 30_000L)),
+                ),
             ),
+            currentTaskIndex = 0,
+            startedAtEpochMillis = 0,
+            lastInteractionAtEpochMillis = 30_000L,
+        )
+        val event = CompletionEvent(
+            runId = run.id,
+            routineId = run.routineId,
+            routineTitle = run.routineTitle,
+            startedAtEpochMillis = 0,
+            endedAtEpochMillis = 30_000L,
+            status = RunStatus.COMPLETED,
+            tasks = run.tasks.map { it.copy(status = RunTaskStatus.COMPLETED, actualDurationMillis = 30_000L) },
         )
 
         assertEquals(template, json.decodeFromString<RoutineTemplate>(json.encodeToString(template)))

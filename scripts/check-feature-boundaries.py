@@ -1,4 +1,4 @@
-"""Check TaskChain ownership imports, resource ownership and cycles in main and test sources without Android or third-party tools."""
+"""Check TaskChain ownership imports, root use of feature entries, resource ownership and cycles in main, test and androidTest sources without Android or third-party tools."""
 
 import re
 import sys
@@ -21,6 +21,12 @@ def forbidden(source, target):
     if source == "root" or source == target:
         return False
     return target == "root" or (target.startswith("features.") and source != target)
+
+
+def internal(reference):
+    """Use this function to detect a feature's domain or platform package, which root wiring reaches only through the feature entry; dependencies: none."""
+    parts = reference.split(".")
+    return len(parts) >= 5 and parts[2] == "features" and parts[4] in ("domain", "platform")
 
 
 def cycle(graph):
@@ -139,6 +145,8 @@ def check_file(root, source_root, source_set, file, graph, resources, errors):
             graph[source].add(target)
         if forbidden(source, target):
             errors.append(f"{file.relative_to(root)}: forbidden {source} -> {target}: {reference}")
+        elif source == "root" and source_set == "main" and internal(reference):
+            errors.append(f"{file.relative_to(root)}: root uses feature internals instead of the feature entry: {reference}")
     if source.startswith("features."):
         for bypass in sorted(set(match.group(0) for match in THEME_BYPASS.finditer(code))):
             errors.append(f"{file.relative_to(root)}: theme bypass {bypass} in {source}; use TaskChainDesignSystem tokens")
@@ -162,6 +170,10 @@ def self_test():
     assert not forbidden("root", "features.running")
     assert not forbidden("features.running", "core.data")
     assert not forbidden("features.running", "features.running")
+    assert internal("com.taskchain.features.running.domain.RoutineRunEngine")
+    assert internal("com.taskchain.features.notifications.platform")
+    assert not internal("com.taskchain.features.running.RunEngine")
+    assert not internal("com.taskchain.features.running.ui.RoutineRunnerRoute")
     assert cycle({"a": {"b"}, "b": set()}) is None
     assert cycle({"a": {"b"}, "b": {"a"}}) == ["a", "b", "a"]
     with tempfile.TemporaryDirectory() as directory:
@@ -210,6 +222,12 @@ def self_test():
         core_theme.write_text("package com.taskchain.core.designsystem\nval value = CyberTheme.colors.primary\n", encoding="utf-8")
         screen.unlink()
         assert not check(root)[2], "The Core theme boundary may read library tokens"
+        system.unlink()
+        wiring = root / "app/src/main/java/com/taskchain/Wiring.kt"
+        wiring.write_text("package com.taskchain\nimport com.taskchain.features.running.domain.Engine\n", encoding="utf-8")
+        assert any("feature internals" in error for error in check(root)[2]), "Root wiring uses feature entries"
+        wiring.write_text("package com.taskchain\nimport com.taskchain.features.running.RunEngine\n", encoding="utf-8")
+        assert not check(root)[2], "Feature entry packages are public to root"
 
 
 if __name__ == "__main__":
@@ -218,4 +236,4 @@ if __name__ == "__main__":
     if errors:
         print("\n".join(errors))
         sys.exit(1)
-    print(f"Feature boundaries passed: {len(files)} Kotlin files (main and test), {len(graph)} owners, no cycles.")
+    print(f"Feature boundaries passed: {len(files)} Kotlin files (main, test and androidTest), {len(graph)} owners, no cycles.")

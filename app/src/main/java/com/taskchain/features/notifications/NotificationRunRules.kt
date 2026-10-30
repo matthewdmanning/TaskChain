@@ -1,8 +1,11 @@
-package com.taskchain.features.notifications.domain
+package com.taskchain.features.notifications
 
 import com.taskchain.core.model.RoutineRun
 
-/** Run capabilities supplied by the composition root; Notifications owns no run engine. */
+/**
+ * Run capabilities supplied by the composition root; Notifications owns no run engine.
+ * Public contract of the Notifications entry: root binds it to the Running engine and nudge rules.
+ */
 class NotificationRunRules(
     val remainingMillis: (RoutineRun, Long) -> Long?,
     val subtaskRemainingMillis: (RoutineRun, Long) -> Long?,

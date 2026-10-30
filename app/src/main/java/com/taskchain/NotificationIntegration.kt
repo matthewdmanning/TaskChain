@@ -4,16 +4,20 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import com.taskchain.core.platform.PlatformIntents
-import com.taskchain.features.running.domain.RoutineRunEngine
-import com.taskchain.features.running.domain.RunFeedbackPolicy
-import com.taskchain.features.notifications.domain.NotificationNudge
-import com.taskchain.features.notifications.domain.NotificationRunRules
-import com.taskchain.features.notifications.platform.ReminderNotification
+import com.taskchain.features.notifications.NotificationDependencies
+import com.taskchain.features.notifications.NotificationNudge
+import com.taskchain.features.notifications.NotificationRunRules
 import com.taskchain.features.reminders.AndroidReminderScheduler
 import com.taskchain.features.reminders.ReminderActions
+import com.taskchain.features.running.RunEngine
+import com.taskchain.features.running.evaluateRunNudge
+import com.taskchain.features.running.nextRunNudgeAt
 
-/** Binds notification capabilities to the single Running engine without feature-to-feature imports. */
-internal fun notificationRunRules(engine: RoutineRunEngine) = NotificationRunRules(
+/**
+ * Binds notification capabilities to the single Running engine and nudge rules without feature-to-feature imports.
+ * Covered by the root system test `NotificationIntegrationTest`.
+ */
+internal fun notificationRunRules(engine: RunEngine) = NotificationRunRules(
     remainingMillis = engine::remainingMillis,
     subtaskRemainingMillis = engine::subtaskRemainingMillis,
     elapsedMillis = engine::elapsedMillis,
@@ -23,17 +27,17 @@ internal fun notificationRunRules(engine: RoutineRunEngine) = NotificationRunRul
     needsTimerFeedback = engine::needsTimerFeedback,
     acknowledgeTimerFeedback = engine::acknowledgeTimerFeedback,
     evaluateNudge = { run, now, interval, emit ->
-        val decision = RunFeedbackPolicy.evaluateNudge(run, now, interval, emit)
+        val decision = evaluateRunNudge(run, now, interval, emit)
         NotificationNudge(decision.run, decision.shouldFire)
     },
-    nextNudgeAt = { run, interval -> RunFeedbackPolicy.nextNudgeAt(run, interval) },
+    nextNudgeAt = { run, interval -> nextRunNudgeAt(run, interval) },
 )
 
 /** Maps Reminder delivery protocol to Notifications presentation while preserving pending-intent identities. */
 internal fun showReminderNotification(
     context: Context,
     intents: PlatformIntents,
-    notification: ReminderNotification,
+    notifications: NotificationDependencies,
     delivered: Intent,
 ): Boolean {
     val requestCode = delivered.getIntExtra(AndroidReminderScheduler.EXTRA_REQUEST_CODE, 0)
@@ -43,7 +47,7 @@ internal fun showReminderNotification(
         intents.reminderAction().setAction(action).putExtras(delivered),
         PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
     )
-    return notification.show(
+    return notifications.reminderNotification.show(
         title = delivered.getStringExtra(AndroidReminderScheduler.EXTRA_TITLE),
         requestCode = requestCode,
         openApp = PendingIntent.getActivity(

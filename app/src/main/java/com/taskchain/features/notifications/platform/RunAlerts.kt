@@ -12,7 +12,7 @@ import com.taskchain.core.platform.PlatformIntents
 import com.taskchain.core.platform.setAlarm
 import com.taskchain.features.notifications.NotificationDependencies
 import com.taskchain.features.notifications.domain.DueRunAlerts
-import com.taskchain.features.notifications.domain.NotificationRunRules
+import com.taskchain.features.notifications.NotificationRunRules
 import com.taskchain.features.notifications.domain.RunAlertPolicy
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
@@ -54,6 +54,13 @@ class RunAlerts(
      */
     fun takeDue(run: RoutineRun, nowEpochMillis: Long): DueRunAlerts =
         RunAlertPolicy.takeDue(run, engine, nowEpochMillis, nudgeIntervalMillis, untimedIdleLimitMillis)
+
+    /**
+     * Use this function to decide whether periodic reminders must stop for this run under this alarm's limit;
+     * root binds it into Running so foreground and background nudges share one limit.
+     */
+    fun remindersExhausted(run: RoutineRun, nowEpochMillis: Long): Boolean =
+        RunAlertPolicy.remindersExhausted(run, engine, nowEpochMillis, untimedIdleLimitMillis)
 
     /** Use this function when no alert can occur. */
     fun cancel() {
