@@ -3,10 +3,11 @@ package com.taskchain.features.progress.domain
 import com.taskchain.core.model.CompletionEvent
 import com.taskchain.core.model.RunStatus
 import com.taskchain.core.model.RunTaskStatus
+import com.taskchain.core.schedule.dayStartAtOrBeforeEpochMillis
 import java.util.Calendar
 import java.util.TimeZone
 
-/** One local calendar day of completion history for a seven-day trend. */
+/** One local day of completion history for a seven-day trend; the day begins at the configured day-start hour. */
 data class DailyCompletion(val dayStartEpochMillis: Long, val completedRuns: Int)
 
 /** Derived progress metrics that are never stored as mutable counters. */
@@ -19,10 +20,14 @@ data class ProgressSummary(
     val lastSevenDays: List<DailyCompletion>,
 )
 
-/** Use this function when Progress needs a summary derived from durable completion events. */
+/**
+ * Use this function when Progress needs a summary derived from durable completion events.
+ * Trend days begin at [dayStartHour] local time, the same day start Home uses.
+ */
 fun projectProgress(
     events: List<CompletionEvent>,
     nowEpochMillis: Long,
+    dayStartHour: Int,
     timeZone: TimeZone = TimeZone.getDefault(),
 ): ProgressSummary {
     val tasks = events.flatMap(CompletionEvent::tasks)
@@ -31,9 +36,11 @@ fun projectProgress(
         Calendar.getInstance(timeZone).apply {
             timeInMillis = nowEpochMillis
             add(Calendar.DAY_OF_YEAR, -daysAgo)
-        }.let { localDayStart(it.timeInMillis, timeZone) }
+        }.let { dayStartAtOrBeforeEpochMillis(it.timeInMillis, dayStartHour, timeZone) }
     }
-    val completedByDay = completedEvents.groupingBy { localDayStart(it.endedAtEpochMillis, timeZone) }.eachCount()
+    val completedByDay = completedEvents.groupingBy {
+        dayStartAtOrBeforeEpochMillis(it.endedAtEpochMillis, dayStartHour, timeZone)
+    }.eachCount()
     return ProgressSummary(
         completedRuns = completedEvents.size,
         abortedRuns = events.count { it.status == RunStatus.ABORTED },
@@ -43,12 +50,3 @@ fun projectProgress(
         lastSevenDays = dayStarts.map { DailyCompletion(it, completedByDay[it] ?: 0) },
     )
 }
-
-/** Use this function when grouping an event into a local-day progress trend. */
-private fun localDayStart(timestamp: Long, timeZone: TimeZone): Long = Calendar.getInstance(timeZone).apply {
-    timeInMillis = timestamp
-    set(Calendar.HOUR_OF_DAY, 0)
-    set(Calendar.MINUTE, 0)
-    set(Calendar.SECOND, 0)
-    set(Calendar.MILLISECOND, 0)
-}.timeInMillis

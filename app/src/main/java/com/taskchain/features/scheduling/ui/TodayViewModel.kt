@@ -74,7 +74,7 @@ class TodayViewModel(
         viewModelScope.launch {
             val timestamp = now()
             completions.append(skipEvent(routine, newRunId(), timestamp))
-            val plan = ReminderPlanner.afterCompletion(routine, routine.id, timestamp)
+            val plan = ReminderPlanner.afterCompletion(routine, routine.id, timestamp, dayStartHour)
             plan.cancelRequestCodes.forEach(reminders::cancel)
             plan.requests.forEach(reminders::schedule)
         }

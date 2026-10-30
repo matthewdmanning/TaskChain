@@ -38,10 +38,12 @@ import com.taskchain.core.model.RoutineId
 import com.taskchain.core.model.RunStatus
 import com.taskchain.core.model.UserPreferences
 import com.taskchain.features.authoring.ui.RoutineBuilderRoute
-import com.taskchain.features.authoring.ui.RoutineBuilderViewModel
-import com.taskchain.features.execution.ui.ExecutionEntryDialog
-import com.taskchain.features.execution.ui.ExecutionEntryViewModel
-import com.taskchain.features.execution.ui.RoutineRunnerRoute
+import com.taskchain.features.running.ui.RunningEntryDialog
+import com.taskchain.features.running.ui.RunningEntryViewModel
+import com.taskchain.features.running.ui.RoutineRunnerRoute
+import com.taskchain.features.keepscreenon.ui.KeepScreenOnSettings
+import com.taskchain.features.keepscreenon.ui.KeepScreenOnViewModel
+import com.taskchain.features.keepscreenon.ui.RunKeepScreenOnEffect
 import com.taskchain.features.progress.ui.ProgressRoute
 import com.taskchain.features.progress.ui.ProgressViewModel
 import com.taskchain.features.scheduling.ui.TodayRoute
@@ -49,9 +51,7 @@ import com.taskchain.features.scheduling.ui.TodayViewModel
 import com.taskchain.features.settings.ui.SettingsRoute
 import com.taskchain.features.settings.ui.SettingsViewModel
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.map
 
 /** Hosts TaskChain navigation and installs persisted appearance and component preferences. */
 @Composable
@@ -75,25 +75,19 @@ fun TaskChainApp(
                                 RoutinesViewModel(container.routines, container.builtInLibrary::load, container::now)
                             }
                             val todayViewModel: TodayViewModel = viewModel(key = "today") {
-                                TodayViewModel(
-                                    container.routines,
-                                    container.activeRun,
-                                    container.completions,
-                                    container.builtInLibrary,
-                                    container.reminders,
-                                    container::now,
-                                    container.homeDayStartHour,
-                                    container::newRunId,
-                                )
+                                container.scheduling.todayViewModel()
                             }
                             val progressViewModel: ProgressViewModel = viewModel(key = "progress") {
-                                ProgressViewModel(container.completions, container::now)
+                                container.progress.progressViewModel()
                             }
                             val settingsViewModel: SettingsViewModel = viewModel(key = "settings") {
-                                SettingsViewModel(container.preferences)
+                                container.settings.settingsViewModel()
                             }
-                            val entryViewModel: ExecutionEntryViewModel = viewModel(key = "execution-entry") {
-                                ExecutionEntryViewModel(container.activeRun)
+                            val keepScreenOnViewModel: KeepScreenOnViewModel = viewModel(key = "keep-screen-on") {
+                                container.keepScreenOn.settingsViewModel()
+                            }
+                            val entryViewModel: RunningEntryViewModel = viewModel(key = "running-entry") {
+                                container.running.entryViewModel()
                             }
                             val todayListState = rememberSaveable(saver = LazyListState.Saver) { LazyListState() }
                             val routinesListState = rememberSaveable(saver = LazyListState.Saver) { LazyListState() }
@@ -109,7 +103,11 @@ fun TaskChainApp(
                                     RoutinesRoute(routinesViewModel, padding, routinesListState, { navController.navigate(builderRoute(null)) }, { navController.navigate(builderRoute(it.id)) }, entryViewModel::requestStart)
                                 },
                                 progressContent = { padding -> ProgressRoute(progressViewModel, padding) },
-                                settingsContent = { padding -> SettingsRoute(settingsViewModel, padding) },
+                                settingsContent = { padding ->
+                                    SettingsRoute(settingsViewModel, padding) {
+                                        KeepScreenOnSettings(keepScreenOnViewModel)
+                                    }
+                                },
                             )
                             val entryState by entryViewModel.state.collectAsStateWithLifecycle()
                             val pendingStart = entryState.pendingStart
@@ -119,7 +117,7 @@ fun TaskChainApp(
                                     entryViewModel.startHandled()
                                 }
                             }
-                            ExecutionEntryDialog(entryViewModel) { navController.navigate(runnerRoute(it)) }
+                            RunningEntryDialog(entryViewModel) { navController.navigate(runnerRoute(it)) }
                         }
                         composable(
                             route = BUILDER_ROUTE,
@@ -131,17 +129,7 @@ fun TaskChainApp(
                         ) { entry ->
                             val routineId = entry.arguments?.getString(ROUTINE_ID_ARGUMENT)?.let(::RoutineId)
                             RoutineBuilderRoute(
-                                createViewModel = {
-                                    RoutineBuilderViewModel(
-                                        container.routines,
-                                        container.builtInLibrary::load,
-                                        container.reminders,
-                                        container::now,
-                                        container::newRoutineId,
-                                        container::newTaskId,
-                                        routineId,
-                                    )
-                                },
+                                createViewModel = { container.authoring.builderViewModel(routineId) },
                                 routineId = routineId,
                                 onClose = navController::popBackStack,
                                 onSaved = {
@@ -156,18 +144,19 @@ fun TaskChainApp(
                             arguments = listOf(navArgument(ROUTINE_ID_ARGUMENT) { type = NavType.StringType }),
                         ) { entry ->
                             RoutineRunnerRoute(
-                                dependencies = container.execution,
+                                dependencies = container.running,
                                 preferences = preferences,
                                 routineId = RoutineId(requireNotNull(entry.arguments?.getString(ROUTINE_ID_ARGUMENT))),
                                 onFinished = navController::popBackStack,
+                                runEffects = { run ->
+                                    RunKeepScreenOnEffect(run, preferences.keepScreenOnDuringRun)
+                                },
                             )
                         }
                     }
                     LaunchedEffect(navController) {
                         combine(
-                            container.activeRun.observeActive().map { run ->
-                                run?.takeIf(container.runEngine::requiresRunnerScreen)?.routineId
-                            }.distinctUntilChanged(),
+                            container.running.runnerScreenRoutineIds(),
                             navController.currentBackStackEntryFlow,
                         ) { runningRoutineId, entry -> runningRoutineId to entry }
                             .collect { (runningRoutineId, entry) ->
@@ -179,7 +168,7 @@ fun TaskChainApp(
                     }
                     LaunchedEffect(openActiveRun) {
                         if (openActiveRun && !openActiveRunConsumed) {
-                            container.activeRun.observeActive().first { it?.status == RunStatus.ACTIVE }?.let { activeRun ->
+                            container.running.activeRun.observeActive().first { it?.status == RunStatus.ACTIVE }?.let { activeRun ->
                                 val current = navController.currentBackStackEntry
                                 val alreadyShowing = current?.destination?.route == RUNNER_ROUTE &&
                                     current.arguments?.getString(ROUTINE_ID_ARGUMENT) == activeRun.routineId.value

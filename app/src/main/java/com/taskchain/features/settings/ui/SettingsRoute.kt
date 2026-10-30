@@ -15,7 +15,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -36,7 +35,11 @@ import com.taskchain.core.model.SoundToken
 
 /** Use this function to bind persisted appearance and timer behavior to Settings UI. */
 @Composable
-internal fun SettingsRoute(viewModel: SettingsViewModel, padding: PaddingValues) {
+internal fun SettingsRoute(
+    viewModel: SettingsViewModel,
+    padding: PaddingValues,
+    additionalSettings: @Composable () -> Unit = {},
+) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val spacing = TaskChainDesignSystem.spacing()
     val context = LocalContext.current
@@ -47,7 +50,7 @@ internal fun SettingsRoute(viewModel: SettingsViewModel, padding: PaddingValues)
         verticalArrangement = Arrangement.spacedBy(spacing.medium),
     ) {
         item {
-            Text(stringResource(R.string.theme), style = MaterialTheme.typography.headlineLarge)
+            Text(stringResource(R.string.theme), style = TaskChainDesignSystem.TextStyles.heading)
             FlowRow(horizontalArrangement = Arrangement.spacedBy(spacing.small), verticalArrangement = Arrangement.spacedBy(spacing.small)) {
                 ThemeCatalog.options(context).forEach { option ->
                     if (state.selectedTheme == option.id) {
@@ -59,7 +62,7 @@ internal fun SettingsRoute(viewModel: SettingsViewModel, padding: PaddingValues)
             }
         }
         item {
-            Text(stringResource(R.string.ui_component_style), style = MaterialTheme.typography.titleLarge)
+            Text(stringResource(R.string.ui_component_style), style = TaskChainDesignSystem.TextStyles.title)
             FlowRow(horizontalArrangement = Arrangement.spacedBy(spacing.small)) {
                 UiProvider.entries.forEach { provider ->
                     ui.button(
@@ -90,12 +93,13 @@ internal fun SettingsRoute(viewModel: SettingsViewModel, padding: PaddingValues)
             )
         }
         item {
-            Text(stringResource(R.string.punch_vibration_intensity), style = MaterialTheme.typography.titleLarge)
+            Text(stringResource(R.string.punch_vibration_intensity), style = TaskChainDesignSystem.TextStyles.title)
             androidx.compose.material3.Slider(value = state.vibrationIntensity,
                 onValueChange = viewModel::setVibrationIntensity, valueRange = 0f..1f, steps = 3)
         }
+        item { additionalSettings() }
         item {
-            Text(stringResource(R.string.settings_default_sounds), style = MaterialTheme.typography.titleLarge)
+            Text(stringResource(R.string.settings_default_sounds), style = TaskChainDesignSystem.TextStyles.title)
         }
         items(SoundToken.entries) { token ->
             SoundPickerRow(

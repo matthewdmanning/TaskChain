@@ -90,6 +90,7 @@ class StartupInitializationTest {
 
         /** Use this function to satisfy subtask-time writes without storage; input is the enabled state. */
         override suspend fun setShowSubtaskTimeRemaining(enabled: Boolean) = Unit
+        override suspend fun setKeepScreenOnDuringRun(enabled: Boolean) = Unit
 
         /** Use this function to satisfy default-sound writes without storage; inputs are a token and nullable URI. */
         override suspend fun setDefaultSoundUri(token: SoundToken, uri: String?) = Unit

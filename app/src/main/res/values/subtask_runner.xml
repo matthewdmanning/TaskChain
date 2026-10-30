@@ -1,5 +1,4 @@
 <resources>
-    <string name="show_subtask_time_remaining">Show subtask time remaining</string>
     <string name="subtask_remaining">Subtask remaining: %1$s</string>
     <string name="subtask_duration_total">Main duration is the total of its subtasks</string>
     <string name="runner_subtasks">Subtasks</string>

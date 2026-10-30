@@ -4,17 +4,24 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.taskchain.core.data.RoutineRepository
 import com.taskchain.core.model.EntityMetadata
+import com.taskchain.core.model.MAX_SAFE_DURATION_SECONDS
 import com.taskchain.core.model.RoutineId
 import com.taskchain.core.model.RoutineSubtaskId
 import com.taskchain.core.model.RoutineTask
 import com.taskchain.core.model.RoutineTaskId
 import com.taskchain.core.model.RoutineTemplate
+import com.taskchain.core.model.RoutineValidationError
 import com.taskchain.core.model.ScheduleFrequency
 import com.taskchain.core.model.ScheduleRule
 import com.taskchain.core.model.SoundSettings
 import com.taskchain.core.model.defaultSoundSettings
+import com.taskchain.core.model.hasConflictingLegacyRoutineSettings
+import com.taskchain.core.model.normalizedForSave
+import com.taskchain.core.model.validationIssues
+import com.taskchain.core.model.withoutLegacyRoutineSettings
 import com.taskchain.core.schedule.ReminderPlanner
 import com.taskchain.core.platform.ReminderScheduler
+import com.taskchain.core.ui.SECONDS_PER_MINUTE
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
 import java.util.UUID
@@ -38,7 +45,6 @@ enum class BuilderValidationError {
 }
 
 private const val DEFAULT_SUBTASK_DURATION_SECONDS = 60L
-private const val MAX_SAFE_SUBTASK_DURATION_SECONDS = Long.MAX_VALUE / 1_000L
 
 /** Timer of a new task, and the picker's start value for a task without a timer. */
 internal const val DEFAULT_TASK_TIMER_SECONDS = 300L
@@ -49,6 +55,12 @@ internal const val TASK_TIMER_MAX_MINUTES = 1440
 /** Use this function to convert a duration picker selection to a task timer. 0:00 means no timer; any other result is positive. */
 internal fun taskTimerFromPicker(minutes: Int, seconds: Int): Long? =
     (minutes.toLong() * 60L + seconds).takeIf { it > 0L }
+
+/** Use this function to split a persisted duration into builder minutes and seconds. */
+internal fun routineDurationParts(totalSeconds: Long): Pair<Long, Long> {
+    val normalizedSeconds = totalSeconds.coerceAtLeast(0L)
+    return normalizedSeconds / SECONDS_PER_MINUTE to normalizedSeconds % SECONDS_PER_MINUTE
+}
 
 private val ROUTINE_SETTINGS_ERRORS = setOf(
     BuilderValidationError.SELECTED_DAY_REQUIRED,
@@ -100,53 +112,97 @@ data class BuilderState(
         get() = tasks.flatMap { task ->
             task.subtasks.mapNotNull { subtask ->
                 val raw = pendingSubtaskDurations["${task.id.value}:${subtask.id.value}"]
-                if (raw != null && raw.trim().toLongOrNull()?.let { it in 1L..MAX_SAFE_SUBTASK_DURATION_SECONDS } != true) subtask.id else null
+                if (raw != null && raw.trim().toLongOrNull()?.let { it in 1L..MAX_SAFE_DURATION_SECONDS } != true) subtask.id else null
             }
         }.toSet()
+}
+
+/** Placeholder identity for validating a draft that has no persisted routine yet; never saved. */
+private val DRAFT_VALIDATION_ROUTINE_ID = RoutineId("builder-draft")
+
+/** Placeholder metadata for validating a draft; save supplies the real metadata. */
+private val DRAFT_VALIDATION_METADATA = EntityMetadata(0L, 0L)
+
+/**
+ * Use this function to map the editable draft to the domain routine it describes, before trimming or clearing
+ * legacy task settings. Inputs: `id` and `metadata` — the persisted identity; validation uses placeholders.
+ * Dependencies: `RoutineTemplate` and `ScheduleRule`; this is the builder's only `ScheduleRule` construction.
+ */
+internal fun BuilderState.toTemplate(
+    id: RoutineId = DRAFT_VALIDATION_ROUTINE_ID,
+    metadata: EntityMetadata = DRAFT_VALIDATION_METADATA,
+): RoutineTemplate = RoutineTemplate(
+    id = id,
+    metadata = metadata,
+    title = title,
+    description = description,
+    tasks = tasks,
+    schedule = if (scheduleEnabled) ScheduleRule(
+        scheduleFrequency,
+        scheduleHour,
+        scheduleMinute,
+        scheduleDaysOfWeek,
+        scheduleOneTimeEpochMillis,
+    ) else null,
+    deadlineEpochMillis = deadlineEpochMillis,
+    reminderAtEpochMillis = reminderAtEpochMillis,
+    remindEveryMinutes = remindEveryMinutes,
+    soundEnabled = soundEnabled,
+    vibrateEnabled = vibrateEnabled,
+    soundSettings = soundSettings,
+)
+
+/**
+ * Use this function to translate one Core routine rule into the builder error it shows, or null when the
+ * builder does not surface it. Subtask rules are null because `subtaskErrorsFor` owns them with raw-input
+ * semantics; other unshown rules (identities, task timers, schedule time/day ranges, negative deadlines) still
+ * block persistence through `normalizedForSave` and surface as `SAVE_FAILED`.
+ */
+private fun RoutineValidationError.toBuilderError(): BuilderValidationError? = when (this) {
+    RoutineValidationError.ROUTINE_NAME_REQUIRED -> BuilderValidationError.ROUTINE_NAME_REQUIRED
+    RoutineValidationError.TASK_REQUIRED -> BuilderValidationError.TASK_REQUIRED
+    RoutineValidationError.TASK_NAME_REQUIRED -> BuilderValidationError.TASK_NAME_REQUIRED
+    RoutineValidationError.SELECTED_DAY_REQUIRED -> BuilderValidationError.SELECTED_DAY_REQUIRED
+    RoutineValidationError.SCHEDULE_DATE_REQUIRED -> BuilderValidationError.SCHEDULE_DATE_REQUIRED
+    RoutineValidationError.SCHEDULE_DATE_INVALID,
+    RoutineValidationError.SCHEDULE_DATE_MUST_BE_FUTURE,
+    -> BuilderValidationError.SCHEDULE_DATE_MUST_BE_FUTURE
+    RoutineValidationError.REMINDER_INVALID,
+    RoutineValidationError.REMINDER_MUST_BE_FUTURE,
+    -> BuilderValidationError.REMINDER_MUST_BE_FUTURE
+    RoutineValidationError.SCHEDULE_REMINDER_EXCLUSIVE -> BuilderValidationError.SCHEDULE_REMINDER_EXCLUSIVE
+    RoutineValidationError.INVALID_ROUTINE_ID,
+    RoutineValidationError.TASK_ID_INVALID,
+    RoutineValidationError.TASK_ID_DUPLICATED,
+    RoutineValidationError.TASK_DURATION_INVALID,
+    RoutineValidationError.SUBTASK_ID_INVALID,
+    RoutineValidationError.SUBTASK_ID_DUPLICATED,
+    RoutineValidationError.SUBTASK_TITLE_REQUIRED,
+    RoutineValidationError.SUBTASK_DURATION_INVALID,
+    RoutineValidationError.SUBTASK_TOTAL_TOO_LONG,
+    RoutineValidationError.DEADLINE_INVALID,
+    RoutineValidationError.SCHEDULE_TIME_INVALID,
+    RoutineValidationError.SCHEDULE_DAY_INVALID,
+    -> null
 }
 
 /**
  * Use this function to return field-specific errors for the current builder draft at a fixed time.
  * Inputs: `state` — the editable draft; `nowEpochMillis` — the fixed comparison clock.
- * Dependencies: `BuilderState`, `ScheduleRule`, and `ScheduleFrequency`.
+ * Dependencies: Core `validationIssues` and `hasConflictingLegacyRoutineSettings` on `BuilderState.toTemplate`,
+ * plus the builder-only pending task title and `subtaskErrorsFor` checks.
  */
 internal fun validateBuilderState(
     state: BuilderState,
     nowEpochMillis: Long,
 ): Set<BuilderValidationError> {
-    val errors = mutableSetOf<BuilderValidationError>()
-    if (state.title.isBlank()) errors += BuilderValidationError.ROUTINE_NAME_REQUIRED
-    if (state.tasks.isEmpty()) errors += BuilderValidationError.TASK_REQUIRED
-
+    val template = state.toTemplate()
+    val errors = template.validationIssues(nowEpochMillis)
+        .mapNotNullTo(mutableSetOf<BuilderValidationError>()) { it.error.toBuilderError() }
     state.editingTaskIndex?.takeIf { it in state.tasks.indices }?.let {
         if (state.pendingTaskTitle.isBlank()) errors += BuilderValidationError.TASK_NAME_REQUIRED
     }
-    state.tasks.forEach { task ->
-        if (task.title.isBlank()) errors += BuilderValidationError.TASK_NAME_REQUIRED
-    }
-    val schedule = if (state.scheduleEnabled) ScheduleRule(
-        state.scheduleFrequency, state.scheduleHour, state.scheduleMinute,
-        state.scheduleDaysOfWeek, state.scheduleOneTimeEpochMillis,
-    ) else null
-    schedule?.let {
-        if (it.frequency == ScheduleFrequency.SELECTED_DAYS && it.daysOfWeek.isEmpty()) {
-            errors += BuilderValidationError.SELECTED_DAY_REQUIRED
-        }
-        if (it.frequency == ScheduleFrequency.ONCE) {
-            when (val date = it.oneTimeEpochMillis) {
-                null -> errors += BuilderValidationError.SCHEDULE_DATE_REQUIRED
-                else -> if (date <= nowEpochMillis) errors += BuilderValidationError.SCHEDULE_DATE_MUST_BE_FUTURE
-            }
-        }
-    }
-    if (state.reminderAtEpochMillis?.let { it <= nowEpochMillis } == true) errors += BuilderValidationError.REMINDER_MUST_BE_FUTURE
-    if ((schedule != null && (state.deadlineEpochMillis != null || state.reminderAtEpochMillis != null)) ||
-        (state.deadlineEpochMillis != null && state.reminderAtEpochMillis != null) ||
-        (state.remindEveryMinutes != null && (schedule == null || state.remindEveryMinutes <= 0))
-    ) {
-        errors += BuilderValidationError.SCHEDULE_REMINDER_EXCLUSIVE
-    }
-    if (state.hasConflictingLegacyRoutineSettings()) errors += BuilderValidationError.LEGACY_SETTINGS_CONFLICT
+    if (template.hasConflictingLegacyRoutineSettings()) errors += BuilderValidationError.LEGACY_SETTINGS_CONFLICT
     state.tasks.forEach { errors += state.subtaskErrorsFor(it) }
     return errors
 }
@@ -167,8 +223,8 @@ internal fun BuilderState.subtaskErrorsFor(task: RoutineTask): Set<BuilderValida
         if (subtask.id in invalidDurationIds || subtask.durationSeconds <= 0L) {
             errors += BuilderValidationError.SUBTASK_DURATION_INVALID
         }
-        if (subtask.durationSeconds > MAX_SAFE_SUBTASK_DURATION_SECONDS ||
-            (subtask.durationSeconds > 0L && subtaskTotal > MAX_SAFE_SUBTASK_DURATION_SECONDS - subtask.durationSeconds)
+        if (subtask.durationSeconds > MAX_SAFE_DURATION_SECONDS ||
+            (subtask.durationSeconds > 0L && subtaskTotal > MAX_SAFE_DURATION_SECONDS - subtask.durationSeconds)
         ) {
             subtaskDurationOverflow = true
         } else if (!subtaskDurationOverflow) {
@@ -219,35 +275,8 @@ internal fun BuilderState.revealingFirstError(): BuilderState {
     )
 }
 
-private fun BuilderState.hasConflictingLegacyRoutineSettings(): Boolean {
-    if (tasks.none {
-        it.stackingAnchorTaskId != null || it.deadlineEpochMillis != null || it.reminderAtEpochMillis != null ||
-            it.schedule != null || it.remindEveryMinutes != null
-        }
-    ) return false
-    val routineSchedule = if (scheduleEnabled) ScheduleRule(
-        scheduleFrequency, scheduleHour, scheduleMinute, scheduleDaysOfWeek, scheduleOneTimeEpochMillis,
-    ) else null
-    val schedules = listOfNotNull(routineSchedule) + tasks.mapNotNull { it.schedule }
-    val deadlines = listOfNotNull(deadlineEpochMillis) + tasks.mapNotNull { it.deadlineEpochMillis }
-    val reminders = listOfNotNull(reminderAtEpochMillis) + tasks.mapNotNull { it.reminderAtEpochMillis }
-    val repeats = listOfNotNull(remindEveryMinutes) + tasks.mapNotNull { it.remindEveryMinutes }
-    val choiceCount = listOf(schedules, deadlines, reminders).count { it.isNotEmpty() }
-    return schedules.distinct().size > 1 || deadlines.distinct().size > 1 ||
-        reminders.distinct().size > 1 || repeats.distinct().size > 1 || choiceCount > 1 ||
-        (repeats.isNotEmpty() && schedules.isEmpty())
-}
-
-private fun BuilderState.clearLegacyRoutineSettings(): BuilderState = copy(
-    tasks = tasks.map {
-        it.copy(
-            deadlineEpochMillis = null,
-            reminderAtEpochMillis = null,
-            schedule = null,
-            remindEveryMinutes = null,
-        )
-    },
-)
+private fun BuilderState.clearLegacyRoutineSettings(): BuilderState =
+    copy(tasks = tasks.map { it.withoutLegacyRoutineSettings() })
 
 internal fun RoutineTemplate.toBuilderState(): BuilderState {
     val legacySchedule = tasks.firstNotNullOfOrNull { it.schedule }
@@ -274,7 +303,7 @@ internal fun RoutineTemplate.toBuilderState(): BuilderState {
         scheduleOneTimeEpochMillis = migratedSchedule?.oneTimeEpochMillis,
     )
     return draft.copy(
-        validationErrors = if (draft.hasConflictingLegacyRoutineSettings()) {
+        validationErrors = if (draft.toTemplate().hasConflictingLegacyRoutineSettings()) {
             setOf(BuilderValidationError.LEGACY_SETTINGS_CONFLICT)
         } else {
             emptySet()
@@ -610,37 +639,11 @@ class RoutineBuilderViewModel(
             runCatching {
                 val id = stableRoutineId
                 val previous = routines.get(id)
-                val routine = RoutineTemplate(
+                val routine = draft.toTemplate(
                     id = id,
                     metadata = previous?.metadata?.copy(updatedAtEpochMillis = now, revision = previous.metadata.revision + 1)
                         ?: EntityMetadata(now, now),
-                    title = draft.title.trim(),
-                    description = draft.description.trim(),
-                    tasks = draft.tasks.map { task ->
-                        task.copy(
-                        title = task.title.trim(),
-                        subtasks = task.subtasks.map { subtask -> subtask.copy(title = subtask.title.trim()) },
-                        deadlineEpochMillis = null,
-                        reminderAtEpochMillis = null,
-                            schedule = null,
-                            remindEveryMinutes = null,
-                        )
-                    },
-                    schedule = if (draft.scheduleEnabled) ScheduleRule(
-                        draft.scheduleFrequency,
-                        draft.scheduleHour,
-                        draft.scheduleMinute,
-                        draft.scheduleDaysOfWeek,
-                        draft.scheduleOneTimeEpochMillis,
-                    ) else null,
-                    deadlineEpochMillis = draft.deadlineEpochMillis,
-                    reminderAtEpochMillis = draft.reminderAtEpochMillis,
-                    remindEveryMinutes = draft.remindEveryMinutes,
-                    soundEnabled = draft.soundEnabled,
-                    vibrateEnabled = draft.vibrateEnabled,
-                    soundSettings = draft.soundSettings,
-                )
-                routine.requireRunnable()
+                ).normalizedForSave(now)
                 val reminderPlan = ReminderPlanner.forSave(routine, previous, now)
                 routines.save(routine)
                 reminderPlan.cancelRequestCodes.forEach(reminders::cancel)

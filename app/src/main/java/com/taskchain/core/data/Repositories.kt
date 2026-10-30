@@ -67,6 +67,9 @@ interface UserPreferenceRepository {
     /** Use this function when Settings toggles subtask countdown visibility in the runner. */
     suspend fun setShowSubtaskTimeRemaining(enabled: Boolean)
 
+    /** Persists whether the Run screen keeps the display awake. */
+    suspend fun setKeepScreenOnDuringRun(enabled: Boolean)
+
     /** Use this function when Settings picks a default device sound for a token; null restores the built-in sound. */
     suspend fun setDefaultSoundUri(token: SoundToken, uri: String?)
 }

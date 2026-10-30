@@ -39,7 +39,6 @@ import com.taskchain.core.designsystem.TaskCard
 import com.taskchain.core.designsystem.TaskChainDesignSystem
 import com.taskchain.core.designsystem.TextButton
 import com.taskchain.core.model.RoutineTemplate
-import com.taskchain.core.ui.SECONDS_PER_MINUTE
 
 /** Use this function to bind the routine library UI to its collection ViewModel. */
 @Composable
@@ -148,12 +147,6 @@ internal fun formatRoutineTotalTime(routine: RoutineTemplate): String? {
 /** Use this function to format the number of tasks shown for a routine. */
 internal fun formatRoutineItemCount(routine: RoutineTemplate): String =
     "${routine.tasks.size} ${if (routine.tasks.size == 1) "Item" else "Items"}"
-
-/** Use this function to split a persisted duration into builder minutes and seconds. */
-internal fun routineDurationParts(totalSeconds: Long): Pair<Long, Long> {
-    val normalizedSeconds = totalSeconds.coerceAtLeast(0L)
-    return normalizedSeconds / SECONDS_PER_MINUTE to normalizedSeconds % SECONDS_PER_MINUTE
-}
 
 /** Use this function to render a titled routine list with an empty state. */
 @Composable

@@ -43,22 +43,24 @@ object NextTriggerCalculator {
         return null
     }
 
-    /** Use this function after completing a scheduled routine to start recurrence on a later local calendar day. */
+    /**
+     * Use this function after completing or skipping a scheduled routine to start recurrence on a later TaskChain day.
+     * The completion belongs to the day that began at the last [dayStartHour] (`home_day_start_hour`), so a
+     * 1 AM completion with a 2 AM day start belongs to the previous day; the result is the first occurrence at
+     * or after the next day start. A one-time schedule never recurs.
+     */
     fun nextTriggerAfterCompletionEpochMillis(
         rule: ScheduleRule,
         completedAtEpochMillis: Long,
+        dayStartHour: Int,
         timeZone: TimeZone = TimeZone.getDefault(),
     ): Long? {
         if (rule.frequency == ScheduleFrequency.ONCE) return null
-        val nextDay = Calendar.getInstance(timeZone).apply {
-            timeInMillis = completedAtEpochMillis
+        val nextDayStart = Calendar.getInstance(timeZone).apply {
+            timeInMillis = dayStartAtOrBeforeEpochMillis(completedAtEpochMillis, dayStartHour, timeZone)
             add(Calendar.DAY_OF_YEAR, 1)
-            set(Calendar.HOUR_OF_DAY, 0)
-            set(Calendar.MINUTE, 0)
-            set(Calendar.SECOND, 0)
-            set(Calendar.MILLISECOND, 0)
         }.timeInMillis
-        return nextTriggerEpochMillis(rule, nextDay - 1, timeZone)
+        return nextTriggerEpochMillis(rule, nextDayStart - 1, timeZone)
     }
 
     /** Use this function when a scheduled routine repeats prompts but must yield to its next regular occurrence. */

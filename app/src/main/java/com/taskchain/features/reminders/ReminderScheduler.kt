@@ -1,17 +1,9 @@
 package com.taskchain.features.reminders
 
-import android.Manifest
 import android.app.AlarmManager
-import android.app.NotificationChannel
-import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
-import android.content.pm.PackageManager
-import android.os.Build
-import androidx.core.app.NotificationCompat
-import androidx.core.app.NotificationManagerCompat
-import androidx.core.content.ContextCompat
 import com.taskchain.R
 import com.taskchain.core.model.ScheduleFrequency
 import com.taskchain.core.model.ScheduleRule
@@ -22,8 +14,6 @@ import com.taskchain.core.platform.TimerFeedback
 import com.taskchain.core.platform.setAlarm
 import com.taskchain.core.schedule.ReminderPlanner
 import com.taskchain.core.schedule.ReminderRequest
-import com.taskchain.core.schedule.completedRoutineSinceCycle
-import com.taskchain.core.schedule.completedSinceCycle
 import com.taskchain.core.data.CompletionRepository
 import com.taskchain.core.data.RoutineRepository
 import com.taskchain.core.data.RoutineRunRepository
@@ -39,6 +29,7 @@ object ReminderActions {
 class AndroidReminderScheduler(
     context: Context,
     private val intents: PlatformIntents,
+    private val clearNotification: (Int) -> Unit,
 ) : ReminderScheduler {
     private val appContext = context.applicationContext
     private val alarmManager = appContext.getSystemService(AlarmManager::class.java)
@@ -63,7 +54,7 @@ class AndroidReminderScheduler(
 
     /** Use this function when a delivered reminder notification should leave the notification shade. */
     override fun clearDelivered(requestCode: Int) {
-        NotificationManagerCompat.from(appContext).cancel(requestCode)
+        clearNotification(requestCode)
     }
 
     /** Use this function to create a stable alarm identity carrying recurrence data to the receiver. */
@@ -122,6 +113,7 @@ class ReminderHandlers(
     private val reminders: ReminderScheduler,
     private val intents: PlatformIntents,
     private val timerFeedback: TimerFeedback,
+    private val showDelivered: (Intent) -> Boolean,
 ) {
     private val appContext = context.applicationContext
 
@@ -144,45 +136,8 @@ class ReminderHandlers(
             rearmReminder(intent, repeatNow = false)
             return
         }
-        createReminderChannel()
         rearmReminder(intent)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
-            ContextCompat.checkSelfPermission(appContext, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
-        ) return
-
-        val title = intent.getStringExtra(AndroidReminderScheduler.EXTRA_TITLE)
-            ?.takeIf(String::isNotBlank)
-            ?: appContext.getString(R.string.reminder_default_title)
-        val requestCode = intent.getIntExtra(AndroidReminderScheduler.EXTRA_REQUEST_CODE, 0)
-        val openApp = PendingIntent.getActivity(
-            appContext,
-            0,
-            intents.openApp(),
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
-        )
-        val snoozeMinutes = appContext.resources.getInteger(R.integer.reminder_snooze_minutes)
-        // Stays in the shade, with the launcher dot, until the user dismisses, snoozes, or starts the routine.
-        val notification = NotificationCompat.Builder(appContext, REMINDER_CHANNEL_ID)
-            .setSmallIcon(R.drawable.ic_notification)
-            .setContentTitle(title)
-            .setContentIntent(openApp)
-            .setAutoCancel(true)
-            .setOngoing(true)
-            .setCategory(NotificationCompat.CATEGORY_REMINDER)
-            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
-            .setSilent(true)
-            .addAction(
-                0,
-                appContext.getString(R.string.reminder_action_snooze, snoozeMinutes),
-                actionIntent(intent, ReminderActions.SNOOZE, requestCode),
-            )
-            .addAction(
-                0,
-                appContext.getString(R.string.reminder_action_dismiss),
-                actionIntent(intent, ReminderActions.DISMISS, requestCode),
-            )
-            .build()
-        NotificationManagerCompat.from(appContext).notify(requestCode, notification)
+        if (!showDelivered(intent)) return
         timerFeedback.fire(
             intent.getBooleanExtra(AndroidReminderScheduler.EXTRA_SOUND_ENABLED, true),
             intent.getBooleanExtra(AndroidReminderScheduler.EXTRA_VIBRATE_ENABLED, true),
@@ -215,15 +170,6 @@ class ReminderHandlers(
         }
     }
 
-    /** Use this function to build a Snooze or Dismiss button that carries the delivered alarm's full request data. */
-    private fun actionIntent(delivered: Intent, action: String, requestCode: Int): PendingIntent =
-        PendingIntent.getBroadcast(
-            appContext,
-            requestCode,
-            intents.reminderAction().setAction(action).putExtras(delivered),
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
-        )
-
     /** Use this function to deliver the same reminder again after the configured snooze time. */
     private fun scheduleSnoozedDelivery(source: Intent, requestCode: Int) {
         val snoozeMillis = appContext.resources.getInteger(R.integer.reminder_snooze_minutes) * 60_000L
@@ -251,7 +197,7 @@ class ReminderHandlers(
             oneTimeEpochMillis = intent.getLongExtra(AndroidReminderScheduler.EXTRA_ONCE_EPOCH_MILLIS, 0L).takeIf { it != 0L },
         )
         val now = System.currentTimeMillis()
-        val next = ReminderPlanner.afterDelivery(
+        val next = ReminderDelivery.afterDelivery(
             ReminderRequest(
                 requestCode = intent.getIntExtra(AndroidReminderScheduler.EXTRA_REQUEST_CODE, 0),
                 routineId = intent.getStringExtra(AndroidReminderScheduler.EXTRA_ROUTINE_ID).orEmpty(),
@@ -271,21 +217,4 @@ class ReminderHandlers(
         return true
     }
 
-    /** Use this function before posting reminders on Android 8 or newer. */
-    private fun createReminderChannel() {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
-        val channel = NotificationChannel(
-            REMINDER_CHANNEL_ID,
-            appContext.getString(R.string.reminder_channel_name),
-            NotificationManager.IMPORTANCE_DEFAULT,
-        ).apply {
-            description = appContext.getString(R.string.reminder_channel_description)
-            setShowBadge(true)
-        }
-        appContext.getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
-    }
-
-    private companion object {
-        const val REMINDER_CHANNEL_ID = "routine_reminders"
-    }
 }
